@@ -1,25 +1,15 @@
 import numpy as np
 from typing import Dict, Any, List, Optional
 import pandas as pd
-
-class ModelWrapper:
-    """
-    Base wrapper class for models in the pool to ensure unified interface.
-    """
-    def __init__(self, name: str, model_instance: Any):
-        self.name = name
-        self.model = model_instance
-
-    def fit(self, X: pd.DataFrame, y: pd.Series) -> 'ModelWrapper':
-        # Handles conversions if needed (e.g., TabPFN or PyTorch MLP might prefer numpy arrays)
-        X_arr = X.to_numpy() if isinstance(X, pd.DataFrame) else X
-        y_arr = y.to_numpy() if isinstance(y, pd.Series) else y
-        self.model.fit(X_arr, y_arr)
-        return self
-
-    def predict(self, X: pd.DataFrame) -> np.ndarray:
-        X_arr = X.to_numpy() if isinstance(X, pd.DataFrame) else X
-        return self.model.predict(X_arr)
+from automl_framework.core.wrappers import (
+    ABCModelWrapper,
+    ModelWrapper,
+    ModelWrapperXGBoost,
+    ModelWrapperMLP,
+    ModelWrapperTabPFN,
+    ModelWrapperRandomForest,
+    ModelWrapperCatBoost,
+)
 
 
 class ModelPool:
@@ -29,7 +19,7 @@ class ModelPool:
     """
     def __init__(self, random_state: int = 42):
         self.random_state = random_state
-        self.models: Dict[str, ModelWrapper] = {}
+        self.models: Dict[str, ABCModelWrapper] = {}
         self._initialize_default_models()
 
     def _initialize_default_models(self):
@@ -44,7 +34,7 @@ class ModelPool:
                 random_state=self.random_state,
                 n_jobs=-1
             )
-            self.models["XGBoost"] = ModelWrapper("XGBoost", xgb_model)
+            self.models["XGBoost"] = ModelWrapperXGBoost("XGBoost", xgb_model)
             print("[ModelPool] XGBoost initialized successfully.")
         except ImportError:
             print("[ModelPool] WARNING: 'xgboost' is not installed. XGBoost will be unavailable.")
@@ -59,7 +49,7 @@ class ModelPool:
                 max_iter=500,
                 random_state=self.random_state
             )
-            self.models["MLP"] = ModelWrapper("MLP", mlp_model)
+            self.models["MLP"] = ModelWrapperMLP("MLP", mlp_model)
             print("[ModelPool] MLP Regressor initialized successfully.")
         except ImportError:
             print("[ModelPool] WARNING: 'scikit-learn' is required for MLP.")
@@ -70,14 +60,14 @@ class ModelPool:
             # We try importing from tabpfn. In newer versions, it might be TabPFNRegressor
             from tabpfn import TabPFNRegressor
             tabpfn_model = TabPFNRegressor(random_state=self.random_state)
-            self.models["TabPFN"] = ModelWrapper("TabPFN", tabpfn_model)
+            self.models["TabPFN"] = ModelWrapperTabPFN("TabPFN", tabpfn_model)
             print("[ModelPool] TabPFN Regressor initialized successfully.")
         except ImportError:
             try:
                 # Fallback or alternative import path if any
                 from tabpfn.scripts.transformer_prediction_interface import TabPFNRegressor
                 tabpfn_model = TabPFNRegressor(random_state=self.random_state)
-                self.models["TabPFN"] = ModelWrapper("TabPFN", tabpfn_model)
+                self.models["TabPFN"] = ModelWrapperTabPFN("TabPFN", tabpfn_model)
                 print("[ModelPool] TabPFN Regressor initialized successfully (fallback import).")
             except ImportError:
                 print("[ModelPool] WARNING: 'tabpfn' is not installed. TabPFN will be unavailable.")
@@ -86,14 +76,32 @@ class ModelPool:
         try:
             from sklearn.ensemble import RandomForestRegressor
             rf_model = RandomForestRegressor(n_estimators=100, random_state=self.random_state, n_jobs=-1)
-            self.models["RandomForest"] = ModelWrapper("RandomForest", rf_model)
+            self.models["RandomForest"] = ModelWrapperRandomForest("RandomForest", rf_model)
             print("[ModelPool] RandomForest Baseline initialized successfully.")
         except ImportError:
             pass
 
+        # 5. CatBoost Regressor
+        try:
+            from catboost import CatBoostRegressor
+            cat_model = CatBoostRegressor(
+                iterations=100,
+                learning_rate=0.1,
+                depth=6,
+                random_seed=self.random_state,
+                verbose=0
+            )
+            self.models["CatBoost"] = ModelWrapperCatBoost("CatBoost", cat_model)
+            print("[ModelPool] CatBoost initialized successfully.")
+        except ImportError:
+            print("[ModelPool] WARNING: 'catboost' is not installed. CatBoost will be unavailable.")
+
     def add_custom_model(self, name: str, model_instance: Any):
         """Allows adding any custom estimator that conforms to the fit/predict interface."""
-        self.models[name] = ModelWrapper(name, model_instance)
+        if isinstance(model_instance, ABCModelWrapper):
+            self.models[name] = model_instance
+        else:
+            self.models[name] = ModelWrapper(name, model_instance)
         print(f"[ModelPool] Custom model '{name}' added successfully.")
 
     def fit_all(self, X_train: pd.DataFrame, y_train: pd.Series):
@@ -147,7 +155,7 @@ class ModelPool:
                 print(f"[ModelPool] ERROR getting predictions for {name}: {e}")
         return predictions
 
-    def get_model(self, name: str) -> Optional[ModelWrapper]:
+    def get_model(self, name: str) -> Optional[ABCModelWrapper]:
         """Retrieves a specific wrapped model from the pool."""
         return self.models.get(name)
 
