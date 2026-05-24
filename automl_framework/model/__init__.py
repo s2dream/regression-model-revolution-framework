@@ -1,3 +1,4 @@
-from .models import ModelPool, StandardBenchmarkExecutor, ABCModelExecutor
+from .models import ModelPool
+from .model_executor import StandardBenchmarkExecutor, ABCModelExecutor
 
 __all__ = ["ModelPool", "StandardBenchmarkExecutor", "ABCModelExecutor"]

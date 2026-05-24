@@ -17,3 +17,7 @@ kaggle>=1.5.12
 
 # Configurations and Parsing
 PyYAML>=6.0
+
+# Testing and Automation
+pytest>=7.0.0
+pytest-mock>=3.6.0
