@@ -17,11 +17,11 @@
                     ┌───────────────────────────────┐
                     │     CLI / User Entry Point    │
                     │         (root/main.py)        │
-                    └──────┬────────┬────────┬──────┘
-                           │        │        │
-              ① Load &     │        │ ② Fit &│ ③ Metrics & Predictions
-              Preprocess   │        │ Evalu- │    for Premium Reports
-              Data         ▼        │ ate    ▼
+                    └──────┬────────┬────────────┬──┘
+                           │        │            │
+              ① Load &     │        │ ② Fit &    │ ③ Metrics & Predictions
+              Preprocess   │        │ Evalu-     │    for Premium Reports
+              Data         ▼        │ ate        ▼
                                     │
 ┌──────────────────────────────┐    │    ┌──────────────────────────────┐
 │         DataLoader           │    │    │         Visualizer           │
