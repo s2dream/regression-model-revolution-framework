@@ -8,41 +8,11 @@ Now powered dynamically by central config.yml configurations!
 import os
 import sys
 import argparse
-import numpy as np
 import pandas as pd
 import yaml
 
 # Standard absolute imports from the newly package-structured automl_framework
 from automl_framework import DataLoader, ModelPool, StandardBenchmarkExecutor, Visualizer
-
-def create_synthetic_dataset(filepath: str):
-    """
-    Creates a synthetic regression dataset if no external dataset is provided or available.
-    Ensures the user can run 'python main.py' immediately and successfully!
-    """
-    print(f"[Main] Creating a synthetic regression dataset at {filepath}...")
-    np.random.seed(42)
-    n_samples = 500
-    
-    # Generate features
-    x1 = np.random.uniform(-3, 3, n_samples)
-    x2 = np.random.uniform(0, 10, n_samples)
-    x3 = np.random.choice(['low', 'medium', 'high'], size=n_samples)
-    
-    # Non-linear regression equation with some noise
-    y = 3.5 * (x1 ** 2) + 1.2 * x2 + np.where(x3 == 'high', 5.0, np.where(x3 == 'medium', 2.0, 0.0)) + np.random.normal(0, 1.5, n_samples)
-    
-    df = pd.DataFrame({
-        'Feature_X1': x1,
-        'Feature_X2': x2,
-        'Category_X3': x3,
-        'Target_Y': y
-    })
-    
-    # Make sure parent directory exists
-    os.makedirs(os.path.dirname(filepath), exist_ok=True)
-    df.to_csv(filepath, index=False)
-    print("[Main] Synthetic dataset created successfully.")
 
 def main():
     parser = argparse.ArgumentParser(description="AutoML Framework for Advanced Tabular Regression")
@@ -115,12 +85,14 @@ def main():
         except Exception as e:
             print(f"[Main] URL download failed. Falling back. Error: {e}")
 
-    # Fallback to synthetic data if no filepath was resolved or exists
-    if not dataset_file or not os.path.exists(dataset_file):
-        dataset_file = os.path.join(data_dir, "synthetic_regression.csv")
-        if not os.path.exists(dataset_file):
-            create_synthetic_dataset(dataset_file)
-            target_column = "Target_Y" # Adjust target name to match synthetic
+    # Ensure dataset file is provided and exists
+    if not dataset_file:
+        print("[Main] ERROR: No dataset was provided. Please specify a local CSV via --dataset-path, a Kaggle dataset via --kaggle-dataset, or a direct URL via --url.")
+        sys.exit(1)
+        
+    if not os.path.exists(dataset_file):
+        print(f"[Main] ERROR: The specified dataset file '{dataset_file}' does not exist.")
+        sys.exit(1)
             
     # Load and Preprocess Data
     try:

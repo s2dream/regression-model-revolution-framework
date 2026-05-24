@@ -9,36 +9,37 @@
 아래 다이어그램은 프레임워크의 핵심 실행 제어 흐름과 데이터의 파이프라인 처리 과정을 텍스트(ASCII/Unicode Art)로 시각화한 것입니다.
 
 ```text
-               ┌───────────────────────────────┐
-               │           config.yml          │ (Central Configuration)
-               └───────────────┬───────────────┘
-                               │ Loads Dynamic Settings (active_models, hyperparams)
-                               ▼
-               ┌───────────────────────────────┐
-               │     CLI / User Entry Point    │
-               │         (root/main.py)        │
-               └──────┬─────────────────┬──────┘
-                      │                 │
-     ① Load &         │                 │ ④ Metrics & Predictions
-     Preprocess       │                 │    for Premium Reports
-     Data             ▼                 ▼
-┌──────────────────────────────┐   ┌──────────────────────────────┐
-│         DataLoader           │   │         Visualizer           │
-│  (automl_framework/          │   │  (automl_framework/          │
-│   dataloader/data_loader.py) │   │   util/visualizer.py)        │
-├──────────────────────────────┤   ├──────────────────────────────┤
-│ - download_from_kaggle()     │   │ - plot_actual_vs_predicted() │
-│ - download_from_url()        │   │ - plot_residuals()           │
-│ - load_dataset()             │   │ - plot_model_comparison()    │
-│ - preprocess_data()          │   │ - save_json_report()         │
-│ - split_data()               │   └──────────────────────────────┘
-└──────────────┬───────────────┘
-               │
-               │ ② Orchestrates Decoupled Execution Loops
-               ▼
+                    ┌───────────────────────────────┐
+                    │           config.yml          │ (Central Configuration)
+                    └───────────────┬───────────────┘
+                                    │ Loads Dynamic Settings (active_models, hyperparams)
+                                    ▼
+                    ┌───────────────────────────────┐
+                    │     CLI / User Entry Point    │
+                    │         (root/main.py)        │
+                    └──────┬────────┬────────┬──────┘
+                           │        │        │
+              ① Load &     │        │ ② Fit &│ ③ Metrics & Predictions
+              Preprocess   │        │ Evalu- │    for Premium Reports
+              Data         ▼        │ ate    ▼
+                                    │
+┌──────────────────────────────┐    │    ┌──────────────────────────────┐
+│         DataLoader           │    │    │         Visualizer           │
+│  (automl_framework/          │    │    │  (automl_framework/          │
+│   dataloader/data_loader.py) │    │    │   util/visualizer.py)        │
+├──────────────────────────────┤    │    ├──────────────────────────────┤
+│ - download_from_kaggle()     │    │    │ - plot_actual_vs_predicted() │
+│ - download_from_url()        │    │    │ - plot_residuals()           │
+│ - load_dataset()             │    │    │ - plot_model_comparison()    │
+│ - preprocess_data()          │    │    │ - save_json_report()         │
+│ - split_data()               │    │    └──────────────────────────────┘
+│  (Delegates to modular       │    │
+│   strategies under-the-hood) │    │
+└──────────────────────────────┘    │
+                                    ▼
 ┌───────────────────────────────────────────────────────────────────────────┐
 │                         StandardBenchmarkExecutor                         │
-│                      (automl_framework/model/models.py)                   │
+│                  (automl_framework/model/model_executor.py)               │
 ├───────────────────────────────────────────────────────────────────────────┤
 │ - fit_all(X_train, y_train)                                               │
 │ - evaluate_all(X_test, y_test) -> metrics (RMSE, MAE, R2)                 │
@@ -61,7 +62,7 @@
                                        ▼
                     ┌──────────────────────────────────────┐
                     │             ModelWrapper             │
-                    │    (automl_framework/model/models.py)│
+                    │   (automl_framework/model/wrappers.py)   │
                     ├──────────────────────────────────────┤
                     │ - fit(X, y)                          │
                     │ - predict(X)                         │
@@ -92,16 +93,27 @@ regression-model-revolution-framework/
 │   │
 │   ├── dataloader/                 # 데이터 처리 서브패키지 (Data Domain)
 │   │   ├── __init__.py
-│   │   └── data_loader.py          # 데이터 수집, 로드, 전처리 및 데이터 분할
+│   │   ├── base.py                 # 데이터 로드/전처리/분할을 위한 추상 베이스 클래스 정의
+│   │   ├── loaders.py              # 로컬 파일 로더 및 Kaggle, URL 원격 다운로더 구현체
+│   │   ├── preprocessors.py        # 결측치 보정 및 원-핫 인코딩 전처리기 구현체
+│   │   ├── splitters.py            # 학습/검증/테스트 데이터셋 분할기 구현체
+│   │   └── data_loader.py          # 기존 규격을 호환하는 퍼사드(Facade) DataLoader
 │   │
 │   ├── model/                      # 머신러닝 학습 서브패키지 (Model Domain)
 │   │   ├── __init__.py
-│   │   ├── models.py               # 모델 저장소(ModelPool) 및 실행기(StandardBenchmarkExecutor)
+│   │   ├── models.py               # 모델 저장소(ModelPool)
+│   │   ├── model_executor.py       # 추상 실행기(ABCModelExecutor) 및 일괄 벤치마크 실행기(StandardBenchmarkExecutor)
 │   │   └── wrappers.py             # 개별 모델 규격 어댑터 (Wrapper)
 │   │
 │   └── util/                       # 분석/유틸리티 서브패키지 (Utility Domain)
 │       ├── __init__.py
 │       └── visualizer.py           # 프리미엄 차트 생성 및 JSON 실행 보고서 작성
+│
+├── tests/                          # 🧪 종합 테스트 스위트
+│   ├── __init__.py
+│   ├── test_dataloader.py          # 데이터 처리 및 분할 기능 테스트
+│   ├── test_model.py               # 모델 초기화, 수동 등록 및 실행기 테스트
+│   └── test_visualizer.py          # 시각화 및 리포트 작성 테스트
 │
 ├── data/                           # (자동 생성) 다운로드되거나 생성된 데이터셋 저장소
 ├── outputs/                        # (자동 생성) 시각화 이미지(.png) 및 JSON 실행 보고서 저장소
@@ -127,25 +139,28 @@ regression-model-revolution-framework/
 
 ---
 
-### B. 데이터 로더 및 전처리 모듈: `automl_framework/dataloader/data_loader.py`
-#### `DataLoader` (Class)
-* **책임**: 데이터 획득(Kaggle, HTTP URL)부터 학습 전 단계까지의 모든 데이터 처리를 담당합니다.
-* **핵심 메서드**:
-  * `download_from_kaggle(dataset_name)`: Kaggle API를 사용하여 원격 데이터셋을 다운로드하고 압축을 해제합니다.
-  * `download_from_url(url, filename)`: 외부 웹 서버(예: UCI 머신러닝 리포지토리)에서 직접 데이터셋 파일을 가져옵니다.
-  * `load_dataset(filepath, target_column)`: 로컬 CSV, TSV, Parquet 포맷 데이터를 판다스 데이터프레임으로 자동 읽어 들이고 독립 변수(X)와 종속 변수(y)로 분리합니다.
-  * `preprocess_data(X)`: 결측치 보정(수치형은 중앙값, 범주형은 최빈값 임퓨테이션) 및 범주형 변수의 원-핫 인코딩(Dummy Encoding)을 자동으로 수행합니다.
-  * `split_data(X, y, test_size, val_size)`: 학습, 검증, 테스트 셋으로 데이터를 안정적으로 분할합니다.
+### B. 데이터 로더 및 전처리 모듈: `automl_framework/dataloader/`
+#### `DataLoader` (Facade Class) 및 전략 클래스들
+* **책임**: 데이터 획득(Kaggle, HTTP URL)부터 학습 전 단계까지의 모든 데이터 처리를 담당합니다. `DataLoader` 클래스는 파사드(Facade) 역할을 하며 하위의 모듈화된 전략(Strategy) 클래스들에게 실제 처리를 위임합니다.
+* **하위 전략 클래스 구성**:
+  * **데이터 로더 (`base.ABCDataLoader`, `loaders.py`)**:
+    * `LocalFileDataLoader`: 로컬 CSV, TSV, Parquet 포맷 데이터를 판다스 데이터프레임으로 자동 읽어 들이고 독립 변수(X)와 종속 변수(y)로 분리합니다.
+    * `KaggleDataLoader`: Kaggle API를 사용하여 원격 데이터셋을 다운로드하고 압축을 해제합니다.
+    * `URLDataLoader`: 외부 웹 서버(예: UCI 머신러닝 리포지토리)에서 직접 데이터셋 파일을 가져옵니다.
+  * **전처리기 (`base.ABCDataPreprocessor`, `preprocessors.py`)**:
+    * `StandardDataPreprocessor`: 결측치 보정(수치형은 중앙값, 범주형은 최빈값 임퓨테이션) 및 범주형 변수의 원-핫 인코딩(Dummy Encoding)을 자동으로 수행합니다.
+  * **분할기 (`base.ABCDataSplitter`, `splitters.py`)**:
+    * `TrainTestSplitter`: 학습, 검증, 테스트 셋으로 데이터를 안정적으로 분할합니다.
 
 ---
 
-### C. 모델 관리 및 실행 전략 모듈: `automl_framework/model/models.py`
-#### `ModelPool` (Class)
-* **책임**: 알고리즘군(Tree 기반, 신경망 기반, 사전 학습 기반 등)의 모델 객체를 보유하는 데이터 저장소입니다.
+### C. 모델 관리 및 실행 전략 모듈: `automl_framework/model/`
+#### `ModelPool` (Class, `automl_framework/model/models.py`)
+* **책임**: 알고리즘군(Tree 기반, 신경망 기반, 사전 학습 기반 등)의 모델 객체를 보유하는 데이터 저장소(Inventory Container)입니다.
 * **핵심 메서드**:
   * `_initialize_default_models()`: `config.yml` 내 `active_models` 목록에 정의된 모델들만 필터링하여 생성자에 설정 하이퍼파라미터(`config["models"][ModelName]`)들을 동적으로 주입하여 초기화합니다.
 
-#### `ABCModelExecutor` (Abstract Class) & `StandardBenchmarkExecutor` (Class)
+#### `ABCModelExecutor` (Abstract Class) & `StandardBenchmarkExecutor` (Class, `automl_framework/model/model_executor.py`)
 * **책임**: `ModelPool`을 주입받아, 그 내부 모델들을 어떻게 훈련하고 예측하고 평가할지 제어하는 **실행 전략(Execution Strategy)**입니다.
 * **핵심 메서드**:
   * `fit_all(X_train, y_train)`: 풀 내부의 각 모델에 대해 학습 루프를 안전하게 돌립니다.

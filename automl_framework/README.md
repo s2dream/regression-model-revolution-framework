@@ -11,44 +11,50 @@ The framework is structured into highly cohesive, dedicated domain subpackages:
 ```
 automl_framework/
 │
-├── __init__.py          # Facade layer exposing the high-level classes
+├── __init__.py          # Facade layer exposing high-level classes
 ├── README.md            # Subpackage documentation
 │
-├── dataloader/          # Data Domain (Kaggle/URL loaders & imputed splits)
+├── dataloader/          # Data Domain (Facade & strategy submodules)
 │   ├── __init__.py
-│   └── data_loader.py   
+│   ├── base.py          # Abstract base classes for loaders/preprocessors/splitters
+│   ├── loaders.py       # Modular loaders (Local, Kaggle, URL)
+│   ├── preprocessors.py # Standard data imputation & encoding
+│   ├── splitters.py     # Dataset split strategies (train/val/test)
+│   └── data_loader.py   # Backwards-compatible facade orchestrating splits & loaders
 │
-├── model/               # Model Domain (Pure model inventory & execution strategies)
+├── model/               # Model Domain (Inventory & execution strategies)
 │   ├── __init__.py
-│   ├── models.py        # ModelPool data container & StandardBenchmarkExecutor strategy
-│   └── wrappers.py      # Standardized wrappers for scikit-learn, XGBoost, and TabPFN
+│   ├── models.py        # ModelPool data container for bound model inventory
+│   ├── model_executor.py# Execution strategies (ABCModelExecutor & StandardBenchmarkExecutor)
+│   └── wrappers.py      # Standardized wrappers for Scikit-Learn, XGBoost, TabPFN, CatBoost
 │
 └── util/                # Utility & Analytics Domain (Premium dark theme visualizer)
     ├── __init__.py
-    └── visualizer.py    
+    └── visualizer.py    # Elegant matplotlib/seaborn visualization and JSON reporting
 ```
 
 ---
 
 ## ✨ Features & Domains
 
-### 1. Ingestion (`dataloader/data_loader.py`)
-- **Kaggle API Integration**: Fetch datasets from Kaggle directly by passing a dataset ID.
-- **Direct HTTP Downloading**: Supports direct downloads from URLs (such as the UCI Machine Learning Repository or customized datasets).
-- **Graceful Preprocessing**: Handles automated median imputation for numeric features, mode imputation for categorical features, and automatic dummy/one-hot encoding.
-- **Flexible Splitting**: Supports standard train/test splitting as well as 3-way train/validation/test partitioning.
+### 1. Ingestion (`dataloader/`)
+- **Facade Strategy Pattern**: `DataLoader` delegates specialized loading, preprocessing, and splitting tasks to modular subcomponents while exposing a simple, unified interface.
+- **Kaggle API Integration (`loaders.py`)**: Fetch datasets from Kaggle directly by passing a dataset ID.
+- **Direct HTTP Downloading (`loaders.py`)**: Supports direct downloads from URLs (such as the UCI Machine Learning Repository or customized datasets).
+- **Graceful Preprocessing (`preprocessors.py`)**: Handles automated median imputation for numeric features, mode imputation for categorical features, and automatic dummy/one-hot encoding.
+- **Flexible Splitting (`splitters.py`)**: Supports standard train/test splitting as well as 3-way train/validation/test partitioning.
 
-### 2. Core Learners & Executors (`model/models.py`, `model/wrappers.py`)
-- **ModelPool Container**: Acts purely as a robust, configuration-driven **inventory repository** for wrapped models.
-- **Benchmark Executors**: Decouples active fitting and prediction algorithms from inventory data using a strategy pattern. Extends `ABCModelExecutor` for highly scalable workflows.
-- **Universal Adapters**: Wraps `XGBoost`, `TabPFN`, `Multi-Layer Perceptron (MLP)`, and standard baselines into uniform, exception-shielded wrappers.
+### 2. Core Learners & Executors (`model/`)
+- **ModelPool Container (`models.py`)**: Acts purely as a robust, configuration-driven **inventory repository** for wrapped models.
+- **Benchmark Executors (`model_executor.py`)**: Decouples active fitting and prediction algorithms from inventory data using a strategy pattern. Extends `ABCModelExecutor` for highly scalable workflows.
+- **Universal Adapters (`wrappers.py`)**: Wraps `XGBoost`, `TabPFN`, `CatBoost`, `Multi-Layer Perceptron (MLP)`, and standard baselines into uniform, exception-shielded wrappers.
 
 ### 3. Analytics & Visuals (`util/visualizer.py`)
 Generates production-grade, dark-themed visualizations:
-- **Actual vs. Predicted Plot**: Diagonal identity line chart mapping model alignment and prediction variance.
-- **Residual Analysis Plot**: Residual error scatter plot supporting diagnoses of heteroscedasticity.
-- **Cross-Model Benchmarking**: High-fidelity horizontal bar charts directly comparing $R^2$, $RMSE$, and $MAE$ values.
-- **Turn Reports**: Standardized `.json` documents capturing all metrics per turn and highlighting the best-performing model.
+- **Actual vs. Predicted Plot**: Diagonal identity line chart mapping model alignment and prediction variance (`turn_{turn}_{model_name}_actual_vs_pred.png`).
+- **Residual Analysis Plot**: Residual error scatter plot supporting diagnoses of heteroscedasticity (`turn_{turn}_{model_name}_residuals.png`).
+- **Cross-Model Benchmarking**: High-fidelity horizontal bar charts directly comparing $R^2$, $RMSE$, and $MAE$ values (`turn_{turn}_model_comparison_{metric}.png`).
+- **Turn Reports**: Standardized `.json` documents capturing all metrics per turn and highlighting the best-performing champion model (`turn_{turn}_report.json`).
 
 ---
 
@@ -60,8 +66,8 @@ This directory is structured as a **modular Python package** using a Facade patt
 # Go to the project root
 cd /Users/jeonghoon/github/regression-model-revolution-framework
 
-# Run the framework immediately with a synthetic dataset
-python main.py
+# Run the framework by specifying a local dataset CSV path and target column
+python main.py --dataset-path data/synthetic_regression.csv --target Target_Y
 ```
 
 For custom programatic usage within your own python scripts:
@@ -71,7 +77,7 @@ from automl_framework import DataLoader, ModelPool, StandardBenchmarkExecutor, V
 
 # 1. Load Data
 loader = DataLoader(data_dir="data")
-X, y = loader.load_dataset("data/synthetic_regression.csv", target_column="Target_Y")
+X, y = loader.load_dataset("data/your_dataset.csv", target_column="target_column_name")
 
 # 2. Setup Decoupled ML Pipeline
 pool = ModelPool(random_state=42)

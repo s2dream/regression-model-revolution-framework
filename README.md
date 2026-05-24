@@ -22,22 +22,33 @@ regression-model-revolution-framework/
 ├── REQ_SPEC.md                     # Requirements and functional specifications
 ├── requirements.txt                # Core packages required
 │
-└── automl_framework/               # 📦 The AutoML engine core package
-    ├── __init__.py                 # Facade layer exposing main APIs
-    ├── README.md                   # Subpackage documentation
-    │
-    ├── dataloader/                 # 📥 Data Ingestion domain subpackage (DataLoader)
-    │   ├── __init__.py
-    │   └── data_loader.py
-    │
-    ├── model/                      # 🤖 Machine Learning core subpackage (ModelPool, wrappers)
-    │   ├── __init__.py
-    │   ├── models.py
-    │   └── wrappers.py
-    │
-    └── util/                       # 🛠️ Visualization & Utility subpackage (Visualizer)
-        ├── __init__.py
-        └── visualizer.py
+├── automl_framework/               # 📦 The AutoML engine core package
+│   ├── __init__.py                 # Facade layer exposing main APIs
+│   ├── README.md                   # Subpackage documentation
+│   │
+│   ├── dataloader/                 # 📥 Data Ingestion domain subpackage (Facade & strategies)
+│   │   ├── __init__.py
+│   │   ├── base.py                 # Abstract base classes for loaders/preprocessors/splitters
+│   │   ├── loaders.py              # Modular loaders (Local, Kaggle, URL)
+│   │   ├── preprocessors.py        # Imputation & encoding preprocessors
+│   │   ├── splitters.py            # Dataset split strategy
+│   │   └── data_loader.py          # Main DataLoader Facade
+│   │
+│   ├── model/                      # 🤖 Machine Learning core subpackage
+│   │   ├── __init__.py
+│   │   ├── models.py               # ModelPool inventory repository
+│   │   ├── model_executor.py       # Benchmark executors (StandardBenchmarkExecutor)
+│   │   └── wrappers.py             # Exception-shielded model wrappers (XGBoost, MLP, TabPFN, RF, CatBoost)
+│   │
+│   └── util/                       # 🛠️ Visualization & Utility subpackage
+│       ├── __init__.py
+│       └── visualizer.py           # Premium dark-theme visualizer & JSON reporting
+│
+└── tests/                          # 🧪 Comprehensive Test Suite
+    ├── __init__.py
+    ├── test_dataloader.py          # Tests for dataloading & preprocessing
+    ├── test_model.py               # Tests for model initialization & executor
+    └── test_visualizer.py          # Tests for premium visualizations & JSON reporting
 ```
 
 ---
@@ -57,9 +68,9 @@ pip install tabpfn kaggle
 
 ### 2. Run the Benchmarking Pipeline
 
-To execute the benchmark instantly with an out-of-the-box **synthetic dataset**:
+To run the benchmark pipeline instantly using the included synthetic dataset:
 ```bash
-python main.py
+python main.py --dataset-path data/synthetic_regression.csv --target Target_Y
 ```
 
 To run with a custom local CSV dataset:
@@ -91,12 +102,18 @@ framework:
   random_state: 42
   test_size: 0.2
   active_models:
+    - XGBoost
     - MLP
+    - TabPFN
     - RandomForest
     - CatBoost
 
 # Model Hyperparameters
 models:
+  XGBoost:
+    n_estimators: 100
+    learning_rate: 0.1
+    max_depth: 6
   MLP:
     hidden_layer_sizes: [128, 64]
     activation: "relu"
@@ -115,7 +132,8 @@ models:
 
 ## 📊 Outputs & Reports
 After every execution, the framework saves production-quality assets in:
-- `outputs/comparison_R2_turn_1.png` - Benchmarking models side-by-side.
-- `outputs/actual_vs_predicted_[Model]_turn_1.png` - Visualizing prediction variance.
-- `outputs/residuals_[Model]_turn_1.png` - Diagnosing heteroscedasticity.
-- `outputs/execution_report_turn_1.json` - Complete metadata report highlighting the best-performing algorithm.
+- `outputs/turn_1_model_comparison_r2.png` - Horizontal bar chart comparing model R2 scores side-by-side.
+- `outputs/turn_1_model_comparison_rmse.png` - Horizontal bar chart comparing model RMSE scores.
+- `outputs/turn_1_[Model]_actual_vs_pred.png` - Visualizing prediction variance scatter plot with identity fit line.
+- `outputs/turn_1_[Model]_residuals.png` - Diagnosing heteroscedasticity residual plot.
+- `outputs/turn_1_report.json` - Complete metadata report highlighting the best-performing algorithm (champion).

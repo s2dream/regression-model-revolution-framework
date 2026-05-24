@@ -55,18 +55,19 @@
   - **Fallback**: 설정 파일이 유실되었거나 형식이 깨졌을 때에도 크래시를 뿜으며 종료되지 않고, 내부의 견고한 디폴트 딕셔너리 설정을 로드하여 파이프라인 정상 구동을 유지해야 합니다.
 
 ### 3.2 데이터 로드 및 수집 (DataLoader - Data Fetching & Loading)
+* `DataLoader`는 **파사드 패턴 (Facade Pattern)**을 취해 데이터 로드, 전처리, 분할에 대한 클라이언트 단일 진입점을 제공하며, 내부적으로는 `base.py`에 선언된 규격 하의 개별 전략 클래스들(`loaders.py`)에 실행을 위임해야 합니다.
 * **REQ-DL-01: Kaggle 데이터 자동 연동 및 다운로드**
-  - **설명**: Kaggle의 데이터셋 고유 식별자(예: `'sobhanmoosavi/us-accidents'`)를 제공받았을 때, 내장 Kaggle API 연동 모듈을 호출하여 데이터를 자동으로 다운로드하고 압축을 풀어 로컬 지정 디렉토리에 배치할 수 있어야 합니다.
+  - **설명**: Kaggle의 데이터셋 고유 식별자(예: `'sobhanmoosavi/us-accidents'`)를 제공받았을 때, 내장 `KaggleDataLoader` 연동 모듈을 호출하여 데이터를 자동으로 다운로드하고 압축을 풀어 로컬 지정 디렉토리에 배치할 수 있어야 합니다.
 * **REQ-DL-02: HTTP URL 데이터 자동 다운로드**
-  - **설명**: UCI 머신러닝 리포지토리 등 외부 다이렉트 다운로드 주소(URL)를 입력받았을 때, 해당 주소로부터 원본 데이터를 직접 내려받아 로컬에 보관할 수 있어야 합니다.
+  - **설명**: UCI 머신러닝 리포지토리 등 외부 다이렉트 다운로드 주소(URL)를 입력받았을 때, `URLDataLoader`를 통해 원본 데이터를 직접 내려받아 로컬에 보관할 수 있어야 합니다.
 * **REQ-DL-03: 다양한 데이터 포맷 파싱 및 대상 열 분리**
-  - **설명**: 로컬의 `.csv`, `.tsv`, `.txt` (탭 구분자 포맷), `.parquet` 확장자를 자동으로 감지하여 적절한 판다스 판독 엔진을 통해 DataFrame 형태로 읽어 들일 수 있어야 합니다.
+  - **설명**: `LocalFileDataLoader`가 로컬의 `.csv`, `.tsv`, `.txt` (탭 구분자 포맷), `.parquet` 확장자를 자동으로 감지하여 적절한 판다스 판독 엔진을 통해 DataFrame 형태로 읽어 들일 수 있어야 합니다.
 
 ### 3.3 데이터 전처리 및 분할 (DataLoader - Preprocessing & Splitting)
 * **REQ-DL-04: 자동 결측치 보정 및 범주형 데이터 변환 (Preprocessing)**
-  - **설명**: 수치형 결측치는 열의 **중앙값(Median)**으로, 범주형 결측치는 열의 **최빈값(Mode)**으로 임퓨팅한 후 **더미 변수화(Dummy Encoding, 원-핫 인코딩)**를 자동으로 실행해야 합니다. 다중공선성 문제를 방지하기 위해 첫 번째 범주를 제외하는 `drop_first=True` 전략을 고수합니다.
+  - **설명**: `StandardDataPreprocessor`를 호출하여 수치형 결측치는 열의 **중앙값(Median)**으로, 범주형 결측치는 열의 **최빈값(Mode)**으로 임퓨팅한 후 **더미 변수화(Dummy Encoding, 원-핫 인코딩)**를 자동으로 실행해야 합니다. 다중공선성 문제를 방지하기 위해 첫 번째 범주를 제외하는 `drop_first=True` 전략을 고수합니다.
 * **REQ-DL-05: 난수 고정을 포함한 데이터셋 분할 (Data Splitting)**
-  - **설명**: 데이터를 학습(Train) 및 최종 성능 측정(Test) 셋으로 분할하되, 난수 시드(`random_state`)를 지정하여 실행 재현성을 확보해야 합니다.
+  - **설명**: `TrainTestSplitter`를 호출하여 데이터를 학습(Train) 및 최종 성능 측정(Test) 셋으로 분할하되, 난수 시드(`random_state`)를 지정하여 실행 재현성을 확보해야 합니다.
 
 ### 3.4 통일화된 모델 제어 및 모델 저장소 구성 (ModelPool & ModelWrapper)
 * **REQ-MP-01: 어댑터 패턴 기반 인터페이스 규격화 (ModelWrapper)**
@@ -80,8 +81,8 @@
 시스템은 다형성을 실현하여 모델 인벤토리와 파이프라인 구동 루프를 완벽히 격리해야 합니다.
 
 * **REQ-EX-01: 실행기 추상화와 전략 주입 (Strategy Pattern)**
-  - **설명**: 일괄 학습, 일괄 성능 지표 산출, 일괄 추론의 제어 흐름을 추상화한 인터페이스인 `ABCModelExecutor`를 정의하고, 구체적인 일괄 벤치마크 학습 루프 전략인 `StandardBenchmarkExecutor`를 제공합니다.
-  - **유연성**: 추후 교차 검증용 실행기(`CrossValidationExecutor`) 등으로 전략을 전환할 때, 내부 데이터 저장 구조(`ModelPool`)의 변경 없이 손쉽게 실행 흐름을 통째로 갈아 끼워 교체할 수 있어야 합니다.
+  - **설명**: 일괄 학습, 일괄 성능 지표 산출, 일괄 추론의 제어 흐름을 추상화한 인터페이스인 `ABCModelExecutor`를 `model_executor.py`에 정의하고, 구체적인 일괄 벤치마크 학습 루프 전략인 `StandardBenchmarkExecutor`를 함께 제공합니다.
+  - **유연성**: 추후 교차 검증용 실행기 (`CrossValidationExecutor`) 등으로 전략을 전환할 때, 내부 데이터 저장 구조(`ModelPool`)의 변경 없이 손쉽게 실행 흐름을 통째로 갈아 끼워 교체할 수 있어야 합니다.
 * **REQ-EX-02: 예외 감내형 일괄 학습 및 스코어링 (Executor Fit & Predict)**
   - **설명**: 주입받은 `ModelPool` 내 가용한 활성 모델 전체에 대해 학습 루프(`fit_all`)를 돌리고, 테스트 셋 평가(`evaluate_all`) 및 일괄 예측값 수집(`get_predictions`)을 안전하게 대행해 그 결과를 구조화된 사전 형태로 리포팅해야 합니다.
 
@@ -123,11 +124,13 @@
                                │ 설정 로드 및 인수 오버라이드
                                ▼
 [1. CLI Entry]  ─────> [2. Data Ingestion] ─────> [3. Data Preprocessor] ─────> [4. Data Splitting]
-   (main.py)       (dataloader.DataLoader)      (dataloader.DataLoader)       (dataloader.DataLoader)
+   (main.py)       (DataLoader Facade ->        (DataLoader Facade ->        (DataLoader Facade ->
+                    Kaggle/URL/Local loader)     StandardDataPreprocessor)    TrainTestSplitter)
                                                                                        │
                                                                                        ▼
 [8. Champion Select] <── [7. Premium Charts] <─── [6. Evaluation Metrics] <─── [5. Model Executor Fit]
-   (outputs/JSON)         (util.Visualizer)       (model.BenchmarkExecutor)     (model.BenchmarkExecutor)
+   (outputs/JSON)         (util.Visualizer)       (model_executor.             (model_executor.
+                                                   StandardBenchmarkExecutor)   StandardBenchmarkExecutor)
                                                                                        │
                                                                                        ▼
                                                                               [ModelPool Inventory]
@@ -136,9 +139,9 @@
 ```
 
 1. **config.yml 로드**: 프로그램 부팅과 함께 설정 파일을 우선 읽어 들이고 셸 환경 인수로 보정하여 정책을 정의합니다.
-2. **CLI Entry & Ingestion**: Kaggle API, UCI HTTP, 로컬 CSV 판독 또는 모의 자가 생성 루틴을 돌려 원본 데이터프레임을 생성하고 타겟 벡터를 분리합니다.
-3. **Data Preprocessor**: 누락 값 검측 후 수치열은 중앙값, 범주열은 최빈값 임퓨팅 및 원-핫 인코딩(Dummy 변수 변환)을 거쳐 정규 매트릭스로 조율합니다.
-4. **Data Splitting**: 재현용 난수 시드를 걸어 학습 및 평가용 테스트 데이터로 조각냅니다.
+2. **CLI Entry & Ingestion**: Kaggle API, UCI HTTP, 로컬 CSV 판독 또는 모의 자가 생성 루틴을 돌려 원본 데이터프레임을 생성하고 타겟 벡터를 분리합니다 (`loaders.py` 위임).
+3. **Data Preprocessor**: 누락 값 검측 후 수치열은 중앙값, 범주열은 최빈값 임퓨팅 및 원-핫 인코딩(Dummy 변수 변환)을 거쳐 정규 매트릭스로 조율합니다 (`preprocessors.py` 위임).
+4. **Data Splitting**: 재현용 난수 시드를 걸어 학습 및 평가용 테스트 데이터로 조각냅니다 (`splitters.py` 위임).
 5. **Model Executor Fit**: 설정된 `active_models` 목록으로 빌드되어 `ModelPool`에 저장된 가용 모델 어댑터들을 `StandardBenchmarkExecutor`가 일괄 학습시킵니다.
 6. **Evaluation**: 계산된 예측값을 오리지널 정답과 매칭해 RMSE, MAE, R² 메트릭으로 요약하여 콘솔 표로 표시합니다.
 7. **Premium Charts**: 고급 다크 슬레이트 테마 레이아웃 위에 실제값 대 예측값 분포, 잔차 오차 분포, 모델 성능 순위 수평 바 플롯을 그려 고화질 PNG 이미지로 기록합니다.
