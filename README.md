@@ -1,1 +1,121 @@
-# regression-model-revolution-framework
+# 🚀 Antigravity Regression Model Revolution Framework
+
+Welcome to the **Antigravity Regression Model Revolution Framework**, a premium, production-grade **AutoML Regression pipeline** built in pure Python. It integrates state-of-the-art tabular algorithms (including **TabPFN** and **XGBoost**) with an automated, ultra-sleek dark-slate visualization suite to make tabular model benchmarking fast, gorgeous, and effortless.
+
+---
+
+## 🎨 Visual Preview & Design Philosophy
+This framework is built with a **Premium Dark Slate** aesthetic. Every generated plot uses carefully chosen high-contrast palettes, elegant micro-animations concept, and professional layouts designed to fit seamlessly into scientific papers, executive presentations, or advanced dashboards.
+
+---
+
+## 📂 Project Structure
+
+A clean, modular design separating the orchestration layer from the internal package domains:
+
+```
+regression-model-revolution-framework/
+│
+├── main.py                         # 🌟 Central CLI pipeline orchestrator (Facade imports)
+├── config.yml                      # ⚙️ Central YAML Configuration (Zero-code switches)
+├── ARCHITECTURE.md                 # System modules & execution flow specs
+├── REQ_SPEC.md                     # Requirements and functional specifications
+├── requirements.txt                # Core packages required
+│
+└── automl_framework/               # 📦 The AutoML engine core package
+    ├── __init__.py                 # Facade layer exposing main APIs
+    ├── README.md                   # Subpackage documentation
+    │
+    ├── dataloader/                 # 📥 Data Ingestion domain subpackage (DataLoader)
+    │   ├── __init__.py
+    │   └── data_loader.py
+    │
+    ├── model/                      # 🤖 Machine Learning core subpackage (ModelPool, wrappers)
+    │   ├── __init__.py
+    │   ├── models.py
+    │   └── wrappers.py
+    │
+    └── util/                       # 🛠️ Visualization & Utility subpackage (Visualizer)
+        ├── __init__.py
+        └── visualizer.py
+```
+
+---
+
+## 🛠️ Quick Start
+
+### 1. Install Dependencies
+You can install all necessary dependencies using the provided `requirements.txt`:
+```bash
+pip install -r requirements.txt
+```
+
+*(Optional) If you want to use the TabPFN and Kaggle API integrations:*
+```bash
+pip install tabpfn kaggle
+```
+
+### 2. Run the Benchmarking Pipeline
+
+To execute the benchmark instantly with an out-of-the-box **synthetic dataset**:
+```bash
+python main.py
+```
+
+To run with a custom local CSV dataset:
+```bash
+python main.py --dataset-path path/to/dataset.csv --target name_of_target_column
+```
+
+To automatically pull a dataset from Kaggle and execute the benchmark:
+```bash
+python main.py --kaggle-dataset "sobhanmoosavi/us-accidents" --target "Severity"
+```
+
+To download from a URL (e.g. UCI ML Database) and run:
+```bash
+python main.py --url "https://archive.ics.uci.edu/ml/machine-learning-databases/housing/housing.data" --target "MEDV"
+```
+
+---
+
+## ⚙️ Configuration File (`config.yml`)
+
+The framework is entirely governed by `config.yml` located at the root. You can tune active models, data pathways, and model-specific hyperparameters **without modifying a single line of python code**!
+
+### Example Settings
+
+```yaml
+# Global Framework Settings
+framework:
+  random_state: 42
+  test_size: 0.2
+  active_models:
+    - MLP
+    - RandomForest
+    - CatBoost
+
+# Model Hyperparameters
+models:
+  MLP:
+    hidden_layer_sizes: [128, 64]
+    activation: "relu"
+    max_iter: 500
+  CatBoost:
+    iterations: 100
+    learning_rate: 0.1
+    depth: 6
+```
+
+### Command Precedence:
+- Arguments specified directly on the command line (like `--test-size 0.3` or `--target target_col`) will seamlessly **override** their counterpart values inside `config.yml`.
+- A resilient fallback is programmed: if `config.yml` is missing or corrupted, the system continues running automatically using robust default configurations.
+
+---
+
+## 📊 Outputs & Reports
+After every execution, the framework saves production-quality assets in:
+- `outputs/comparison_R2_turn_1.png` - Benchmarking models side-by-side.
+- `outputs/actual_vs_predicted_[Model]_turn_1.png` - Visualizing prediction variance.
+- `outputs/residuals_[Model]_turn_1.png` - Diagnosing heteroscedasticity.
+- `outputs/execution_report_turn_1.json` - Complete metadata report highlighting the best-performing algorithm.

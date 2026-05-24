@@ -14,3 +14,6 @@ seaborn>=0.11.0
 
 # Optional / External Data Source Connectors
 kaggle>=1.5.12
+
+# Configurations and Parsing
+PyYAML>=6.0

@@ -2,6 +2,7 @@
 """
 Main entry point for the AutoML Framework.
 Executes the full pipeline: Data Loading -> Preprocessing -> Model Training -> Evaluation -> Premium Visualization.
+Now powered dynamically by central config.yml configurations!
 """
 
 import os
@@ -9,13 +10,10 @@ import sys
 import argparse
 import numpy as np
 import pandas as pd
+import yaml
 
-# Add the parent directory of core to path so imports work cleanly if run from root or inside automl_framework
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
-from core.data_loader import DataLoader
-from core.models import ModelPool
-from core.visualizer import Visualizer
+# Standard absolute imports from the newly package-structured automl_framework
+from automl_framework import DataLoader, ModelPool, StandardBenchmarkExecutor, Visualizer
 
 def create_synthetic_dataset(filepath: str):
     """
@@ -48,23 +46,52 @@ def create_synthetic_dataset(filepath: str):
 
 def main():
     parser = argparse.ArgumentParser(description="AutoML Framework for Advanced Tabular Regression")
-    parser.add_argument("--dataset-path", type=str, default=None, help="Path to local dataset CSV. If None, a synthetic dataset is generated.")
-    parser.add_argument("--target", type=str, default="Target_Y", help="Name of the target variable/column.")
-    parser.add_argument("--test-size", type=float, default=0.2, help="Proportion of the dataset to use for testing (0.0 to 1.0).")
+    parser.add_argument("--config", type=str, default="config.yml", help="Path to config.yml file.")
+    parser.add_argument("--dataset-path", type=str, default=None, help="Path to local dataset CSV. Overrides YAML config.")
+    parser.add_argument("--target", type=str, default=None, help="Name of the target variable/column. Overrides YAML config.")
+    parser.add_argument("--test-size", type=float, default=None, help="Proportion of the dataset to use for testing. Overrides YAML config.")
     parser.add_argument("--turn", type=int, default=1, help="Current execution turn index (used for naming reports and outputs).")
     parser.add_argument("--kaggle-dataset", type=str, default=None, help="Optional Kaggle dataset name to download (e.g. 'user/dataset-name')")
     parser.add_argument("--url", type=str, default=None, help="Optional direct download URL (e.g. UCI dataset)")
     
     args = parser.parse_args()
     
+    # Step 0: Load YAML Configuration safely
+    config = {}
+    if os.path.exists(args.config):
+        print(f"[Main] Loading configuration profile from: {args.config}")
+        try:
+            with open(args.config, 'r') as f:
+                config = yaml.safe_load(f) or {}
+            print("[Main] Configuration profile loaded successfully.")
+        except Exception as e:
+            print(f"[Main] WARNING: Could not parse YAML file. Falling back to default settings. Error: {e}")
+    else:
+        print(f"[Main] WARNING: Config file '{args.config}' not found. Falling back to default settings.")
+
+    # Resolve global variables (CLI overrides YAML config)
+    random_state = config.get("framework", {}).get("random_state", 42)
+    
+    test_size = args.test_size
+    if test_size is None:
+        test_size = config.get("framework", {}).get("test_size", 0.2)
+        
+    target_column = args.target
+    if target_column is None:
+        target_column = config.get("data", {}).get("target_column", "Target_Y")
+
+    data_dir = config.get("data", {}).get("data_dir", "data")
+    output_dir = config.get("data", {}).get("output_dir", "outputs")
+    
     print("=" * 60)
     print(f"🚀 AutoML Regression Framework - Turn {args.turn}")
     print("=" * 60)
     
-    # Initialize framework components
-    loader = DataLoader(data_dir="data")
-    pool = ModelPool(random_state=42)
-    visualizer = Visualizer(output_dir="outputs")
+    # Initialize framework components dynamically from configurations
+    loader = DataLoader(data_dir=data_dir)
+    pool = ModelPool(random_state=random_state, config=config)
+    executor = StandardBenchmarkExecutor(pool)
+    visualizer = Visualizer(output_dir=output_dir)
     
     dataset_file = args.dataset_path
     
@@ -90,18 +117,18 @@ def main():
 
     # Fallback to synthetic data if no filepath was resolved or exists
     if not dataset_file or not os.path.exists(dataset_file):
-        dataset_file = os.path.join("data", "synthetic_regression.csv")
+        dataset_file = os.path.join(data_dir, "synthetic_regression.csv")
         if not os.path.exists(dataset_file):
             create_synthetic_dataset(dataset_file)
-            args.target = "Target_Y" # Adjust target name to match synthetic
+            target_column = "Target_Y" # Adjust target name to match synthetic
             
     # Load and Preprocess Data
     try:
-        X, y = loader.load_dataset(dataset_file, target_column=args.target)
+        X, y = loader.load_dataset(dataset_file, target_column=target_column)
         X_processed = loader.preprocess_data(X)
         
         # Split Data
-        splits = loader.split_data(X_processed, y, test_size=args.test_size, random_state=42)
+        splits = loader.split_data(X_processed, y, test_size=test_size, random_state=random_state)
         X_train, y_train = splits["X_train"], splits["y_train"]
         X_test, y_test = splits["X_test"], splits["y_test"]
         
@@ -117,11 +144,11 @@ def main():
     # Step 2: Model Training
     print("🤖 Model Pool Training initiated...")
     print(f"Available models to train: {pool.list_available_models()}")
-    pool.fit_all(X_train, y_train)
+    executor.fit_all(X_train, y_train)
     
     # Step 3: Evaluation
     print("\n📊 Evaluating trained models on testing split...")
-    metrics = pool.evaluate_all(X_test, y_test)
+    metrics = executor.evaluate_all(X_test, y_test)
     
     # Print results summary in standard output
     print("\n" + "-" * 50)
@@ -143,7 +170,7 @@ def main():
     # Plot comparisons of RMSE score
     visualizer.plot_model_comparison(metrics, metric_name="RMSE", turn=args.turn)
     
-    predictions = pool.get_predictions(X_test)
+    predictions = executor.get_predictions(X_test)
     
     # Generate specific plots for each model
     for model_name, y_pred in predictions.items():

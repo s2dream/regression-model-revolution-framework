@@ -1,0 +1,48 @@
+# =====================================================================
+# 🚀 Antigravity AutoML Regression Framework Configuration File
+# =====================================================================
+
+# Global Framework Settings
+framework:
+  random_state: 42
+  test_size: 0.2
+  active_models:
+    - XGBoost
+    - MLP
+    - TabPFN
+    - RandomForest
+    - CatBoost
+
+# Data Pipeline Settings
+data:
+  data_dir: "data"
+  output_dir: "outputs"
+  target_column: "Target_Y"
+
+# Model Hyperparameters Configuration
+models:
+  XGBoost:
+    n_estimators: 100
+    learning_rate: 0.1
+    max_depth: 6
+    n_jobs: -1
+  
+  MLP:
+    hidden_layer_sizes: [128, 64]
+    activation: "relu"
+    solver: "adam"
+    max_iter: 500
+  
+  TabPFN:
+    N_ensemble_configurations: 32
+  
+  RandomForest:
+    n_estimators: 100
+    max_depth: null
+    n_jobs: -1
+
+  CatBoost:
+    iterations: 100
+    learning_rate: 0.1
+    depth: 6
+    verbose: 0
