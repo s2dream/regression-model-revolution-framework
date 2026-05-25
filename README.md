@@ -1,6 +1,6 @@
-# 🚀 Antigravity Regression Model Revolution Framework
+# 🚀 Regression Model Revolution Framework
 
-Welcome to the **Antigravity Regression Model Revolution Framework**, a premium, production-grade **AutoML Regression pipeline** built in pure Python. It integrates state-of-the-art tabular algorithms (including **TabPFN** and **XGBoost**) with an automated, ultra-sleek dark-slate visualization suite to make tabular model benchmarking fast, gorgeous, and effortless.
+Welcome to the **Regression Model Revolution Framework**, a premium, production-grade **AutoML Regression pipeline** built in pure Python. It integrates state-of-the-art tabular algorithms (including **TabPFN** and **XGBoost**) with an automated, ultra-sleek dark-slate visualization suite to make tabular model benchmarking fast, gorgeous, and effortless.
 
 ---
 
