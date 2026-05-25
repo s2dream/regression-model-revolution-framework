@@ -24,15 +24,17 @@
               Data         ▼        │ ate        ▼
                                     │
 ┌──────────────────────────────┐    │    ┌──────────────────────────────┐
-│         DataLoader           │    │    │         Visualizer           │
+│      DataLoaderHelper        │    │    │         Visualizer           │
 │  (automl_framework/          │    │    │  (automl_framework/          │
-│   dataloader/data_loader.py) │    │    │   util/visualizer.py)        │
-├──────────────────────────────┤    │    ├──────────────────────────────┤
-│ - download_from_kaggle()     │    │    │ - plot_actual_vs_predicted() │
-│ - download_from_url()        │    │    │ - plot_residuals()           │
-│ - load_dataset()             │    │    │ - plot_model_comparison()    │
-│ - preprocess_data()          │    │    │ - save_json_report()         │
-│ - split_data()               │    │    └──────────────────────────────┘
+│   dataloader/                │    │    │   util/visualizer.py)        │
+│   data_loader_helper.py)     │    │    ├──────────────────────────────┤
+├──────────────────────────────┤    │    │ - plot_actual_vs_predicted() │
+│ - download_from_kaggle()     │    │    │ - plot_residuals()           │
+│ - download_from_url()        │    │    │ - plot_model_comparison()    │
+│ - load_dataset()             │    │    │ - save_json_report()         │
+│ - preprocess_data()          │    │    └──────────────────────────────┘
+│ - split_data()               │    │
+│ - prepare_data()             │    │
 │  (Delegates to modular       │    │
 │   strategies under-the-hood) │    │
 └──────────────────────────────┘    │
@@ -89,7 +91,7 @@ regression-model-revolution-framework/
 ├── config.yml                      # 🌟 중앙 설정 파일 (활성 모델 및 하이퍼파라미터 일괄 제어)
 │
 ├── automl_framework/               # 프레임워크 메인 패키지
-│   ├── __init__.py                 # 패키지 파사드 진입점 (DataLoader, ModelPool, Visualizer, Executor 외부 노출)
+│   ├── __init__.py                 # 패키지 파사드 진입점 (DataLoaderHelper, ModelPool, Visualizer, Executor 외부 노출)
 │   │
 │   ├── dataloader/                 # 데이터 처리 서브패키지 (Data Domain)
 │   │   ├── __init__.py
@@ -97,7 +99,7 @@ regression-model-revolution-framework/
 │   │   ├── loaders.py              # 로컬 파일 로더 및 Kaggle, URL 원격 다운로더 구현체
 │   │   ├── preprocessors.py        # 결측치 보정 및 원-핫 인코딩 전처리기 구현체
 │   │   ├── splitters.py            # 학습/검증/테스트 데이터셋 분할기 구현체
-│   │   └── data_loader.py          # 기존 규격을 호환하는 퍼사드(Facade) DataLoader
+│   │   └── data_loader_helper.py   # 기존 규격을 호환하는 퍼사드(Facade) DataLoaderHelper 및 파이프라인 일괄 준비
 │   │
 │   ├── model/                      # 머신러닝 학습 서브패키지 (Model Domain)
 │   │   ├── __init__.py
@@ -134,6 +136,13 @@ regression-model-revolution-framework/
 
 ### A. CLI 및 전체 설정 제어: 루트 `main.py` 및 `config.yml`
 * **역할**: 설정 파일을 파싱하여 전체 AutoML 프로세스를 제어하는 중앙 조율 장치입니다.
+* **세분화된 오케스트레이션 함수**:
+  - **`parse_arguments() -> argparse.Namespace`**: CLI 명령줄 인수(`--config`, `--target`, `--test-size`, `--turn`, `--dataset-path`, `--kaggle-dataset`, `--url`)를 안전하게 파싱합니다.
+  - **`load_config(config_path: str) -> dict`**: 지정된 경로의 `config.yml` 파일을 파싱하여 딕셔너리로 반환하며, 유실/오류 시 빈 딕셔너리를 반환하는 안전망을 포함합니다.
+  - **`resolve_parameters(args: argparse.Namespace, config: dict) -> dict`**: CLI 인자와 YAML 설정 간의 우선순위를 조율하여 최종 정책을 결정합니다 (CLI 인수 우선 덮어쓰기 및 Fallback 설정 보장).
+  - **`train_and_evaluate(executor: StandardBenchmarkExecutor, pool: ModelPool, X_train, y_train, X_test, y_test) -> dict`**: `StandardBenchmarkExecutor`를 제어해 `ModelPool` 내 가용한 활성 모델들을 훈련시키고(`fit_all`), 테스트셋 평가 메트릭(`RMSE`, `MAE`, `R2`)을 안전하게 일괄 계산해 집계합니다.
+  - **`generate_visualizations_and_report(visualizer: Visualizer, executor: StandardBenchmarkExecutor, metrics: dict, X_test, y_test, turn: int)`**: 프리미엄 차트 생성, 잔차 오차 산포도 플롯, 성능 비교 차트 생성, 챔피언 모델 검출 및 회차별 구조화 실행 JSON 리포트 저장 프로세스를 일괄 제어합니다.
+  - **`main()`**: 전체 AutoML 실행 라이프사이클에 걸쳐 컴포넌트들을 유기적으로 배치하고 라이프사이클 흐름을 총괄 조율하는 메인 콘트롤러 인터페이스입니다.
 * **동작 분기**:
   - `config.yml` 설정 파일이 로드되면 `framework.random_state`, `framework.test_size`, `framework.active_models` 등의 정책이 반영됩니다.
   - 사용자가 CLI 인자(예: `--target`, `--test-size`)를 제공하면 YAML 파일의 속성을 덮어씌워 우선 반영합니다.
@@ -142,8 +151,11 @@ regression-model-revolution-framework/
 ---
 
 ### B. 데이터 로더 및 전처리 모듈: `automl_framework/dataloader/`
-#### `DataLoader` (Facade Class) 및 전략 클래스들
-* **책임**: 데이터 획득(Kaggle, HTTP URL)부터 학습 전 단계까지의 모든 데이터 처리를 담당합니다. `DataLoader` 클래스는 파사드(Facade) 역할을 하며 하위의 모듈화된 전략(Strategy) 클래스들에게 실제 처리를 위임합니다.
+#### `DataLoaderHelper` (Facade Class) 및 전략 클래스들
+* **책임**: 데이터 획득(Kaggle, HTTP URL)부터 학습 전 단계까지의 모든 데이터 처리를 담당합니다. `DataLoaderHelper` 클래스는 파사드(Facade) 역할을 하며 하위의 모듈화된 전략(Strategy) 클래스들에게 실제 처리를 위임합니다.
+* **핵심 메서드**:
+  * `fetch_dataset(dataset_path, kaggle_dataset, url)`: 로컬 파일 경로, Kaggle 데이터셋 명칭, 혹은 UCI HTTP URL을 인자로 주입받아, Ingestion 모듈을 제어하여 원격/로컬 파일을 안전하게 다운로드하고, 유효성이 검증된 로컬 절대 경로를 반환합니다.
+  * `prepare_data(dataset_file, target_column, test_size, random_state)`: 데이터 로딩, 결측치 임퓨테이션 및 원-핫 인코딩 전처리, train/test 스플릿 분할 프로세스를 내부적으로 통합 오케스트레이션하여 피팅 및 평가에 최적화된 학습/테스트 분할 데이터셋을 직접 생산해 반환하는 메인 퍼사드 메소드입니다.
 * **하위 전략 클래스 구성**:
   * **데이터 로더 (`base.ABCDataLoader`, `loaders.py`)**:
     * `LocalFileDataLoader`: 로컬 CSV, TSV, Parquet 포맷 데이터를 판다스 데이터프레임으로 자동 읽어 들이고 독립 변수(X)와 종속 변수(y)로 분리합니다.
@@ -207,7 +219,7 @@ AutoML 프레임워크의 실행 흐름은 설정 파일 로딩부터 시작해 
          │
          ▼
 [1. CLI 실행]  ──> [2. 데이터 수집/로드]  ──> [3. 결측치 보정/인코딩]  ──> [4. 데이터 분할]
-   (main.py)    (dataloader.DataLoader)  (dataloader.DataLoader)  (dataloader.DataLoader)
+   (main.py)    (dataloader.DataLoaderHelper) (dataloader.DataLoaderHelper) (dataloader.DataLoaderHelper)
                                                                                │
                                                                                ▼
 [8. 분석 결과 확인] <── [7. 프리미엄 차트 생성] <── [6. 성능 메트릭 평가] <── [5. 모델 일괄 학습]

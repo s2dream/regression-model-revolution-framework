@@ -50,8 +50,7 @@ class KaggleDataLoader(ABCDataLoader):
             import kaggle
             kaggle.api.authenticate()
             target_path = os.path.join(self.data_dir, self.dataset_name.replace("/", "_"))
-            os.makedirs(target_path, exist_ok=True)
-            
+            os.makedirs(target_path, exist_ok=True)            
             kaggle.api.dataset_download_files(self.dataset_name, path=target_path, unzip=True)
             print(f"[KaggleDataLoader] Successfully downloaded and extracted to {target_path}")
             return target_path

@@ -32,7 +32,7 @@ regression-model-revolution-framework/
 │   │   ├── loaders.py              # Modular loaders (Local, Kaggle, URL)
 │   │   ├── preprocessors.py        # Imputation & encoding preprocessors
 │   │   ├── splitters.py            # Dataset split strategy
-│   │   └── data_loader.py          # Main DataLoader Facade
+│   │   └── data_loader_helper.py   # DataLoaderHelper Facade and pipeline orchestrator
 │   │
 │   ├── model/                      # 🤖 Machine Learning core subpackage
 │   │   ├── __init__.py

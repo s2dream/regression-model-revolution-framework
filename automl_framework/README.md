@@ -20,7 +20,7 @@ automl_framework/
 │   ├── loaders.py       # Modular loaders (Local, Kaggle, URL)
 │   ├── preprocessors.py # Standard data imputation & encoding
 │   ├── splitters.py     # Dataset split strategies (train/val/test)
-│   └── data_loader.py   # Backwards-compatible facade orchestrating splits & loaders
+│   └── data_loader_helper.py # DataLoaderHelper facade class and data pipeline orchestrator
 │
 ├── model/               # Model Domain (Inventory & execution strategies)
 │   ├── __init__.py
@@ -40,7 +40,7 @@ automl_framework/
 ## ✨ Features & Domains
 
 ### 1. Ingestion (`dataloader/`)
-- **Facade Strategy Pattern**: `DataLoader` delegates specialized loading, preprocessing, and splitting tasks to modular subcomponents while exposing a simple, unified interface.
+- **Facade Strategy Pattern**: `DataLoaderHelper` delegates specialized loading, preprocessing, and splitting tasks to modular strategy subcomponents, and exposes a unified high-level `prepare_data` pipeline orchestrator method.
 - **Kaggle API Integration (`loaders.py`)**: Fetch datasets from Kaggle directly by passing a dataset ID.
 - **Direct HTTP Downloading (`loaders.py`)**: Supports direct downloads from URLs (such as the UCI Machine Learning Repository or customized datasets).
 - **Graceful Preprocessing (`preprocessors.py`)**: Handles automated median imputation for numeric features, mode imputation for categorical features, and automatic dummy/one-hot encoding.
@@ -76,19 +76,22 @@ python main.py --dataset-path data/synthetic_regression.csv --target Target_Y
 For custom programatic usage within your own python scripts:
 ```python
 # Simple top-level Facade import!
-from automl_framework import DataLoader, ModelPool, StandardBenchmarkExecutor, Visualizer
+# Simple top-level Facade import!
+from automl_framework import DataLoaderHelper, ModelPool, StandardBenchmarkExecutor, Visualizer
 
-# 1. Load Data
-loader = DataLoader(data_dir="data")
-X, y = loader.load_dataset("data/your_dataset.csv", target_column="target_column_name")
+# 1. Load, preprocess, and split Data in one unified step!
+dataloader_helper = DataLoaderHelper(data_dir="data")
+X_train, y_train, X_test, y_test = dataloader_helper.prepare_data(
+    "data/your_dataset.csv", target_column="target_column_name", test_size=0.2, random_state=42
+)
 
 # 2. Setup Decoupled ML Pipeline
 pool = ModelPool(random_state=42)
 executor = StandardBenchmarkExecutor(pool)
-executor.fit_all(X, y)
+executor.fit_all(X_train, y_train)
 
 # 3. Analyze & Plot
 visualizer = Visualizer(output_dir="outputs")
-metrics = executor.evaluate_all(X, y)
+metrics = executor.evaluate_all(X_test, y_test)
 visualizer.save_json_report(metrics, turn=1)
 ```

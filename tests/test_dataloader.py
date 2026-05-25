@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import pytest
 from automl_framework.dataloader import (
-    DataLoader,
+    DataLoaderHelper,
     LocalFileDataLoader,
     StandardDataPreprocessor,
     TrainTestSplitter
@@ -85,7 +85,7 @@ def test_train_test_splitter():
 
 def test_data_loader_facade(dummy_csv_path):
     """Test DataLoader facade backward compatibility matches the original interface expectations."""
-    facade = DataLoader()
+    facade = DataLoaderHelper()
     X, y = facade.load_dataset(dummy_csv_path, target_column="Target_Y")
     
     assert X.shape == (5, 2)
@@ -97,3 +97,24 @@ def test_data_loader_facade(dummy_csv_path):
     splits = facade.split_data(X_proc, y, test_size=0.2, random_state=42)
     assert "X_train" in splits
     assert "X_test" in splits
+
+def test_data_loader_helper_fetch_and_prepare(dummy_csv_path):
+    """Test fetch_dataset and prepare_data methods on DataLoaderHelper."""
+    facade = DataLoaderHelper()
+    
+    # Test fetch_dataset with local path
+    resolved_path = facade.fetch_dataset(dataset_path=dummy_csv_path)
+    assert resolved_path == dummy_csv_path
+    
+    # Test prepare_data direct facade invocation
+    X_train, y_train, X_test, y_test = facade.prepare_data(
+        dataset_file=dummy_csv_path,
+        target_column="Target_Y",
+        test_size=0.2,
+        random_state=42
+    )
+    
+    assert X_train.shape[1] == 2
+    assert X_train.shape[0] == 4
+    assert X_test.shape[0] == 1
+

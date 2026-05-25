@@ -12,7 +12,7 @@ import pandas as pd
 import yaml
 
 # Standard absolute imports from the newly package-structured automl_framework
-from automl_framework import DataLoader, ModelPool, StandardBenchmarkExecutor, Visualizer
+from automl_framework import DataLoaderHelper, ModelPool, StandardBenchmarkExecutor, Visualizer
 
 def parse_arguments() -> argparse.Namespace:
     """Parse command-line arguments."""
@@ -65,64 +65,6 @@ def resolve_parameters(args: argparse.Namespace, config: dict) -> dict:
         "data_dir": data_dir,
         "output_dir": output_dir
     }
-
-
-def fetch_dataset(args: argparse.Namespace, loader: DataLoader) -> str:
-    """Fetch/download dataset and return the resolved file path."""
-    dataset_file = args.dataset_path
-    
-    if args.kaggle_dataset:
-        try:
-            download_dir = loader.download_from_kaggle(args.kaggle_dataset)
-            # Try to find CSV files in the download directory
-            csv_files = [f for f in os.listdir(download_dir) if f.endswith('.csv')]
-            if csv_files:
-                dataset_file = os.path.join(download_dir, csv_files[0])
-            else:
-                print(f"[Main] No CSV files found in downloaded Kaggle files at {download_dir}")
-                sys.exit(1)
-        except Exception as e:
-            print(f"[Main] Kaggle download failed. Falling back. Error: {e}")
-            
-    elif args.url:
-        try:
-            dataset_file = loader.download_from_url(args.url, "downloaded_data.csv")
-        except Exception as e:
-            print(f"[Main] URL download failed. Falling back. Error: {e}")
-
-    # Ensure dataset file is provided and exists
-    if not dataset_file:
-        print("[Main] ERROR: No dataset was provided. Please specify a local CSV via --dataset-path, a Kaggle dataset via --kaggle-dataset, or a direct URL via --url.")
-        sys.exit(1)
-        
-    if not os.path.exists(dataset_file):
-        print(f"[Main] ERROR: The specified dataset file '{dataset_file}' does not exist.")
-        sys.exit(1)
-        
-    return dataset_file
-
-
-def prepare_data(loader: DataLoader, dataset_file: str, target_column: str, test_size: float, random_state: int):
-    """Load, preprocess, and split dataset into train and test sets."""
-    try:
-        X, y = loader.load_dataset(dataset_file, target_column=target_column)
-        X_processed = loader.preprocess_data(X)
-        
-        # Split Data
-        splits = loader.split_data(X_processed, y, test_size=test_size, random_state=random_state)
-        X_train, y_train = splits["X_train"], splits["y_train"]
-        X_test, y_test = splits["X_test"], splits["y_test"]
-        
-        print(f"\n[Main] Data shape summary:")
-        print(f"  - Features dimension: {X_processed.shape[1]}")
-        print(f"  - Training samples: {X_train.shape[0]}")
-        print(f"  - Testing samples:  {X_test.shape[0]}\n")
-        
-        return X_train, y_train, X_test, y_test
-        
-    except Exception as e:
-        print(f"[Main] CRITICAL ERROR loading/processing dataset: {e}")
-        sys.exit(1)
 
 
 def train_and_evaluate(executor: StandardBenchmarkExecutor, pool: ModelPool, X_train: pd.DataFrame, y_train: pd.Series, X_test: pd.DataFrame, y_test: pd.Series) -> dict:
@@ -188,17 +130,37 @@ def main():
     print("=" * 60)
     
     # Initialize framework components dynamically from configurations
-    loader = DataLoader(data_dir=params["data_dir"])
+    dataloader_helper = DataLoaderHelper(data_dir=params["data_dir"])
     pool = ModelPool(random_state=params["random_state"], config=config)
     executor = StandardBenchmarkExecutor(pool)
     visualizer = Visualizer(output_dir=params["output_dir"])
     
-    dataset_file = fetch_dataset(args, loader)
-    X_train, y_train, X_test, y_test = prepare_data(
-        loader, dataset_file, params["target_column"], params["test_size"], params["random_state"]
-    )
+    # fetch dataset
+    try:
+        dataset_file = dataloader_helper.fetch_dataset(
+            dataset_path=args.dataset_path,
+            kaggle_dataset=args.kaggle_dataset,
+            url=args.url
+        )
+    except Exception as e:
+        print(f"[Main] CRITICAL ERROR fetching dataset: {e}")
+        import sys
+        sys.exit(1)
     
+    # preprocessing datset
+    try:
+        X_train, y_train, X_test, y_test = dataloader_helper.prepare_data(
+            dataset_file, params["target_column"], params["test_size"], params["random_state"]
+        )
+    except Exception as e:
+        print(f"[Main] CRITICAL ERROR loading/processing dataset: {e}")
+        import sys
+        sys.exit(1)
+    
+    # train and evaluate
     metrics = train_and_evaluate(executor, pool, X_train, y_train, X_test, y_test)
+
+    # visualize and report
     generate_visualizations_and_report(visualizer, executor, metrics, X_test, y_test, args.turn)
 
 if __name__ == "__main__":
