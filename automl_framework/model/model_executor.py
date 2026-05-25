@@ -3,7 +3,7 @@ import pandas as pd
 from typing import Dict, Any, List, Optional
 from abc import ABC, abstractmethod
 
-from automl_framework.model.models import ModelPool
+from automl_framework.model.model_pool import ModelPool
 
 class ABCModelExecutor(ABC):
     """

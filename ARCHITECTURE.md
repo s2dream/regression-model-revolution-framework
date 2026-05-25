@@ -50,7 +50,7 @@
                                        ▼
 ┌───────────────────────────────────────────────────────────────────────────┐
 │                                 ModelPool                                 │
-│                     (automl_framework/model/models.py)                    │
+│                   (automl_framework/model/model_pool.py)                  │
 ├───────────────────────────────────────────────────────────────────────────┤
 │ - models: Dict[str, ABCModelWrapper]                                      │
 │ - _initialize_default_models() -> Bootstraps via config.yml active_models │
@@ -68,12 +68,12 @@
                     │ - predict(X)                         │
                     └──────────────────┬───────────────────┘
                                        │
-                       ┌───────────────┼───────────────┐ Instantiates & Adapts
-                       ▼               ▼               ▼
-              ┌─────────────────┐┌───────────────┐┌─────────────────┐
-              │   XGBoost / RF  ││   MLP (NN)    ││     TabPFN      │
-              │ (xgboost/sklearn││(scikit-learn) ││    (tabpfn)     │
-              └─────────────────┘└───────────────┘└─────────────────┘
+               ┌───────────────┬───────┴───────┬───────────────┐ Instantiates & Adapts
+               ▼               ▼               ▼               ▼
+      ┌─────────────────┐┌───────────────┐┌─────────────────┐┌─────────────────┐
+      │   XGBoost / RF  ││   MLP (NN)    ││     TabPFN      ││   Transformer   │
+      │ (xgboost/sklearn││(scikit-learn) ││    (tabpfn)     ││ (PyTorch Model) │
+      └─────────────────┘└───────────────┘└─────────────────┘└─────────────────┘
 ```
 
 ---
@@ -101,9 +101,11 @@ regression-model-revolution-framework/
 │   │
 │   ├── model/                      # 머신러닝 학습 서브패키지 (Model Domain)
 │   │   ├── __init__.py
-│   │   ├── models.py               # 모델 저장소(ModelPool)
+│   │   ├── model_pool.py           # 모델 저장소(ModelPool)
 │   │   ├── model_executor.py       # 추상 실행기(ABCModelExecutor) 및 일괄 벤치마크 실행기(StandardBenchmarkExecutor)
-│   │   └── wrappers.py             # 개별 모델 규격 어댑터 (Wrapper)
+│   │   ├── wrappers.py             # 개별 모델 규격 어댑터 (Wrapper)
+│   │   └── architecture/           # 딥러닝/신경망 모델 아키텍처 정의
+│   │       └── transformer_encoder.py # 시퀀스 기반 트랜스포머 회귀 모델 (TransformerBasedRegression)
 │   │
 │   └── util/                       # 분석/유틸리티 서브패키지 (Utility Domain)
 │       ├── __init__.py
@@ -155,10 +157,26 @@ regression-model-revolution-framework/
 ---
 
 ### C. 모델 관리 및 실행 전략 모듈: `automl_framework/model/`
-#### `ModelPool` (Class, `automl_framework/model/models.py`)
+#### `ModelPool` (Class, `automl_framework/model/model_pool.py`)
 * **책임**: 알고리즘군(Tree 기반, 신경망 기반, 사전 학습 기반 등)의 모델 객체를 보유하는 데이터 저장소(Inventory Container)입니다.
 * **핵심 메서드**:
   * `_initialize_default_models()`: `config.yml` 내 `active_models` 목록에 정의된 모델들만 필터링하여 생성자에 설정 하이퍼파라미터(`config["models"][ModelName]`)들을 동적으로 주입하여 초기화합니다.
+
+#### `TransformerBasedRegression` (PyTorch Module, `automl_framework/model/architecture/transformer_encoder.py`)
+* **책임**: 시퀀스 데이터를 처리하여 회귀 예측을 수행하는 PyTorch 기반 모델입니다.
+* **핵심 기능**:
+  - **시퀀스 부호화**: 내부 `TransformerBasedEncoder`와 learnable positional embedding을 활용한 sequence 데이터 인코딩.
+  - **풀링 레이어**: 시퀀스 길이를 변환하기 위한 `mean`, `max`, `last` 풀링 옵션 제공 및 패딩 토큰을 제외하기 위한 boolean mask 연동 지원.
+  - **다목적 회귀 헤드**: 
+    - 기본 예측 모드: 단일 scalar 예측 (`predict_distribution=False`).
+    - 확률 분포 모드: 평균(mean)과 strictly positive 분산(variance) 예측 (`predict_distribution=True`).
+
+#### `ModelWrapperTransformer` (Class, `automl_framework/model/wrappers.py`)
+* **책임**: `TransformerBasedRegression` PyTorch 모델을 Scikit-Learn과 호환되는 일관된 `fit(X, y)` 및 `predict(X)` 형태로 감싸주는 **어댑터(Adapter) 모델 Wrapper**입니다.
+* **핵심 기능**:
+  - **입력 전처리 및 3D 형상 복원**: 2D pandas DataFrame이나 numpy array가 입력될 때, 이를 트랜스포머 시퀀스 형태인 3D Tensor `(batch_size, num_features, 1)` 또는 `(batch_size, 1, num_features)` 형태로 자동 복원하여 전달합니다.
+  - **신경망 학습 루프 (AdamW)**: 설정된 `epochs`, `learning_rate`, `batch_size`를 기반으로 미니배치를 수행하며 PyTorch의 순방향/역방향 전파를 수행합니다.
+  - **확률 모델 지원 (Gaussian NLL Loss)**: `predict_distribution=True` 일 때 가우시안 음의 로그 우도(Negative Log-Likelihood) 손실 함수를 동적으로 연동하여 평균과 분산을 학습시킵니다. `predict()` 호출 시에는 자동으로 평균(mean) 값을 스퀴즈하여 scikit-learn regressor 형태의 1D numpy array를 출력합니다.
 
 #### `ABCModelExecutor` (Abstract Class) & `StandardBenchmarkExecutor` (Class, `automl_framework/model/model_executor.py`)
 * **책임**: `ModelPool`을 주입받아, 그 내부 모델들을 어떻게 훈련하고 예측하고 평가할지 제어하는 **실행 전략(Execution Strategy)**입니다.

@@ -24,9 +24,11 @@ automl_framework/
 │
 ├── model/               # Model Domain (Inventory & execution strategies)
 │   ├── __init__.py
-│   ├── models.py        # ModelPool data container for bound model inventory
+│   ├── model_pool.py    # ModelPool data container for bound model inventory
 │   ├── model_executor.py# Execution strategies (ABCModelExecutor & StandardBenchmarkExecutor)
-│   └── wrappers.py      # Standardized wrappers for Scikit-Learn, XGBoost, TabPFN, CatBoost
+│   ├── wrappers.py      # Standardized wrappers for Scikit-Learn, XGBoost, TabPFN, CatBoost, Transformer
+│   └── architecture/    # Neural network model architectures
+│       └── transformer_encoder.py # PyTorch Transformer-based sequence regression (TransformerBasedRegression)
 │
 └── util/                # Utility & Analytics Domain (Premium dark theme visualizer)
     ├── __init__.py
@@ -45,9 +47,10 @@ automl_framework/
 - **Flexible Splitting (`splitters.py`)**: Supports standard train/test splitting as well as 3-way train/validation/test partitioning.
 
 ### 2. Core Learners & Executors (`model/`)
-- **ModelPool Container (`models.py`)**: Acts purely as a robust, configuration-driven **inventory repository** for wrapped models.
+- **ModelPool Container (`model_pool.py`)**: Acts purely as a robust, configuration-driven **inventory repository** for wrapped models.
 - **Benchmark Executors (`model_executor.py`)**: Decouples active fitting and prediction algorithms from inventory data using a strategy pattern. Extends `ABCModelExecutor` for highly scalable workflows.
-- **Universal Adapters (`wrappers.py`)**: Wraps `XGBoost`, `TabPFN`, `CatBoost`, `Multi-Layer Perceptron (MLP)`, and standard baselines into uniform, exception-shielded wrappers.
+- **Universal Adapters (`wrappers.py`)**: Wraps `XGBoost`, `TabPFN`, `CatBoost`, `Multi-Layer Perceptron (MLP)`, standard baselines, and `TransformerBasedRegression` into uniform, exception-shielded wrappers.
+- **Transformer-Based Regression (`architecture/transformer_encoder.py`)**: Implements standard sequence-based deep learning regression using PyTorch, with adjustable pooling strategies (`mean`, `max`, `last`), sequence padding masking, and support for both scalar regression and probabilistic mean/variance distribution estimation.
 
 ### 3. Analytics & Visuals (`util/visualizer.py`)
 Generates production-grade, dark-themed visualizations:

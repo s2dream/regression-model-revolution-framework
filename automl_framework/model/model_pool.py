@@ -29,7 +29,8 @@ class ModelPool:
             "MLP": self._build_mlp,
             "TabPFN": self._build_tabpfn,
             "RandomForest": self._build_random_forest,
-            "CatBoost": self._build_catboost
+            "CatBoost": self._build_catboost,
+            "Transformer": self._build_transformer
         }
         self._initialize_default_models()
 
@@ -111,6 +112,50 @@ class ModelPool:
             cat_params["random_seed"] = self.random_state
         cat_model = CatBoostRegressor(**cat_params)
         return ModelWrapperCatBoost("CatBoost", cat_model)
+
+    def _build_transformer(self) -> ABCModelWrapper:
+        import torch
+        from automl_framework.model.architecture.transformer_encoder import TransformerBasedRegression
+        from automl_framework.model.wrappers import ModelWrapperTransformer
+        
+        tf_params = self.config.get("models", {}).get("Transformer", {}).copy()
+        
+        # Extract wrapper specific arguments
+        epochs = tf_params.pop("epochs", 50)  # fast default for training neural nets
+        lr = tf_params.pop("lr", 0.001)
+        batch_size = tf_params.pop("batch_size", 32)
+        verbose = tf_params.pop("verbose", False)
+        
+        # Get dataset shape info or default
+        input_dim = tf_params.pop("input_dim", 1)
+        d_model = tf_params.pop("d_model", 32)
+        nhead = tf_params.pop("nhead", 2)
+        num_layers = tf_params.pop("num_layers", 1)
+        dim_feedforward = tf_params.pop("dim_feedforward", 64)
+        dropout = tf_params.pop("dropout", 0.1)
+        pooling = tf_params.pop("pooling", "mean")
+        predict_distribution = tf_params.pop("predict_distribution", False)
+        
+        torch.manual_seed(self.random_state)
+        raw_model = TransformerBasedRegression(
+            input_dim=input_dim,
+            d_model=d_model,
+            nhead=nhead,
+            num_layers=num_layers,
+            dim_feedforward=dim_feedforward,
+            dropout=dropout,
+            pooling=pooling,
+            predict_distribution=predict_distribution
+        )
+        
+        return ModelWrapperTransformer(
+            "Transformer",
+            raw_model,
+            epochs=epochs,
+            lr=lr,
+            batch_size=batch_size,
+            verbose=verbose
+        )
 
     def add_custom_model(self, name: str, model_instance: Any):
         """Allows adding any custom estimator that conforms to the fit/predict interface."""

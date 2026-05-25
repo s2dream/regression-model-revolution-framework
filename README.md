@@ -36,9 +36,11 @@ regression-model-revolution-framework/
 │   │
 │   ├── model/                      # 🤖 Machine Learning core subpackage
 │   │   ├── __init__.py
-│   │   ├── models.py               # ModelPool inventory repository
+│   │   ├── model_pool.py           # ModelPool inventory repository
 │   │   ├── model_executor.py       # Benchmark executors (StandardBenchmarkExecutor)
-│   │   └── wrappers.py             # Exception-shielded model wrappers (XGBoost, MLP, TabPFN, RF, CatBoost)
+│   │   ├── wrappers.py             # Exception-shielded model wrappers (XGBoost, MLP, TabPFN, RF, CatBoost, Transformer)
+│   │   └── architecture/           # Neural network model architectures
+│   │       └── transformer_encoder.py # PyTorch Transformer-based sequence regression (TransformerBasedRegression)
 │   │
 │   └── util/                       # 🛠️ Visualization & Utility subpackage
 │       ├── __init__.py

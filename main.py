@@ -17,11 +17,11 @@ from automl_framework import DataLoader, ModelPool, StandardBenchmarkExecutor, V
 def parse_arguments() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description="AutoML Framework for Advanced Tabular Regression")
-    parser.add_argument("--config", type=str, default="config.yml", help="Path to config.yml file.")
-    parser.add_argument("--dataset-path", type=str, default=None, help="Path to local dataset CSV. Overrides YAML config.")
+    parser.add_argument("--config", type=str, default="config.yml", help="Path to config.yml file.")    
     parser.add_argument("--target", type=str, default=None, help="Name of the target variable/column. Overrides YAML config.")
     parser.add_argument("--test-size", type=float, default=None, help="Proportion of the dataset to use for testing. Overrides YAML config.")
     parser.add_argument("--turn", type=int, default=1, help="Current execution turn index (used for naming reports and outputs).")
+    parser.add_argument("--dataset-path", type=str, default=None, help="Path to local dataset CSV. Overrides YAML config.")
     parser.add_argument("--kaggle-dataset", type=str, default=None, help="Optional Kaggle dataset name to download (e.g. 'user/dataset-name')")
     parser.add_argument("--url", type=str, default=None, help="Optional direct download URL (e.g. UCI dataset)")
     return parser.parse_args()
