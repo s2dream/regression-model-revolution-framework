@@ -1,6 +1,9 @@
 import os
 import pandas as pd
+import logging
 from typing import Tuple, Optional, Dict, Any
+
+logger = logging.getLogger(__name__)
 
 from automl_framework.dataloader.loaders import LocalFileDataLoader, KaggleDataLoader, URLDataLoader
 from automl_framework.dataloader.preprocessors import StandardDataPreprocessor
@@ -62,10 +65,10 @@ class DataLoaderHelper:
         X_train, y_train = splits["X_train"], splits["y_train"]
         X_test, y_test = splits["X_test"], splits["y_test"]
         
-        print(f"\n[DataLoaderHelper] Data shape summary:")
-        print(f"  - Features dimension: {X_processed.shape[1]}")
-        print(f"  - Training samples: {X_train.shape[0]}")
-        print(f"  - Testing samples:  {X_test.shape[0]}\n")
+        logger.info("Data shape summary:")
+        logger.info(f"  - Features dimension: {X_processed.shape[1]}")
+        logger.info(f"  - Training samples: {X_train.shape[0]}")
+        logger.info(f"  - Testing samples:  {X_test.shape[0]}")
         
         return X_train, y_train, X_test, y_test
 

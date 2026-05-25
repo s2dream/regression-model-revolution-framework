@@ -2,8 +2,11 @@ import numpy as np
 import pandas as pd
 from typing import Dict, Any, List, Optional
 from abc import ABC, abstractmethod
+import logging
 
 from automl_framework.model.model_pool import ModelPool
+
+logger = logging.getLogger(__name__)
 
 class ABCModelExecutor(ABC):
     """
@@ -35,12 +38,12 @@ class StandardBenchmarkExecutor(ABCModelExecutor):
     def fit_all(self, X_train: pd.DataFrame, y_train: pd.Series) -> None:
         """Fits all models in the pool on the training data."""
         for name, model_wrap in self.pool.models.items():
-            print(f"[BenchmarkExecutor] Training model: {name}...")
+            logger.info(f"Training model: {name}...")
             try:
                 model_wrap.fit(X_train, y_train)
-                print(f"[BenchmarkExecutor] Finished training: {name}")
+                logger.info(f"Finished training: {name}")
             except Exception as e:
-                print(f"[BenchmarkExecutor] ERROR training {name}: {e}")
+                logger.error(f"ERROR training {name}: {e}", exc_info=True)
 
     def evaluate_all(self, X_val: pd.DataFrame, y_val: pd.Series) -> Dict[str, Dict[str, float]]:
         """Evaluates all trained models in the pool on the given dataset."""
@@ -60,7 +63,7 @@ class StandardBenchmarkExecutor(ABCModelExecutor):
                     "R2": float(r2)
                 }
             except Exception as e:
-                print(f"[BenchmarkExecutor] ERROR evaluating {name}: {e}")
+                logger.error(f"ERROR evaluating {name}: {e}", exc_info=True)
                 
         return results
 
@@ -71,5 +74,5 @@ class StandardBenchmarkExecutor(ABCModelExecutor):
             try:
                 predictions[name] = model_wrap.predict(X)
             except Exception as e:
-                print(f"[BenchmarkExecutor] ERROR getting predictions for {name}: {e}")
+                logger.error(f"ERROR getting predictions for {name}: {e}", exc_info=True)
         return predictions

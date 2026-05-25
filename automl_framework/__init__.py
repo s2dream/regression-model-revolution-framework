@@ -5,6 +5,6 @@ Exposes core classes for standard library usage.
 
 from automl_framework.dataloader import DataLoaderHelper
 from automl_framework.model import ModelPool, StandardBenchmarkExecutor
-from automl_framework.util import Visualizer
+from automl_framework.util import Visualizer, setup_logger
 
-__all__ = ["DataLoader", "ModelPool", "StandardBenchmarkExecutor", "Visualizer"]
+__all__ = ["DataLoaderHelper", "DataLoader", "ModelPool", "StandardBenchmarkExecutor", "Visualizer", "setup_logger"]

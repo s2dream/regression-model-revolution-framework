@@ -1,7 +1,10 @@
 import os
 from typing import Tuple
 import pandas as pd
+import logging
 from automl_framework.dataloader.base import ABCDataLoader
+
+logger = logging.getLogger(__name__)
 
 class LocalFileDataLoader(ABCDataLoader):
     """
@@ -13,7 +16,7 @@ class LocalFileDataLoader(ABCDataLoader):
         self.target_column = target_column
 
     def load_data(self) -> Tuple[pd.DataFrame, pd.Series]:
-        print(f"[LocalFileDataLoader] Loading data from {self.filepath}...")
+        logger.info(f"Loading data from {self.filepath}...")
         if not os.path.exists(self.filepath):
             raise FileNotFoundError(f"File not found: {self.filepath}")
 
@@ -45,21 +48,21 @@ class KaggleDataLoader(ABCDataLoader):
         self.target_column = target_column
 
     def download_data(self) -> str:
-        print(f"[KaggleDataLoader] Attempting to download dataset '{self.dataset_name}' from Kaggle...")
+        logger.info(f"Attempting to download dataset '{self.dataset_name}' from Kaggle...")
         try:
             import kaggle
             kaggle.api.authenticate()
             target_path = os.path.join(self.data_dir, self.dataset_name.replace("/", "_"))
             os.makedirs(target_path, exist_ok=True)            
             kaggle.api.dataset_download_files(self.dataset_name, path=target_path, unzip=True)
-            print(f"[KaggleDataLoader] Successfully downloaded and extracted to {target_path}")
+            logger.info(f"Successfully downloaded and extracted to {target_path}")
             return target_path
         except ImportError:
-            print("[KaggleDataLoader] ERROR: 'kaggle' package is not installed. Please install it using 'pip install kaggle'.")
+            logger.error("'kaggle' package is not installed. Please install it using 'pip install kaggle'.")
             raise
         except Exception as e:
-            print(f"[KaggleDataLoader] ERROR: Failed to download from Kaggle: {e}")
-            print("[KaggleDataLoader] Make sure kaggle.json is configured in ~/.kaggle/ or equivalent location.")
+            logger.error(f"Failed to download from Kaggle: {e}", exc_info=True)
+            logger.error("Make sure kaggle.json is configured in ~/.kaggle/ or equivalent location.")
             raise
 
     def load_data(self) -> Tuple[pd.DataFrame, pd.Series]:
@@ -88,16 +91,16 @@ class URLDataLoader(ABCDataLoader):
         import urllib.request
         target_path = os.path.join(self.data_dir, self.filename)
         if os.path.exists(target_path):
-            print(f"[URLDataLoader] File already exists at {target_path}. Skipping download.")
+            logger.info(f"File already exists at {target_path}. Skipping download.")
             return target_path
             
-        print(f"[URLDataLoader] Downloading from {self.url} to {target_path}...")
+        logger.info(f"Downloading from {self.url} to {target_path}...")
         try:
             urllib.request.urlretrieve(self.url, target_path)
-            print("[URLDataLoader] Download complete.")
+            logger.info("Download complete.")
             return target_path
         except Exception as e:
-            print(f"[URLDataLoader] ERROR: Failed to download from URL: {e}")
+            logger.error(f"Failed to download from URL: {e}", exc_info=True)
             raise
 
     def load_data(self) -> Tuple[pd.DataFrame, pd.Series]:

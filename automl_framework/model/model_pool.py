@@ -2,6 +2,7 @@ import numpy as np
 from typing import Dict, Any, List, Optional
 import pandas as pd
 from abc import ABC, abstractmethod
+import logging
 from automl_framework.model.wrappers import (
     ABCModelWrapper,
     ModelWrapper,
@@ -11,6 +12,9 @@ from automl_framework.model.wrappers import (
     ModelWrapperRandomForest,
     ModelWrapperCatBoost,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 class ModelPool:
@@ -46,11 +50,11 @@ class ModelPool:
                 try:
                     wrapped_model = builder()
                     self.models[model_name] = wrapped_model
-                    print(f"[ModelPool] {model_name} initialized successfully from config.")
+                    logger.info(f"Model '{model_name}' initialized successfully from config.")
                 except Exception as e:
-                    print(f"[ModelPool] WARNING: {model_name} could not be initialized. {model_name} will be unavailable. Error: {e}")
+                    logger.warning(f"Model '{model_name}' could not be initialized. {model_name} will be unavailable. Error: {e}", exc_info=True)
             else:
-                print(f"[ModelPool] WARNING: Model '{model_name}' is not registered in the default builders.")
+                logger.warning(f"Model '{model_name}' is not registered in the default builders.")
 
     def _build_xgboost(self) -> ABCModelWrapper:
         from xgboost import XGBRegressor
@@ -163,7 +167,7 @@ class ModelPool:
             self.models[name] = model_instance
         else:
             self.models[name] = ModelWrapper(name, model_instance)
-        print(f"[ModelPool] Custom model '{name}' added successfully.")
+        logger.info(f"Custom model '{name}' added successfully.")
 
     def get_model(self, name: str) -> Optional[ABCModelWrapper]:
         """Retrieves a specific wrapped model from the pool."""

@@ -5,6 +5,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from typing import Dict, Any
+import logging
+
+logger = logging.getLogger(__name__)
 
 class Visualizer:
     """
@@ -65,7 +68,7 @@ class Visualizer:
         filepath = os.path.join(self.output_dir, filename)
         plt.savefig(filepath, facecolor=fig.get_facecolor(), edgecolor='none', dpi=200)
         plt.close()
-        print(f"[Visualizer] Saved Actual vs Pred plot to {filepath}")
+        logger.info(f"Saved Actual vs Pred plot to {filepath}")
         return filepath
 
     def plot_residuals(self, y_true: np.ndarray, y_pred: np.ndarray, model_name: str, turn: int = 1) -> str:
@@ -91,7 +94,7 @@ class Visualizer:
         filepath = os.path.join(self.output_dir, filename)
         plt.savefig(filepath, facecolor=fig.get_facecolor(), edgecolor='none', dpi=200)
         plt.close()
-        print(f"[Visualizer] Saved Residual plot to {filepath}")
+        logger.info(f"Saved Residual plot to {filepath}")
         return filepath
 
     def plot_model_comparison(self, metrics: Dict[str, Dict[str, float]], metric_name: str = "RMSE", turn: int = 1) -> str:
@@ -136,7 +139,7 @@ class Visualizer:
         filepath = os.path.join(self.output_dir, filename)
         plt.savefig(filepath, facecolor=fig.get_facecolor(), edgecolor='none', dpi=200)
         plt.close()
-        print(f"[Visualizer] Saved Model Comparison plot to {filepath}")
+        logger.info(f"Saved Model Comparison plot to {filepath}")
         return filepath
 
     def save_json_report(self, metrics: Dict[str, Dict[str, float]], turn: int = 1) -> str:
@@ -158,5 +161,5 @@ class Visualizer:
         with open(filepath, 'w', encoding='utf-8') as f:
             json.dump(report_data, f, indent=4, ensure_ascii=False)
             
-        print(f"[Visualizer] Saved JSON report to {filepath}")
+        logger.info(f"Saved JSON report to {filepath}")
         return filepath

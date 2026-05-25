@@ -1,7 +1,10 @@
 from typing import Dict, Any, Optional
 import pandas as pd
+import logging
 from sklearn.model_selection import train_test_split
 from automl_framework.dataloader.base import ABCDataSplitter
+
+logger = logging.getLogger(__name__)
 
 class TrainTestSplitter(ABCDataSplitter):
     """
@@ -9,7 +12,7 @@ class TrainTestSplitter(ABCDataSplitter):
     Splits features and target into train, validation (optional), and test splits.
     """
     def split(self, X: pd.DataFrame, y: pd.Series, test_size: float = 0.2, val_size: Optional[float] = None, random_state: int = 42) -> Dict[str, Any]:
-        print(f"[TrainTestSplitter] Splitting data (test_size={test_size}, val_size={val_size})...")
+        logger.info(f"Splitting data (test_size={test_size}, val_size={val_size}, random_state={random_state})...")
         
         if val_size:
             # Adjust test_size to account for the first split

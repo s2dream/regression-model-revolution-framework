@@ -2,6 +2,11 @@
 # 🚀 Antigravity AutoML Regression Framework Configuration File
 # =====================================================================
 
+# Logging Configuration Settings
+logging:
+  log_dir: "logs"
+  console_level: "INFO"
+
 # Global Framework Settings
 framework:
   random_state: 42

@@ -2,6 +2,9 @@ from abc import ABC, abstractmethod
 from typing import Any
 import pandas as pd
 import numpy as np
+import logging
+
+logger = logging.getLogger(__name__)
 
 class ABCModelWrapper(ABC):
     """
@@ -229,7 +232,7 @@ class ModelWrapperTransformer(ABCModelWrapper):
                 num_batches += 1
                 
             if self.verbose and (epoch + 1) % max(1, self.epochs // 5) == 0:
-                print(f"[ModelWrapperTransformer] Epoch {epoch+1}/{self.epochs} - Loss: {epoch_loss/num_batches:.6f}")
+                logger.info(f"Epoch {epoch+1}/{self.epochs} - Loss: {epoch_loss/num_batches:.6f}")
                 
         return self
 

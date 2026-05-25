@@ -10,9 +10,10 @@ import sys
 import argparse
 import pandas as pd
 import yaml
+import logging
 
 # Standard absolute imports from the newly package-structured automl_framework
-from automl_framework import DataLoaderHelper, ModelPool, StandardBenchmarkExecutor, Visualizer
+from automl_framework import DataLoaderHelper, ModelPool, StandardBenchmarkExecutor, Visualizer, setup_logger
 
 def parse_arguments() -> argparse.Namespace:
     """Parse command-line arguments."""
@@ -69,23 +70,24 @@ def resolve_parameters(args: argparse.Namespace, config: dict) -> dict:
 
 def train_and_evaluate(executor: StandardBenchmarkExecutor, pool: ModelPool, X_train: pd.DataFrame, y_train: pd.Series, X_test: pd.DataFrame, y_test: pd.Series) -> dict:
     """Train all models in the pool and evaluate them on testing split."""
-    print("🤖 Model Pool Training initiated...")
-    print(f"Available models to train: {pool.list_available_models()}")
+    logger = logging.getLogger("automl_framework.main")
+    logger.info("🤖 Model Pool Training initiated...")
+    logger.info(f"Available models to train: {pool.list_available_models()}")
     executor.fit_all(X_train, y_train)
     
-    print("\n📊 Evaluating trained models on testing split...")
+    logger.info("📊 Evaluating trained models on testing split...")
     metrics = executor.evaluate_all(X_test, y_test)
     
     # Print results summary in standard output
-    print("\n" + "-" * 50)
-    print(f"{'Model Name':<18} | {'RMSE':<10} | {'MAE':<10} | {'R2 Score':<10}")
-    print("-" * 50)
+    logger.info("\n" + "-" * 50)
+    logger.info(f"{'Model Name':<18} | {'RMSE':<10} | {'MAE':<10} | {'R2 Score':<10}")
+    logger.info("-" * 50)
     for model_name, score_dict in metrics.items():
-        print(f"{model_name:<18} | {score_dict['RMSE']:<10.4f} | {score_dict['MAE']:<10.4f} | {score_dict['R2']:<10.4f}")
-    print("-" * 50 + "\n")
+        logger.info(f"{model_name:<18} | {score_dict['RMSE']:<10.4f} | {score_dict['MAE']:<10.4f} | {score_dict['R2']:<10.4f}")
+    logger.info("-" * 50 + "\n")
     
     if not metrics:
-        print("[Main] ERROR: No models were successfully trained and evaluated.")
+        logger.error("ERROR: No models were successfully trained and evaluated.")
         sys.exit(1)
         
     return metrics
@@ -93,7 +95,8 @@ def train_and_evaluate(executor: StandardBenchmarkExecutor, pool: ModelPool, X_t
 
 def generate_visualizations_and_report(visualizer: Visualizer, executor: StandardBenchmarkExecutor, metrics: dict, X_test: pd.DataFrame, y_test: pd.Series, turn: int):
     """Generate premium charts, residual plots, and a structured JSON report."""
-    print("🎨 Generating premium charts & structured reports...")
+    logger = logging.getLogger("automl_framework.main")
+    logger.info("🎨 Generating premium charts & structured reports...")
     
     # Plot comparisons of R2 score
     visualizer.plot_model_comparison(metrics, metric_name="R2", turn=turn)
@@ -113,21 +116,26 @@ def generate_visualizations_and_report(visualizer: Visualizer, executor: Standar
     best_model = max(metrics.keys(), key=lambda k: metrics[k]["R2"])
     best_r2 = metrics[best_model]["R2"]
     
-    print("\n🏆 Execution Summary:")
-    print(f"  - Best Model: {best_model} with R2 Score of {best_r2:.4f}")
-    print(f"  - Report saved: {report_path}")
-    print(f"  - Visualization outputs saved in: '{visualizer.output_dir}'")
-    print("=" * 60)
+    logger.info("\n🏆 Execution Summary:")
+    logger.info(f"  - Best Model: {best_model} with R2 Score of {best_r2:.4f}")
+    logger.info(f"  - Report saved: {report_path}")
+    logger.info(f"  - Visualization outputs saved in: '{visualizer.output_dir}'")
+    logger.info("=" * 60)
 
 
 def main():
     args = parse_arguments()
     config = load_config(args.config)
-    params = resolve_parameters(args, config)
     
-    print("=" * 60)
-    print(f"🚀 AutoML Regression Framework - Turn {args.turn}")
-    print("=" * 60)
+    # Initialize logger
+    setup_logger(turn=args.turn, config=config)
+    logger = logging.getLogger("automl_framework.main")
+    
+    logger.info("=" * 60)
+    logger.info(f"🚀 AutoML Regression Framework - Turn {args.turn}")
+    logger.info("=" * 60)
+    
+    params = resolve_parameters(args, config)
     
     # Initialize framework components dynamically from configurations
     dataloader_helper = DataLoaderHelper(data_dir=params["data_dir"])
@@ -143,8 +151,7 @@ def main():
             url=args.url
         )
     except Exception as e:
-        print(f"[Main] CRITICAL ERROR fetching dataset: {e}")
-        import sys
+        logger.critical(f"CRITICAL ERROR fetching dataset: {e}", exc_info=True)
         sys.exit(1)
     
     # preprocessing datset
@@ -153,8 +160,7 @@ def main():
             dataset_file, params["target_column"], params["test_size"], params["random_state"]
         )
     except Exception as e:
-        print(f"[Main] CRITICAL ERROR loading/processing dataset: {e}")
-        import sys
+        logger.critical(f"CRITICAL ERROR loading/processing dataset: {e}", exc_info=True)
         sys.exit(1)
     
     # train and evaluate
