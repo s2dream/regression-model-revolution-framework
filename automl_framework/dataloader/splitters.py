@@ -1,10 +1,31 @@
+from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
 import pandas as pd
 import logging
 from sklearn.model_selection import train_test_split
-from automl_framework.dataloader.base import ABCDataSplitter
 
 logger = logging.getLogger(__name__)
+
+class ABCDataSplitter(ABC):
+    """
+    Abstract Base Class for Dataset Splitter strategies.
+    Responsible for partitioning datasets into train, validation (optional), and test splits.
+    """
+    @abstractmethod
+    def split(self, X: pd.DataFrame, y: pd.Series, **kwargs) -> Dict[str, Any]:
+        """
+        Splits Features (X) and Target (y) into train/validation/test datasets.
+        
+        Args:
+            X (pd.DataFrame): Preprocessed features
+            y (pd.Series): Target variable
+            **kwargs: Configuration settings (e.g. test_size, random_state)
+            
+        Returns:
+            Dict[str, Any]: Dictionary containing data splits (e.g., X_train, y_train, etc.)
+        """
+        pass
+
 
 class TrainTestSplitter(ABCDataSplitter):
     """

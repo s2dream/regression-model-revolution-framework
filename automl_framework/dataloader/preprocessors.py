@@ -1,8 +1,27 @@
+from abc import ABC, abstractmethod
 import pandas as pd
 import logging
-from automl_framework.dataloader.base import ABCDataPreprocessor
 
 logger = logging.getLogger(__name__)
+
+class ABCDataPreprocessor(ABC):
+    """
+    Abstract Base Class for Data Preprocessor strategies.
+    Responsible for handling missing values, encoding categorical variables, etc.
+    """
+    @abstractmethod
+    def preprocess(self, X: pd.DataFrame) -> pd.DataFrame:
+        """
+        Performs data preprocessing on raw features.
+        
+        Args:
+            X (pd.DataFrame): Raw features
+            
+        Returns:
+            pd.DataFrame: Preprocessed features
+        """
+        pass
+
 
 class StandardDataPreprocessor(ABCDataPreprocessor):
     """

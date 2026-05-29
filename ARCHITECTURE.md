@@ -95,10 +95,9 @@ regression-model-revolution-framework/
 │   │
 │   ├── dataloader/                 # 데이터 처리 서브패키지 (Data Domain)
 │   │   ├── __init__.py
-│   │   ├── base.py                 # 데이터 로드/전처리/분할을 위한 추상 베이스 클래스 정의
-│   │   ├── loaders.py              # 로컬 파일 로더 및 Kaggle, URL 원격 다운로더 구현체
-│   │   ├── preprocessors.py        # 결측치 보정 및 원-핫 인코딩 전처리기 구현체
-│   │   ├── splitters.py            # 학습/검증/테스트 데이터셋 분할기 구현체
+│   │   ├── loaders.py              # 데이터 로더 추상 베이스 클래스 및 로컬/원격 로더 구현체
+│   │   ├── preprocessors.py        # 전처리기 추상 베이스 클래스 및 결측치/인코딩 구현체
+│   │   ├── splitters.py            # 데이터셋 분할기 추상 베이스 클래스 및 구현체
 │   │   └── data_loader_helper.py   # 기존 규격을 호환하는 퍼사드(Facade) DataLoaderHelper 및 파이프라인 일괄 준비
 │   │
 │   ├── model/                      # 머신러닝 학습 서브패키지 (Model Domain)
@@ -157,13 +156,13 @@ regression-model-revolution-framework/
   * `fetch_dataset(dataset_path, kaggle_dataset, url)`: 로컬 파일 경로, Kaggle 데이터셋 명칭, 혹은 UCI HTTP URL을 인자로 주입받아, Ingestion 모듈을 제어하여 원격/로컬 파일을 안전하게 다운로드하고, 유효성이 검증된 로컬 절대 경로를 반환합니다.
   * `prepare_data(dataset_file, target_column, test_size, random_state)`: 데이터 로딩, 결측치 임퓨테이션 및 원-핫 인코딩 전처리, train/test 스플릿 분할 프로세스를 내부적으로 통합 오케스트레이션하여 피팅 및 평가에 최적화된 학습/테스트 분할 데이터셋을 직접 생산해 반환하는 메인 퍼사드 메소드입니다.
 * **하위 전략 클래스 구성**:
-  * **데이터 로더 (`base.ABCDataLoader`, `loaders.py`)**:
+  * **데이터 로더 (`loaders.ABCDataLoader`, `loaders.py`)**:
     * `LocalFileDataLoader`: 로컬 CSV, TSV, Parquet 포맷 데이터를 판다스 데이터프레임으로 자동 읽어 들이고 독립 변수(X)와 종속 변수(y)로 분리합니다.
     * `KaggleDataLoader`: Kaggle API를 사용하여 원격 데이터셋을 다운로드하고 압축을 해제합니다.
     * `URLDataLoader`: 외부 웹 서버(예: UCI 머신러닝 리포지토리)에서 직접 데이터셋 파일을 가져옵니다.
-  * **전처리기 (`base.ABCDataPreprocessor`, `preprocessors.py`)**:
+  * **전처리기 (`preprocessors.ABCDataPreprocessor`, `preprocessors.py`)**:
     * `StandardDataPreprocessor`: 결측치 보정(수치형은 중앙값, 범주형은 최빈값 임퓨테이션) 및 범주형 변수의 원-핫 인코딩(Dummy Encoding)을 자동으로 수행합니다.
-  * **분할기 (`base.ABCDataSplitter`, `splitters.py`)**:
+  * **분할기 (`splitters.ABCDataSplitter`, `splitters.py`)**:
     * `TrainTestSplitter`: 학습, 검증, 테스트 셋으로 데이터를 안정적으로 분할합니다.
 
 ---

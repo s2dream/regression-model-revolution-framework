@@ -1,10 +1,30 @@
 import os
+from abc import ABC, abstractmethod
 from typing import Tuple
 import pandas as pd
 import logging
-from automl_framework.dataloader.base import ABCDataLoader
 
 logger = logging.getLogger(__name__)
+
+class ABCDataLoader(ABC):
+    """
+    Abstract Base Class for DataLoader strategies.
+    Responsible for fetching/loading raw Features (X) and Target (y) from a data source.
+    """
+    def __init__(self, data_dir: str = "data"):
+        self.data_dir = data_dir
+        os.makedirs(self.data_dir, exist_ok=True)
+
+    @abstractmethod
+    def load_data(self) -> Tuple[pd.DataFrame, pd.Series]:
+        """
+        Loads and returns raw Features (X) and Target (y).
+        
+        Returns:
+            Tuple[pd.DataFrame, pd.Series]: Features (X) and Target (y)
+        """
+        pass
+
 
 class LocalFileDataLoader(ABCDataLoader):
     """
@@ -35,6 +55,16 @@ class LocalFileDataLoader(ABCDataLoader):
         X = df.drop(columns=[self.target_column])
         y = df[self.target_column]
         return X, y
+
+
+class XFielDataLoader(LocalFileDataLoader):
+    def __init__(self, filepath: str, target_column:str, data_dir:str="data"):
+        super().__init__(filepath=filepath, target_column=target_column, data_dir=data_dir)
+
+    def load_data(self):
+        loaded_X, loaded_y = super().load_data()
+        # do something for loaded_X and loaded_y
+        return loaded_X, loaded_y
 
 
 class KaggleDataLoader(ABCDataLoader):
