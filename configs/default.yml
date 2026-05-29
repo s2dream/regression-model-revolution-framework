@@ -1,5 +1,5 @@
 # =====================================================================
-# 🚀 Antigravity AutoML Regression Framework Configuration File
+# 🚀 Antigravity AutoML Regression Framework Configuration File (Default Profile)
 # =====================================================================
 
 # Logging Configuration Settings
@@ -23,7 +23,13 @@ data:
   data_dir: "data"
   output_dir: "outputs"
   target_column: "Target_Y"
-  url_downlaod_file: ""
+  feature_columns: null   # List of columns to load as features (or null for all non-target columns)
+  split:
+    method: "train_test_split"  # Options: "train_test_split", "kfold", "timeseries"
+    test_size: 0.2
+    val_size: null
+    n_splits: 5
+    shuffle: true
 
 # Model Hyperparameters Configuration
 models:

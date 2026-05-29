@@ -17,7 +17,11 @@ A clean, modular design separating the orchestration layer from the internal pac
 regression-model-revolution-framework/
 │
 ├── main.py                         # 🌟 Central CLI pipeline orchestrator (Facade imports)
-├── config.yml                      # ⚙️ Central YAML Configuration (Zero-code switches)
+├── configs/                        # ⚙️ Config profiles (experiment with diverse settings)
+│   ├── default.yml                 # Default AutoML configuration profile
+│   ├── kfold_split.yml             # K-Fold split configuration profile
+│   ├── timeseries_split.yml        # Time-Series split configuration profile
+│   └── custom_features.yml         # Custom feature columns selection profile
 ├── ARCHITECTURE.md                 # System modules & execution flow specs
 ├── REQ_SPEC.md                     # Requirements and functional specifications
 ├── requirements.txt                # Core packages required
@@ -28,10 +32,9 @@ regression-model-revolution-framework/
 │   │
 │   ├── dataloader/                 # 📥 Data Ingestion domain subpackage (Facade & strategies)
 │   │   ├── __init__.py
-│   │   ├── base.py                 # Abstract base classes for loaders/preprocessors/splitters
-│   │   ├── loaders.py              # Modular loaders (Local, Kaggle, URL)
-│   │   ├── preprocessors.py        # Imputation & encoding preprocessors
-│   │   ├── splitters.py            # Dataset split strategy
+│   │   ├── loaders.py              # Modular loaders & abstract base class ABCDataLoader
+│   │   ├── preprocessors.py        # Imputation, encoding & ABCDataPreprocessor
+│   │   ├── splitters.py            # Dataset split strategy & ABCDataSplitter
 │   │   └── data_loader_helper.py   # DataLoaderHelper Facade and pipeline orchestrator
 │   │
 │   ├── model/                      # 🤖 Machine Learning core subpackage
@@ -92,23 +95,49 @@ python main.py --url "https://archive.ics.uci.edu/ml/machine-learning-databases/
 
 ---
 
-## ⚙️ Configuration File (`config.yml`)
+## ⚙️ Configuration Profile Directory (`configs/`)
 
-The framework is entirely governed by `config.yml` located at the root. You can tune active models, data pathways, and model-specific hyperparameters **without modifying a single line of python code**!
+The framework supports dynamic, profile-driven configurations located inside the `configs/` directory. You can tune active models, custom feature subsets, data splitting strategies (`train_test_split`, `kfold`, `timeseries`), and model-specific hyperparameters **without modifying a single line of Python code**!
 
-### Example Settings
+To execute using a specific profile, pass the `--config` parameter:
+```bash
+# Run with default settings (train_test_split)
+python main.py --config configs/default.yml --dataset-path data/synthetic_regression.csv
+
+# Run with K-Fold cross validation split strategy
+python main.py --config configs/kfold_split.yml --dataset-path data/synthetic_regression.csv
+
+# Run with sequential Time-Series split strategy
+python main.py --config configs/timeseries_split.yml --dataset-path data/synthetic_regression.csv
+
+# Run extracting only a designated custom features subset
+python main.py --config configs/custom_features.yml --dataset-path data/synthetic_regression.csv
+```
+
+### Example Settings (`configs/default.yml`)
 
 ```yaml
 # Global Framework Settings
 framework:
   random_state: 42
-  test_size: 0.2
   active_models:
     - XGBoost
     - MLP
     - TabPFN
     - RandomForest
     - CatBoost
+
+# Data Pipeline Settings (Target/Features & Split selection)
+data:
+  data_dir: "data"
+  output_dir: "outputs"
+  target_column: "Target_Y"
+  feature_columns: null   # e.g., ["Feature_Num", "Feature_Cat"]
+  split:
+    method: "train_test_split"  # Options: "train_test_split", "kfold", "timeseries"
+    test_size: 0.2
+    n_splits: 5
+    shuffle: true
 
 # Model Hyperparameters
 models:
@@ -120,15 +149,11 @@ models:
     hidden_layer_sizes: [128, 64]
     activation: "relu"
     max_iter: 500
-  CatBoost:
-    iterations: 100
-    learning_rate: 0.1
-    depth: 6
 ```
 
-### Command Precedence:
-- Arguments specified directly on the command line (like `--test-size 0.3` or `--target target_col`) will seamlessly **override** their counterpart values inside `config.yml`.
-- A resilient fallback is programmed: if `config.yml` is missing or corrupted, the system continues running automatically using robust default configurations.
+### Command Precedence & Fallbacks:
+- Arguments specified directly on the command line (like `--test-size 0.3` or `--target target_col`) will seamlessly **override** their counterpart values inside configuration files.
+- A resilient fallback is programmed: if a configuration file is missing or corrupted, the system continues running automatically using robust default configurations.
 
 ---
 

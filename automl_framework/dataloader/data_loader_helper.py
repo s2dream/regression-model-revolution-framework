@@ -7,17 +7,29 @@ logger = logging.getLogger(__name__)
 
 from automl_framework.dataloader.loaders import LocalFileDataLoader, KaggleDataLoader, URLDataLoader
 from automl_framework.dataloader.preprocessors import StandardDataPreprocessor
-from automl_framework.dataloader.splitters import TrainTestSplitter
+from automl_framework.dataloader.splitters import TrainTestSplitter, KFoldSplitter, TimeSeriesSplitter
 
 class DataLoaderHelper:
     """
     DataLoader facade class. Maintains backwards compatibility with the original DataLoader interface,
     delegating logic under-the-hood to modular strategy classes.
     """
-    def __init__(self, data_dir: str = "data"):
+    def __init__(self, data_dir: str = "data", config: Optional[Dict[str, Any]] = None):
         self.data_dir = data_dir
+        self.config = config or {}
+        self.feature_columns = self.config.get("data", {}).get("feature_columns", None)
         self.preprocessor = StandardDataPreprocessor()
-        self.splitter = TrainTestSplitter()
+        self.splitter = self._resolve_splitter()
+
+    def _resolve_splitter(self):
+        split_config = self.config.get("data", {}).get("split", {})
+        method = split_config.get("method", "train_test_split").lower()
+        if method == "kfold":
+            return KFoldSplitter()
+        elif method == "timeseries":
+            return TimeSeriesSplitter()
+        else:
+            return TrainTestSplitter()
 
     def download_from_kaggle(self, dataset_name: str) -> str:
         """
@@ -38,7 +50,7 @@ class DataLoaderHelper:
         """
         Loads dataset using LocalFileDataLoader.
         """
-        loader = LocalFileDataLoader(filepath=filepath, target_column=target_column, data_dir=self.data_dir)
+        loader = LocalFileDataLoader(filepath=filepath, target_column=target_column, feature_columns=self.feature_columns, data_dir=self.data_dir)
         return loader.load_data()
 
     def preprocess_data(self, X: pd.DataFrame) -> pd.DataFrame:
@@ -53,15 +65,24 @@ class DataLoaderHelper:
         """
         return self.splitter.split(X, y, test_size=test_size, val_size=val_size, random_state=random_state)
 
-    def prepare_data(self, dataset_file: str, target_column: str, test_size: float, random_state: int) -> Tuple[pd.DataFrame, pd.Series, pd.DataFrame, pd.Series]:
+    def prepare_data(self, dataset_file: str, target_column: str, test_size: Optional[float] = None, random_state: int = 42) -> Tuple[pd.DataFrame, pd.Series, pd.DataFrame, pd.Series]:
         """
         Load, preprocess, and split dataset into train and test sets.
         """
         X, y = self.load_dataset(dataset_file, target_column=target_column)
         X_processed = self.preprocess_data(X)
         
-        # Split Data
-        splits = self.split_data(X_processed, y, test_size=test_size, random_state=random_state)
+        # Split Data (read dynamically from config split block)
+        split_config = self.config.get("data", {}).get("split", {})
+        split_kwargs = {
+            "test_size": test_size if test_size is not None else split_config.get("test_size", 0.2),
+            "val_size": split_config.get("val_size", None),
+            "n_splits": split_config.get("n_splits", 5),
+            "shuffle": split_config.get("shuffle", True),
+            "random_state": random_state
+        }
+        
+        splits = self.splitter.split(X_processed, y, **split_kwargs)
         X_train, y_train = splits["X_train"], splits["y_train"]
         X_test, y_test = splits["X_test"], splits["y_test"]
         

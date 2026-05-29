@@ -88,7 +88,11 @@
 regression-model-revolution-framework/
 │
 ├── main.py                         # 프로젝트 전체 실행 진입점 (CLI Orchestrator)
-├── config.yml                      # 🌟 중앙 설정 파일 (활성 모델 및 하이퍼파라미터 일괄 제어)
+├── configs/                        # 📂 설정 프로파일 보관소 (다양한 실험을 위한 YAML 구성 파일들)
+│   ├── default.yml                 # 기본 설정 프로파일 (기존 config.yml 이관)
+│   ├── kfold_split.yml             # 교차 검증(K-Fold Split) 실험 설정 프로파일
+│   ├── timeseries_split.yml        # 시계열 분할(TimeSeries Split) 실험 설정 프로파일
+│   └── custom_features.yml         # 커스텀 피처 변수 지정 실험 설정 프로파일
 │
 ├── automl_framework/               # 프레임워크 메인 패키지
 │   ├── __init__.py                 # 패키지 파사드 진입점 (DataLoaderHelper, ModelPool, Visualizer, Executor 외부 노출)
@@ -164,6 +168,8 @@ regression-model-revolution-framework/
     * `StandardDataPreprocessor`: 결측치 보정(수치형은 중앙값, 범주형은 최빈값 임퓨테이션) 및 범주형 변수의 원-핫 인코딩(Dummy Encoding)을 자동으로 수행합니다.
   * **분할기 (`splitters.ABCDataSplitter`, `splitters.py`)**:
     * `TrainTestSplitter`: 학습, 검증, 테스트 셋으로 데이터를 안정적으로 분할합니다.
+    * `KFoldSplitter`: K-Fold 교차 검증을 지원하며, AutoML 벤치마크 규격에 맞게 분할 데이터를 안정적으로 반환합니다.
+    * `TimeSeriesSplitter`: 시간 순서에 근거한 시계열 데이터셋 분할(TimeSeriesSplit)을 지원합니다.
 
 ---
 

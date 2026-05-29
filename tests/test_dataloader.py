@@ -6,7 +6,10 @@ from automl_framework.dataloader import (
     DataLoaderHelper,
     LocalFileDataLoader,
     StandardDataPreprocessor,
-    TrainTestSplitter
+    NoOpDataPreprocessor,
+    TrainTestSplitter,
+    KFoldSplitter,
+    TimeSeriesSplitter
 )
 
 @pytest.fixture
@@ -117,4 +120,151 @@ def test_data_loader_helper_fetch_and_prepare(dummy_csv_path):
     assert X_train.shape[1] == 2
     assert X_train.shape[0] == 4
     assert X_test.shape[0] == 1
+
+
+def test_local_file_data_loader_custom_features(dummy_csv_path):
+    """Test LocalFileDataLoader for correctly picking custom feature columns and raising errors on missing ones."""
+    # Test valid selection
+    loader = LocalFileDataLoader(filepath=dummy_csv_path, target_column="Target_Y", feature_columns=["Feature_Num"])
+    X, y = loader.load_data()
+    assert X.shape == (5, 1)
+    assert list(X.columns) == ["Feature_Num"]
+    
+    # Test invalid selection (raises ValueError)
+    loader_invalid = LocalFileDataLoader(filepath=dummy_csv_path, target_column="Target_Y", feature_columns=["Non_Existent"])
+    with pytest.raises(ValueError, match="Specified feature columns .* not found"):
+        loader_invalid.load_data()
+
+
+def test_kfold_splitter():
+    """Test KFoldSplitter partitions and compatibility."""
+    X = pd.DataFrame({"Feature": np.arange(10)})
+    y = pd.Series(np.arange(10))
+    
+    splitter = KFoldSplitter()
+    splits = splitter.split(X, y, n_splits=5, shuffle=True, random_state=42)
+    
+    assert "X_train" in splits
+    assert "X_test" in splits
+    assert splits["X_train"].shape == (8, 1)
+    assert splits["X_test"].shape == (2, 1)
+
+
+def test_timeseries_splitter():
+    """Test TimeSeriesSplitter sequential behavior."""
+    X = pd.DataFrame({"Feature": np.arange(10)})
+    y = pd.Series(np.arange(10))
+    
+    splitter = TimeSeriesSplitter()
+    splits = splitter.split(X, y, n_splits=5)
+    
+    assert "X_train" in splits
+    assert "X_test" in splits
+    # For 10 samples and 5 splits: TimeSeriesSplit(n_splits=5) last split has
+    # train size = 9, test size = 1 (standard TimeSeriesSplit index splits)
+    assert splits["X_train"].shape == (9, 1)
+    assert splits["X_test"].shape == (1, 1)
+
+
+def test_dataloader_helper_dynamic_split(dummy_csv_path):
+    """Test DataLoaderHelper successfully resolves configuration for custom features and splitting strategies."""
+    # Custom config for KFold & specific feature column
+    config = {
+        "data": {
+            "feature_columns": ["Feature_Num"],
+            "split": {
+                "method": "kfold",
+                "n_splits": 5,
+                "shuffle": True
+            }
+        }
+    }
+    
+    helper = DataLoaderHelper(config=config)
+    X_train, y_train, X_test, y_test = helper.prepare_data(
+        dataset_file=dummy_csv_path,
+        target_column="Target_Y",
+        random_state=42
+    )
+    
+    # Feature columns should only be "Feature_Num" (1 column)
+    assert X_train.shape[1] == 1
+    assert "Feature_Num" in X_train.columns
+    assert "Feature_Cat" not in X_train.columns
+    
+    # Check KFold splitter resolution
+    assert isinstance(helper.splitter, KFoldSplitter)
+    assert X_train.shape[0] == 4  # 4 out of 5 samples for training in first fold
+    assert X_test.shape[0] == 1   # 1 out of 5 samples for test
+
+
+def test_data_preprocessor_noop():
+    """Test NoOpDataPreprocessor to ensure it does not modify features in any way."""
+    df_raw = pd.DataFrame({
+        "Num_Col": [1.0, np.nan, 3.0],
+        "Cat_Col": ["A", "B", np.nan]
+    })
+    preprocessor = NoOpDataPreprocessor()
+    df_proc = preprocessor.preprocess(df_raw)
+    
+    # Assert data is completely identical (including NaNs)
+    pd.testing.assert_frame_equal(df_raw, df_proc)
+
+
+def test_resolve_parameters_cli_overrides():
+    """Test resolve_parameters in main.py correctly prioritizes CLI overrides over YAML settings."""
+    from main import resolve_parameters
+    
+    # Mock CLI arguments
+    class MockArgs:
+        test_size = 0.35
+        target = "CLI_Target"
+        dataset_path = None
+        kaggle_dataset = None
+        url = None
+        
+    mock_args = MockArgs()
+    
+    # Mock YAML config loaded settings
+    mock_config = {
+        "framework": {
+            "random_state": 99,
+            "test_size": 0.15
+        },
+        "data": {
+            "target_column": "YAML_Target",
+            "data_dir": "yaml_data_dir",
+            "output_dir": "yaml_output_dir"
+        }
+    }
+    
+    resolved = resolve_parameters(mock_args, mock_config)
+    
+    # CLI arguments must override YAML configurations
+    assert resolved["test_size"] == 0.35
+    assert resolved["target_column"] == "CLI_Target"
+    
+    # Config values should carry over when not overridden by CLI
+    assert resolved["random_state"] == 99
+    assert resolved["data_dir"] == "yaml_data_dir"
+    assert resolved["output_dir"] == "yaml_output_dir"
+
+
+def test_load_config_fallback(tmp_path):
+    """Test load_config in main.py safely handles missing or corrupted configuration files."""
+    from main import load_config
+    
+    # 1. Test missing file fallback
+    resolved_missing = load_config("configs/non_existent_file.yml")
+    assert resolved_missing == {}
+    
+    # 2. Test corrupted/invalid YAML file fallback
+    corrupt_file = tmp_path / "corrupt_config.yml"
+    with open(corrupt_file, "w") as f:
+        f.write("framework:\n  random_state: [unbalanced brackets")
+        
+    resolved_corrupted = load_config(str(corrupt_file))
+    assert resolved_corrupted == {}
+
+
 

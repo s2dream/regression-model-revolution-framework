@@ -32,7 +32,7 @@ class TrainTestSplitter(ABCDataSplitter):
     Concrete Dataset Splitter strategy.
     Splits features and target into train, validation (optional), and test splits.
     """
-    def split(self, X: pd.DataFrame, y: pd.Series, test_size: float = 0.2, val_size: Optional[float] = None, random_state: int = 42) -> Dict[str, Any]:
+    def split(self, X: pd.DataFrame, y: pd.Series, test_size: float = 0.2, val_size: Optional[float] = None, random_state: int = 42, **kwargs) -> Dict[str, Any]:
         logger.info(f"Splitting data (test_size={test_size}, val_size={val_size}, random_state={random_state})...")
         
         if val_size:
@@ -61,3 +61,43 @@ class TrainTestSplitter(ABCDataSplitter):
                 "X_train": X_train, "y_train": y_train,
                 "X_test": X_test, "y_test": y_test
             }
+
+
+class KFoldSplitter(ABCDataSplitter):
+    """
+    Concrete Dataset Splitter strategy for KFold Cross Validation.
+    Supports single fold extraction for direct training compatibility.
+    """
+    def split(self, X: pd.DataFrame, y: pd.Series, n_splits: int = 5, shuffle: bool = True, random_state: int = 42, **kwargs) -> Dict[str, Any]:
+        logger.info(f"Splitting data using KFold (n_splits={n_splits}, shuffle={shuffle}, random_state={random_state})...")
+        from sklearn.model_selection import KFold
+        kf = KFold(n_splits=n_splits, shuffle=shuffle, random_state=random_state)
+        # Extract the first fold to comply with train/test signature requirements
+        train_idx, test_idx = next(kf.split(X, y))
+        return {
+            "X_train": X.iloc[train_idx],
+            "y_train": y.iloc[train_idx],
+            "X_test": X.iloc[test_idx],
+            "y_test": y.iloc[test_idx]
+        }
+
+
+class TimeSeriesSplitter(ABCDataSplitter):
+    """
+    Concrete Dataset Splitter strategy for TimeSeriesSplit.
+    Ideal for sequential or time-series regression datasets.
+    """
+    def split(self, X: pd.DataFrame, y: pd.Series, n_splits: int = 5, **kwargs) -> Dict[str, Any]:
+        logger.info(f"Splitting data using TimeSeriesSplit (n_splits={n_splits})...")
+        from sklearn.model_selection import TimeSeriesSplit
+        tscv = TimeSeriesSplit(n_splits=n_splits)
+        # Extract the last fold (the most recent historical train and subsequent test split)
+        folds = list(tscv.split(X, y))
+        train_idx, test_idx = folds[-1]
+        return {
+            "X_train": X.iloc[train_idx],
+            "y_train": y.iloc[train_idx],
+            "X_test": X.iloc[test_idx],
+            "y_test": y.iloc[test_idx]
+        }
+

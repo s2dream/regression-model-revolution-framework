@@ -1,6 +1,6 @@
 from .loaders import ABCDataLoader, LocalFileDataLoader, KaggleDataLoader, URLDataLoader
 from .preprocessors import ABCDataPreprocessor, StandardDataPreprocessor, NoOpDataPreprocessor
-from .splitters import ABCDataSplitter, TrainTestSplitter
+from .splitters import ABCDataSplitter, TrainTestSplitter, KFoldSplitter, TimeSeriesSplitter
 from .data_loader_helper import DataLoaderHelper
 
 __all__ = [
@@ -13,5 +13,7 @@ __all__ = [
     "StandardDataPreprocessor",
     "NoOpDataPreprocessor",
     "TrainTestSplitter",
+    "KFoldSplitter",
+    "TimeSeriesSplitter",
     "DataLoaderHelper",
 ]

@@ -18,7 +18,7 @@ from automl_framework import DataLoaderHelper, ModelPool, StandardBenchmarkExecu
 def parse_arguments() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description="AutoML Framework for Advanced Tabular Regression")
-    parser.add_argument("--config", type=str, default="config.yml", help="Path to config.yml file.")    
+    parser.add_argument("--config", type=str, default="configs/default.yml", help="Path to config profile YAML.")    
     parser.add_argument("--target", type=str, default=None, help="Name of the target variable/column. Overrides YAML config.")
     parser.add_argument("--test-size", type=float, default=None, help="Proportion of the dataset to use for testing. Overrides YAML config.")
     parser.add_argument("--turn", type=int, default=1, help="Current execution turn index (used for naming reports and outputs).")
@@ -138,7 +138,7 @@ def main():
     params = resolve_parameters(args, config)
     
     # Initialize framework components dynamically from configurations
-    dataloader_helper = DataLoaderHelper(data_dir=params["data_dir"])
+    dataloader_helper = DataLoaderHelper(data_dir=params["data_dir"], config=config)
     pool = ModelPool(random_state=params["random_state"], config=config)
     executor = StandardBenchmarkExecutor(pool)
     visualizer = Visualizer(output_dir=params["output_dir"])
