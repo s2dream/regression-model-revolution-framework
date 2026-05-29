@@ -51,7 +51,7 @@
 * **REQ-CF-02: 활성 모델 동적 리스트화 및 보정 (Active Models)**
   - **설명**: YAML 내 `framework.active_models` 목록에 명시된 모델들만 필터링하여 풀(`ModelPool`)에 동적으로 초기화 및 적재하여, 불필요한 모델의 로딩과 메모리 낭비를 제어합니다.
 * **REQ-CF-03: CLI 인수 우선순위 보장 및 견고한 예외 안전망 (Precedence & Fallback)**
-  - **설명**: 셸 상에서 인가된 실행 인수(예: `--target`, `--test-size`, `--config`)가 있다면, 불러온 YAML 설정 파일의 수치를 우선하여 덮어써서(Override) 적용해야 합니다.
+  - **설명**: 셸 상에서 인가된 실행 인수(예: `--target`, `--test-size`, `--config`)가 있다면, 불러온 YAML 설정 파일의 수치를 우선하여 덮어써서(Override) 적용해야 합니다. 이 인수 오버라이드 및 정책 조합 처리는 `AutoMLPipeline` 클래스의 생성자(`__init__`) 레벨에서 일괄 캡슐화되어 조율되고 유효성이 검증되어야 합니다.
   - **Fallback**: 설정 파일이 유실되었거나 형식이 깨졌을 때에도 크래시를 뿜으며 종료되지 않고, 내부의 견고한 디폴트 딕셔너리 설정을 로드하여 파이프라인 정상 구동을 유지해야 합니다.
 
 ### 3.2 데이터 로드 및 수집 (DataLoader - Data Fetching & Loading)
@@ -124,19 +124,13 @@
                └───────────────┬───────────────┘
                                │ 설정 로드 및 인수 오버라이드
                                ▼
-[1. CLI Entry]  ─────> [2. Data Ingestion] ─────> [3. Data Preprocessor] ─────> [4. Data Splitting]
-   (main.py)       (DataLoader Facade ->        (DataLoader Facade ->        (DataLoader Facade ->
-                    Kaggle/URL/Local loader)     StandardDataPreprocessor)    TrainTest/KFold/TS splitter)
-                                                                                       │
-                                                                                       ▼
-[8. Champion Select] <── [7. Premium Charts] <─── [6. Evaluation Metrics] <─── [5. Model Executor Fit]
-   (outputs/JSON)         (util.Visualizer)       (model_executor.             (model_executor.
-                                                   StandardBenchmarkExecutor)   StandardBenchmarkExecutor)
-                                                                                       │
-                                                                                       ▼
-                                                                              [ModelPool Inventory]
-                                                                                (XGBoost, MLP, RF,
-                                                                                 TabPFN, CatBoost)
+[1. CLI & AutoMLPipeline] ──> [2. Ingestion/Prep/Split] ──> [3. Fit & Evaluation] ──> [4. Premium Visuals & Reports]
+     (main.py)              (pipeline.prepare_data())   (pipeline.train_and_evaluate())   (pipeline.generate_reports())
+                                                                      │
+                                                                      ▼
+                                                             [ModelPool Inventory]
+                                                               (XGBoost, MLP, RF,
+                                                                TabPFN, CatBoost)
 ```
 
 1. **config.yml 로드**: 프로그램 부팅과 함께 `configs/` 내부의 설정 프로파일(기본 configs/default.yml) 파일을 우선 읽어 들이고 셸 환경 인수로 보정하여 정책을 정의합니다.

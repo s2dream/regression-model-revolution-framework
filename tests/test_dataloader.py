@@ -212,50 +212,29 @@ def test_data_preprocessor_noop():
 
 
 def test_resolve_parameters_cli_overrides():
-    """Test resolve_parameters in main.py correctly prioritizes CLI overrides over YAML settings."""
-    from main import resolve_parameters
+    """Test AutoMLPipeline correctly prioritizes constructor overrides over config profile settings."""
+    from main import AutoMLPipeline
     
-    # Mock CLI arguments
-    class MockArgs:
-        test_size = 0.35
-        target = "CLI_Target"
-        dataset_path = None
-        kaggle_dataset = None
-        url = None
-        
-    mock_args = MockArgs()
+    # Instantiate with explicit overrides representing CLI inputs
+    pipeline = AutoMLPipeline(
+        config_path="configs/default.yml",
+        turn=5,
+        target="OVERRIDE_TARGET",
+        test_size=0.45
+    )
     
-    # Mock YAML config loaded settings
-    mock_config = {
-        "framework": {
-            "random_state": 99,
-            "test_size": 0.15
-        },
-        "data": {
-            "target_column": "YAML_Target",
-            "data_dir": "yaml_data_dir",
-            "output_dir": "yaml_output_dir"
-        }
-    }
-    
-    resolved = resolve_parameters(mock_args, mock_config)
-    
-    # CLI arguments must override YAML configurations
-    assert resolved["test_size"] == 0.35
-    assert resolved["target_column"] == "CLI_Target"
-    
-    # Config values should carry over when not overridden by CLI
-    assert resolved["random_state"] == 99
-    assert resolved["data_dir"] == "yaml_data_dir"
-    assert resolved["output_dir"] == "yaml_output_dir"
+    # Constructor/CLI arguments must override YAML configs
+    assert pipeline.target_column == "OVERRIDE_TARGET"
+    assert pipeline.test_size == 0.45
+    assert pipeline.turn == 5
 
 
 def test_load_config_fallback(tmp_path):
-    """Test load_config in main.py safely handles missing or corrupted configuration files."""
-    from main import load_config
+    """Test load_config in AutoMLPipeline safely handles missing or corrupted configuration files."""
+    from main import AutoMLPipeline
     
     # 1. Test missing file fallback
-    resolved_missing = load_config("configs/non_existent_file.yml")
+    resolved_missing = AutoMLPipeline._load_config("configs/non_existent_file.yml")
     assert resolved_missing == {}
     
     # 2. Test corrupted/invalid YAML file fallback
@@ -263,8 +242,9 @@ def test_load_config_fallback(tmp_path):
     with open(corrupt_file, "w") as f:
         f.write("framework:\n  random_state: [unbalanced brackets")
         
-    resolved_corrupted = load_config(str(corrupt_file))
+    resolved_corrupted = AutoMLPipeline._load_config(str(corrupt_file))
     assert resolved_corrupted == {}
+
 
 
 

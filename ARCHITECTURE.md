@@ -17,6 +17,12 @@
                     ┌───────────────────────────────┐
                     │     CLI / User Entry Point    │
                     │         (root/main.py)        │
+                    └───────────────┬───────────────┘
+                                    │ Instantiates & Runs
+                                    ▼
+                    ┌───────────────────────────────┐
+                    │        AutoMLPipeline         │
+                    │   (Orchestrator inside main)  │
                     └──────┬────────┬────────────┬──┘
                            │        │            │
               ① Load &     │        │ ② Fit &    │ ③ Metrics & Predictions
@@ -137,19 +143,21 @@ regression-model-revolution-framework/
 
 프레임워크는 각 역할에 따라 단일 책임 원칙(Single Responsibility Principle)을 준수하는 모듈들로 설계되었습니다.
 
-### A. CLI 및 전체 설정 제어: 루트 `main.py` 및 `config.yml`
-* **역할**: 설정 파일을 파싱하여 전체 AutoML 프로세스를 제어하는 중앙 조율 장치입니다.
-* **세분화된 오케스트레이션 함수**:
-  - **`parse_arguments() -> argparse.Namespace`**: CLI 명령줄 인수(`--config`, `--target`, `--test-size`, `--turn`, `--dataset-path`, `--kaggle-dataset`, `--url`)를 안전하게 파싱합니다.
-  - **`load_config(config_path: str) -> dict`**: 지정된 경로의 `config.yml` 파일을 파싱하여 딕셔너리로 반환하며, 유실/오류 시 빈 딕셔너리를 반환하는 안전망을 포함합니다.
-  - **`resolve_parameters(args: argparse.Namespace, config: dict) -> dict`**: CLI 인자와 YAML 설정 간의 우선순위를 조율하여 최종 정책을 결정합니다 (CLI 인수 우선 덮어쓰기 및 Fallback 설정 보장).
-  - **`train_and_evaluate(executor: StandardBenchmarkExecutor, pool: ModelPool, X_train, y_train, X_test, y_test) -> dict`**: `StandardBenchmarkExecutor`를 제어해 `ModelPool` 내 가용한 활성 모델들을 훈련시키고(`fit_all`), 테스트셋 평가 메트릭(`RMSE`, `MAE`, `R2`)을 안전하게 일괄 계산해 집계합니다.
-  - **`generate_visualizations_and_report(visualizer: Visualizer, executor: StandardBenchmarkExecutor, metrics: dict, X_test, y_test, turn: int)`**: 프리미엄 차트 생성, 잔차 오차 산포도 플롯, 성능 비교 차트 생성, 챔피언 모델 검출 및 회차별 구조화 실행 JSON 리포트 저장 프로세스를 일괄 제어합니다.
-  - **`main()`**: 전체 AutoML 실행 라이프사이클에 걸쳐 컴포넌트들을 유기적으로 배치하고 라이프사이클 흐름을 총괄 조율하는 메인 콘트롤러 인터페이스입니다.
-* **동작 분기**:
-  - `config.yml` 설정 파일이 로드되면 `framework.random_state`, `framework.test_size`, `framework.active_models` 등의 정책이 반영됩니다.
-  - 사용자가 CLI 인자(예: `--target`, `--test-size`)를 제공하면 YAML 파일의 속성을 덮어씌워 우선 반영합니다.
-  - 설정 파일이 존재하지 않는 극단적인 경우에는 견고한 Fallback 코드가 구동되어 정상 실행을 유지합니다.
+### A. CLI 및 전체 설정 제어: 루트 `main.py` 및 `configs/`
+* **역할**: CLI 명령줄 인수를 안전하게 처리하고, 전체 AutoML 프로세스를 단일 클래스로 캡슐화하여 일괄 제어하는 오케스트레이션 엔진입니다.
+* **`AutoMLPipeline` 클래스 핵심 메서드**:
+  - **`__init__(config_path, turn, target, test_size)`**: 셸 및 CLI 오버라이드 인수(target, test_size)와 YAML 프로파일 설정을 조율하여 `DataLoaderHelper`, `ModelPool`, `StandardBenchmarkExecutor`, `Visualizer` 컴포넌트들을 통일화되어 초기화하고 실행 상태들을 멤버 변수로 관리합니다.
+  - **`_load_config(config_path) -> dict` [Static]**: 지정된 YAML 파일을 로드하며, 부재 시 빈 딕셔너리로 안전 우회하는 예외 안전망을 가집니다.
+  - **`prepare_data(dataset_path, kaggle_dataset, url)`**: Ingestion 모듈을 제어해 로컬/원격 파일을 준비하고 전처리 및 스플리팅을 거쳐 학습/테스트 변수 상태를 갱신합니다.
+  - **`train_and_evaluate() -> dict`**: 활성 모델 전체에 대한 훈련을 일괄 위임하고 테스트 평가 메트릭(RMSE, MAE, R2)을 사전 형태로 저장합니다.
+  - **`generate_reports()`**: 프리미엄 시각화 플롯 차트 생성, 잔차 오차 산포도 렌더링, 성능비교 바 플롯 작성 및 최적 챔피언 결과 JSON 레포트 아카이빙을 총괄 실행합니다.
+  - **`run(...)`**: 위의 데이터 로딩, 학습, 레포팅을 단 한 줄로 순차 오케스트레이션하여 일괄 처리하는 마스터 인터페이스입니다.
+* **독립 도우미 및 진입 함수**:
+  - **`parse_arguments() -> argparse.Namespace`**: CLI 명령줄 전용 인수를 안전하게 파싱합니다.
+  - **`main()`**: CLI 사용 목적의 셸 진입 래퍼로, `AutoMLPipeline`을 생성한 뒤 `pipeline.run(...)`을 안전 예외 블록 내에서 1회 호출해 구동시킵니다.
+* **동작 분기 및 이점**:
+  - 설정 파일들이 `configs/` 디렉토리에 실험 목적에 따라 보관되어 있으며, `--config configs/kfold_split.yml` 등의 지정만으로 코딩 없이 파이프라인 제어 정책이 적용됩니다.
+  - 객체화로 인해 다른 파이선 모듈이나 대시보드 애플리케이션에서도 `from main import AutoMLPipeline`을 통해 손쉽게 라이브러리로써 호출해 구동할 수 있습니다.
 
 ---
 
@@ -220,15 +228,15 @@ regression-model-revolution-framework/
 AutoML 프레임워크의 실행 흐름은 설정 파일 로딩부터 시작해 순차적으로 아래 단계들을 거칩니다:
 
 ```text
-[0. config.yml 로드]
+[0. configs/*.yml 로드]
          │
          ▼
-[1. CLI 실행]  ──> [2. 데이터 수집/로드]  ──> [3. 결측치 보정/인코딩]  ──> [4. 데이터 분할]
-   (main.py)    (dataloader.DataLoaderHelper) (dataloader.DataLoaderHelper) (dataloader.DataLoaderHelper)
-                                                                               │
-                                                                               ▼
+[1. CLI 실행 & AutoMLPipeline 생성] ──> [2. 데이터 수집/로드] ──> [3. 결측치 보정/인코딩] ──> [4. 데이터 분할]
+     (main.py)                      (pipeline.prepare_data)   (pipeline.prepare_data)   (pipeline.prepare_data)
+                                                                                                   │
+                                                                                                   ▼
 [8. 분석 결과 확인] <── [7. 프리미엄 차트 생성] <── [6. 성능 메트릭 평가] <── [5. 모델 일괄 학습]
-   (outputs/)        (util.Visualizer)       (model.BenchmarkExecutor)(model.BenchmarkExecutor)
+    (outputs/)       (pipeline.generate_reports) (pipeline.train_and_evaluate)(pipeline.train_and_evaluate)
 ```
 
 ---
