@@ -65,7 +65,7 @@ class DataLoaderHelper:
         """
         return self.splitter.split(X, y, test_size=test_size, val_size=val_size, random_state=random_state)
 
-    def prepare_data(self, dataset_file: str, target_column: str, test_size: Optional[float] = None, random_state: int = 42) -> Tuple[pd.DataFrame, pd.Series, pd.DataFrame, pd.Series]:
+    def load_and_preprocess_data(self, dataset_file: str, target_column: str, test_size: Optional[float] = None, random_state: int = 42) -> Tuple[pd.DataFrame, pd.Series, pd.DataFrame, pd.Series]:
         """
         Load, preprocess, and split dataset into train and test sets.
         """

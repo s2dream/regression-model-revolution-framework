@@ -110,7 +110,7 @@ def test_data_loader_helper_fetch_and_prepare(dummy_csv_path):
     assert resolved_path == dummy_csv_path
     
     # Test prepare_data direct facade invocation
-    X_train, y_train, X_test, y_test = facade.prepare_data(
+    X_train, y_train, X_test, y_test = facade.load_and_preprocess_data(
         dataset_file=dummy_csv_path,
         target_column="Target_Y",
         test_size=0.2,
@@ -181,7 +181,7 @@ def test_dataloader_helper_dynamic_split(dummy_csv_path):
     }
     
     helper = DataLoaderHelper(config=config)
-    X_train, y_train, X_test, y_test = helper.prepare_data(
+    X_train, y_train, X_test, y_test = helper.load_and_preprocess_data(
         dataset_file=dummy_csv_path,
         target_column="Target_Y",
         random_state=42

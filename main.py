@@ -93,7 +93,7 @@ class AutoMLPipeline:
         )
         
         # Load, preprocess, and partition train/test splits
-        self.X_train, self.y_train, self.X_test, self.y_test = self.dataloader_helper.prepare_data(
+        self.X_train, self.y_train, self.X_test, self.y_test = self.dataloader_helper.load_and_preprocess_data(
             dataset_file=dataset_file,
             target_column=self.target_column,
             test_size=self.test_size,
