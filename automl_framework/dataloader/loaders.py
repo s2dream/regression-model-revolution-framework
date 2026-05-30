@@ -65,14 +65,14 @@ class LocalFileDataLoader(ABCDataLoader):
         return X, y
 
 
-class XFilelDataLoader(LocalFileDataLoader):
-    def __init__(self, filepath: str, target_column:str, data_dir:str="data", feature_columns: Optional[List[str]] = None):
-        super().__init__(filepath=filepath, target_column=target_column, data_dir=data_dir, feature_columns=feature_columns)
+# class XFilelDataLoader(LocalFileDataLoader):
+#     def __init__(self, filepath: str, target_column:str, data_dir:str="data", feature_columns: Optional[List[str]] = None):
+#         super().__init__(filepath=filepath, target_column=target_column, data_dir=data_dir, feature_columns=feature_columns)
 
-    def load_data(self):
-        loaded_X, loaded_y = super().load_data()
-        # do something for loaded_X and loaded_y
-        return loaded_X, loaded_y
+#     def load_data(self):
+#         loaded_X, loaded_y = super().load_data()
+#         # do something for loaded_X and loaded_y
+#         return loaded_X, loaded_y
 
 
 class KaggleDataLoader(ABCDataLoader):
