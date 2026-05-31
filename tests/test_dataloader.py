@@ -246,5 +246,42 @@ def test_load_config_fallback(tmp_path):
     assert resolved_corrupted == {}
 
 
+@pytest.fixture
+def dummy_jsonl_path(tmp_path):
+    """Fixture to generate a temporary JSONL file with dynamically appearing keys."""
+    # Row 1 has Feature_Num, Target_Y
+    # Row 2 has Feature_Num, Feature_Cat, Target_Y (Feature_Cat is a new key)
+    # Row 3 has Feature_Num, Target_Y (Feature_Cat is missing)
+    import json
+    lines = [
+        {"Feature_Num": 1.0, "Target_Y": 10},
+        {"Feature_Num": 2.0, "Feature_Cat": "B", "Target_Y": 20},
+        {"Feature_Num": 3.0, "Target_Y": 30}
+    ]
+    filepath = tmp_path / "dummy_dataset.jsonl"
+    with open(filepath, "w", encoding="utf-8") as f:
+        for line in lines:
+            f.write(json.dumps(line) + "\n")
+    return str(filepath)
+
+
+def test_local_file_data_loader_jsonl(dummy_jsonl_path):
+    """Test LocalFileDataLoader for successfully reading JSONL files with dynamic columns."""
+    loader = LocalFileDataLoader(filepath=dummy_jsonl_path, target_column="Target_Y")
+    X, y = loader.load_data()
+    
+    assert isinstance(X, pd.DataFrame)
+    assert isinstance(y, pd.Series)
+    assert X.shape == (3, 2)
+    assert y.shape == (3,)
+    assert set(X.columns) == {"Feature_Num", "Feature_Cat"}
+    
+    # Assert missing values (NaN) are handled correctly for row index 0 and 2
+    assert pd.isna(X.loc[0, "Feature_Cat"])
+    assert X.loc[1, "Feature_Cat"] == "B"
+    assert pd.isna(X.loc[2, "Feature_Cat"])
+
+
+
 
 

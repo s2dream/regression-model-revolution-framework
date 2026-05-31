@@ -47,6 +47,15 @@ class LocalFileDataLoader(ABCDataLoader):
             df = pd.read_csv(self.filepath, sep='\t')
         elif self.filepath.endswith('.parquet'):
             df = pd.read_parquet(self.filepath)
+        elif self.filepath.endswith('.jsonl'):
+            import json
+            records = []
+            with open(self.filepath, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        records.append(json.loads(line))
+            df = pd.DataFrame(records)
         else:
             raise ValueError(f"Unsupported file format for {self.filepath}")
 
