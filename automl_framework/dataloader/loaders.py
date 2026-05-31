@@ -11,9 +11,10 @@ class ABCDataLoader(ABC):
     Abstract Base Class for DataLoader strategies.
     Responsible for fetching/loading raw Features (X) and Target (y) from a data source.
     """
-    def __init__(self, data_dir: str = "data", feature_columns: Optional[List[str]] = None):
+    def __init__(self, data_dir: str = "data", feature_columns: Optional[List[str]] = None, ignored_columns: Optional[List[str]] = None):
         self.data_dir = data_dir
         self.feature_columns = feature_columns
+        self.ignored_columns = ignored_columns
         os.makedirs(self.data_dir, exist_ok=True)
 
     @abstractmethod
@@ -31,8 +32,8 @@ class LocalFileDataLoader(ABCDataLoader):
     """
     Concrete DataLoader strategy to load CSV/TSV/Parquet files directly from the local file system.
     """
-    def __init__(self, filepath: str, target_column: str, data_dir: str = "data", feature_columns: Optional[List[str]] = None):
-        super().__init__(data_dir=data_dir, feature_columns=feature_columns)
+    def __init__(self, filepath: str, target_column: str, data_dir: str = "data", feature_columns: Optional[List[str]] = None, ignored_columns: Optional[List[str]] = None):
+        super().__init__(data_dir=data_dir, feature_columns=feature_columns, ignored_columns=ignored_columns)
         self.filepath = filepath
         self.target_column = target_column
 
@@ -59,8 +60,15 @@ class LocalFileDataLoader(ABCDataLoader):
         else:
             raise ValueError(f"Unsupported file format for {self.filepath}")
 
+        if self.ignored_columns:
+            cols_to_drop = [col for col in self.ignored_columns if col in df.columns]
+            if cols_to_drop:
+                df = df.drop(columns=cols_to_drop)
+
         if self.target_column not in df.columns:
             raise ValueError(f"Target column '{self.target_column}' not found in dataset columns: {list(df.columns)}")
+
+        y = df[self.target_column]
 
         if self.feature_columns:
             missing_cols = [col for col in self.feature_columns if col not in df.columns]
@@ -70,7 +78,6 @@ class LocalFileDataLoader(ABCDataLoader):
         else:
             X = df.drop(columns=[self.target_column])
             
-        y = df[self.target_column]
         return X, y
 
 
@@ -89,8 +96,8 @@ class KaggleDataLoader(ABCDataLoader):
     Concrete DataLoader strategy that downloads a dataset from Kaggle using the Kaggle API,
     and then loads it.
     """
-    def __init__(self, dataset_name: str, target_column: str, data_dir: str = "data", feature_columns: Optional[List[str]] = None):
-        super().__init__(data_dir=data_dir, feature_columns=feature_columns)
+    def __init__(self, dataset_name: str, target_column: str, data_dir: str = "data", feature_columns: Optional[List[str]] = None, ignored_columns: Optional[List[str]] = None):
+        super().__init__(data_dir=data_dir, feature_columns=feature_columns, ignored_columns=ignored_columns)
         self.dataset_name = dataset_name
         self.target_column = target_column
 
@@ -119,7 +126,7 @@ class KaggleDataLoader(ABCDataLoader):
             raise FileNotFoundError(f"No CSV files found in downloaded Kaggle files at {download_dir}")
         
         filepath = os.path.join(download_dir, csv_files[0])
-        local_loader = LocalFileDataLoader(filepath=filepath, target_column=self.target_column, feature_columns=self.feature_columns, data_dir=self.data_dir)
+        local_loader = LocalFileDataLoader(filepath=filepath, target_column=self.target_column, feature_columns=self.feature_columns, ignored_columns=self.ignored_columns, data_dir=self.data_dir)
         return local_loader.load_data()
 
 
@@ -128,8 +135,8 @@ class URLDataLoader(ABCDataLoader):
     Concrete DataLoader strategy that downloads a dataset from a direct URL (e.g., UCI repository),
     and then loads it.
     """
-    def __init__(self, url: str, filename: str, target_column: str, data_dir: str = "data", feature_columns: Optional[List[str]] = None):
-        super().__init__(data_dir=data_dir, feature_columns=feature_columns)
+    def __init__(self, url: str, filename: str, target_column: str, data_dir: str = "data", feature_columns: Optional[List[str]] = None, ignored_columns: Optional[List[str]] = None):
+        super().__init__(data_dir=data_dir, feature_columns=feature_columns, ignored_columns=ignored_columns)
         self.url = url
         self.filename = filename
         self.target_column = target_column
@@ -152,5 +159,5 @@ class URLDataLoader(ABCDataLoader):
 
     def load_data(self) -> Tuple[pd.DataFrame, pd.Series]:
         filepath = self.download_data()
-        local_loader = LocalFileDataLoader(filepath=filepath, target_column=self.target_column, feature_columns=self.feature_columns, data_dir=self.data_dir)
+        local_loader = LocalFileDataLoader(filepath=filepath, target_column=self.target_column, feature_columns=self.feature_columns, ignored_columns=self.ignored_columns, data_dir=self.data_dir)
         return local_loader.load_data()

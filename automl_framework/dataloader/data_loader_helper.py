@@ -18,6 +18,7 @@ class DataLoaderHelper:
         self.data_dir = data_dir
         self.config = config or {}
         self.feature_columns = self.config.get("data", {}).get("feature_columns", None)
+        self.ignored_columns = self.config.get("data", {}).get("ignored_columns", None)
         self.preprocessor = StandardDataPreprocessor()
         self.splitter = self._resolve_splitter()
 
@@ -36,21 +37,21 @@ class DataLoaderHelper:
         Downloads a dataset from Kaggle using KaggleDataLoader.
         """
         kaggler_dir = os.path.join(self.data_dir, "kaggle_dataset")
-        loader = KaggleDataLoader(dataset_name=dataset_name, target_column="", data_dir=kaggler_dir)
-        return loader.load_data()
+        loader = KaggleDataLoader(dataset_name=dataset_name, target_column="", feature_columns=self.feature_columns, ignored_columns=self.ignored_columns, data_dir=kaggler_dir)
+        return loader.download_data()
 
     def download_from_url(self, url: str, filename: str) -> str:
         """
         Downloads a dataset from URL using URLDataLoader.
         """
-        loader = URLDataLoader(url=url, filename=filename, target_column="", data_dir=self.data_dir)
-        return loader.load_data()
+        loader = URLDataLoader(url=url, filename=filename, target_column="", feature_columns=self.feature_columns, ignored_columns=self.ignored_columns, data_dir=self.data_dir)
+        return loader.download_data()
 
     def load_dataset(self, filepath: str, target_column: str) -> Tuple[pd.DataFrame, pd.Series]:
         """
         Loads dataset using LocalFileDataLoader.
         """
-        loader = LocalFileDataLoader(filepath=filepath, target_column=target_column, feature_columns=self.feature_columns, data_dir=self.data_dir)
+        loader = LocalFileDataLoader(filepath=filepath, target_column=target_column, feature_columns=self.feature_columns, ignored_columns=self.ignored_columns, data_dir=self.data_dir)
         return loader.load_data()
 
     def preprocess_data(self, X: pd.DataFrame) -> pd.DataFrame:

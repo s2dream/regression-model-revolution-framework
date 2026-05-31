@@ -86,7 +86,7 @@ class AutoMLPipeline:
         logger = logging.getLogger("automl_framework.main")
         
         # Fetch dataset absolute filepath
-        dataset_file = self.dataloader_helper.fetch_dataset(
+        dataset_file_path = self.dataloader_helper.fetch_dataset(
             dataset_path=dataset_path,
             kaggle_dataset=kaggle_dataset,
             url=url
@@ -94,7 +94,7 @@ class AutoMLPipeline:
         
         # Load, preprocess, and partition train/test splits
         self.X_train, self.y_train, self.X_test, self.y_test = self.dataloader_helper.load_and_preprocess_data(
-            dataset_file=dataset_file,
+            dataset_file=dataset_file_path,
             target_column=self.target_column,
             test_size=self.test_size,
             random_state=self.random_state
@@ -178,6 +178,12 @@ def parse_arguments() -> argparse.Namespace:
 
 
 def main():
+    # Set the working directory to the project root (where main.py is located)
+    # so that relative paths (configs, data, outputs, logs) are resolved correctly
+    # no matter where this script is executed from.
+    project_root = os.path.dirname(os.path.abspath(__file__))
+    os.chdir(project_root)
+
     args = parse_arguments()
     
     # Instantiate the AutoML pipeline class (CLI args prioritize over configs)

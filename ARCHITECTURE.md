@@ -81,7 +81,90 @@
       ┌─────────────────┐┌───────────────┐┌─────────────────┐┌─────────────────┐
       │   XGBoost / RF  ││   MLP (NN)    ││     TabPFN      ││   Transformer   │
       │ (xgboost/sklearn││(scikit-learn) ││    (tabpfn)     ││ (PyTorch Model) │
-      └─────────────────┘└───────────────┘└─────────────────┘└─────────────────┘
+      ```
+
+### 1.2. 세부 호출 흐름도 (Detailed Call Sequence Diagram)
+
+아래의 시퀀스 다이어그램은 CLI 오케스트레이터(`main.py` -> `AutoMLPipeline`)의 시작부터 데이터 ingestion, 전처리, 스플릿, 그리고 동적 `ModelPool`의 일괄 학습 및 시각화/최종 레포트 저장까지의 상세 실행/호출 관계를 보여줍니다.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as User/CLI
+    participant Main as main.py (AutoMLPipeline)
+    participant Helper as DataLoaderHelper
+    participant Loader as LocalFileDataLoader
+    participant Prep as StandardDataPreprocessor
+    participant Split as TrainTestSplitter
+    participant Pool as ModelPool
+    participant Exec as StandardBenchmarkExecutor
+    participant Vis as Visualizer
+
+    User->>Main: python main.py --dataset-path path.jsonl --target Target_Y
+    activate Main
+    Main->>Helper: prepare_data(dataset_file, target_column)
+    activate Helper
+    
+    Note over Helper,Loader: 데이터 수집 및 로딩 (Ingestion)
+    Helper->>Loader: load_data()
+    activate Loader
+    Note over Loader: 라인 단위 JSONL 파싱 및<br/>동적 컬럼(새로운 Key) 추가/정렬
+    Loader-->>Helper: X (DataFrame), y (Series)
+    deactivate Loader
+
+    Note over Helper,Prep: 데이터 전처리 (Preprocessing)
+    Helper->>Prep: preprocess(X)
+    activate Prep
+    Note over Prep: 결측치 보정(임퓨테이션) &<br/>범주형 변수 원-핫 인코딩
+    Prep-->>Helper: X_processed (DataFrame)
+    deactivate Prep
+
+    Note over Helper,Split: 데이터 분할 (Splitting)
+    Helper->>Split: split(X_processed, y)
+    activate Split
+    Split-->>Helper: X_train, y_train, X_test, y_test
+    deactivate Split
+    
+    Helper-->>Main: X_train, y_train, X_test, y_test
+    deactivate Helper
+
+    Note over Main,Exec: 모델 풀 구축 및 학습 (Training)
+    Main->>Exec: fit_all(X_train, y_train)
+    activate Exec
+    loop ModelPool의 활성 모델 목록 순회 (XGBoost, MLP, RF, CatBoost 등)
+        Exec->>Pool: Get wrapped model
+        Exec->>Exec: fit(X_train, y_train)
+    end
+    Exec-->>Main: Done
+    deactivate Exec
+
+    Note over Main,Exec: 모델 테스트 평가 (Evaluation)
+    Main->>Exec: evaluate_all(X_test, y_test)
+    activate Exec
+    loop ModelPool의 활성 모델 목록 순회
+        Exec->>Exec: predict(X_test) & 평가 메트릭 계산
+    end
+    Exec-->>Main: metrics (RMSE, MAE, R2)
+    deactivate Exec
+
+    Note over Main,Vis: 프리미엄 가시화 및 리포팅 (Visualization & Reports)
+    Main->>Vis: plot_model_comparison(metrics)
+    activate Vis
+    Vis-->>Main: 모델별 R2/RMSE 비교 차트 저장
+    deactivate Vis
+    
+    Main->>Vis: plot_actual_vs_predicted() & plot_residuals()
+    activate Vis
+    Vis-->>Main: 산포도 및 잔차 분석 그래프 저장
+    deactivate Vis
+
+    Main->>Vis: save_json_report(metrics)
+    activate Vis
+    Vis-->>Main: turn_{turn}_report.json 저장
+    deactivate Vis
+
+    Main-->>User: 1위 Champion Model 정보 출력하며 완료
+    deactivate Main
 ```
 
 ---
@@ -99,6 +182,11 @@ regression-model-revolution-framework/
 │   ├── kfold_split.yml             # 교차 검증(K-Fold Split) 실험 설정 프로파일
 │   ├── timeseries_split.yml        # 시계열 분할(TimeSeries Split) 실험 설정 프로파일
 │   └── custom_features.yml         # 커스텀 피처 변수 지정 실험 설정 프로파일
+│
+├── scripts/                        # 🏃 시나리오별 파이프라인 일괄 실행 스크립트 디렉토리
+│   ├── run_local_csv.sh            # 로컬 CSV 데이터셋 학습 실행기
+│   ├── run_local_jsonl.sh           # 로컬 JSONL 데이터셋(동적 컬럼 지원) 학습 실행기
+│   └── run_url.sh                  # 원격 HTTP URL 파일 다운로드 후 학습 실행기
 │
 ├── automl_framework/               # 프레임워크 메인 패키지
 │   ├── __init__.py                 # 패키지 파사드 진입점 (DataLoaderHelper, ModelPool, Visualizer, Executor 외부 노출)
@@ -119,16 +207,22 @@ regression-model-revolution-framework/
 │   │       └── transformer_encoder.py # 시퀀스 기반 트랜스포머 회귀 모델 (TransformerBasedRegression)
 │   │
 │   └── util/                       # 분석/유틸리티 서브패키지 (Utility Domain)
-│       ├── __init__.py
-│       └── visualizer.py           # 프리미엄 차트 생성 및 JSON 실행 보고서 작성
+│   │   ├── __init__.py
+│   │   └── visualizer.py           # 프리미엄 차트 생성 및 JSON 실행 보고서 작성
+│   │
+│   └── README.md                   # 패키지 명세서
 │
 ├── tests/                          # 🧪 종합 테스트 스위트
 │   ├── __init__.py
-│   ├── test_dataloader.py          # 데이터 처리 및 분할 기능 테스트
+│   ├── test_dataloader.py          # 데이터 처리, JSONL 동적 스키마 로딩 및 분할 기능 테스트
 │   ├── test_model.py               # 모델 초기화, 수동 등록 및 실행기 테스트
 │   └── test_visualizer.py          # 시각화 및 리포트 작성 테스트
 │
-├── data/                           # (자동 생성) 다운로드되거나 생성된 데이터셋 저장소
+├── data/                           # 📂 (자동 생성) 다운로드되거나 생성된 데이터셋 저장소
+│   ├── synthetic_regression.csv    # 시각화 검증용 모의 회귀 데이터셋 (CSV)
+│   ├── synthetic_regression.jsonl   # 새로 추가된 정형 JSON Lines 데이터셋 (JSONL)
+│   └── SECOM_Full_Dataset.csv      # SECOM 가설 검증용 원본 데이터셋
+│
 ├── outputs/                        # (자동 생성) 시각화 이미지(.png) 및 JSON 실행 보고서 저장소
 │
 ├── .gitignore                      # Git 제외 목록 설정 파일
@@ -169,7 +263,7 @@ regression-model-revolution-framework/
   * `prepare_data(dataset_file, target_column, test_size, random_state)`: 데이터 로딩, 결측치 임퓨테이션 및 원-핫 인코딩 전처리, train/test 스플릿 분할 프로세스를 내부적으로 통합 오케스트레이션하여 피팅 및 평가에 최적화된 학습/테스트 분할 데이터셋을 직접 생산해 반환하는 메인 퍼사드 메소드입니다.
 * **하위 전략 클래스 구성**:
   * **데이터 로더 (`loaders.ABCDataLoader`, `loaders.py`)**:
-    * `LocalFileDataLoader`: 로컬 CSV, TSV, Parquet 포맷 데이터를 판다스 데이터프레임으로 자동 읽어 들이고 독립 변수(X)와 종속 변수(y)로 분리합니다.
+    * `LocalFileDataLoader`: 로컬 CSV, TSV, Parquet, 그리고 JSONL 포맷 데이터를 판다스 데이터프레임으로 자동 읽어 들이고 독립 변수(X)와 종속 변수(y)로 분리합니다. 특히 JSON Lines(`.jsonl`) 포맷의 경우, 행마다 누락된 값이 있어 키 분포가 다른 특성을 극복하기 위해 라인 단위 파싱 중 새로운 키(컬럼)가 발견될 때마다 동적으로 컬럼을 추가/확장 및 정렬하여 판다스 데이터프레임으로 안전하게 통합 로드(결손 부위는 `NaN` 매핑)하는 지능형 스키마 로딩을 제공합니다.
     * `KaggleDataLoader`: Kaggle API를 사용하여 원격 데이터셋을 다운로드하고 압축을 해제합니다.
     * `URLDataLoader`: 외부 웹 서버(예: UCI 머신러닝 리포지토리)에서 직접 데이터셋 파일을 가져옵니다.
   * **전처리기 (`preprocessors.ABCDataPreprocessor`, `preprocessors.py`)**:

@@ -22,6 +22,10 @@ regression-model-revolution-framework/
 │   ├── kfold_split.yml             # K-Fold split configuration profile
 │   ├── timeseries_split.yml        # Time-Series split configuration profile
 │   └── custom_features.yml         # Custom feature columns selection profile
+├── scripts/                        # 🏃 Automated scenario-specific bash execution scripts
+│   ├── run_local_csv.sh            # Run AutoML benchmark pipeline with local CSV dataset
+│   ├── run_local_jsonl.sh           # Run AutoML benchmark pipeline with local JSONL (dynamic columns)
+│   └── run_url.sh                  # Download dataset from direct URL and run benchmark
 ├── ARCHITECTURE.md                 # System modules & execution flow specs
 ├── REQ_SPEC.md                     # Requirements and functional specifications
 ├── requirements.txt                # Core packages required
@@ -32,7 +36,7 @@ regression-model-revolution-framework/
 │   │
 │   ├── dataloader/                 # 📥 Data Ingestion domain subpackage (Facade & strategies)
 │   │   ├── __init__.py
-│   │   ├── loaders.py              # Modular loaders & abstract base class ABCDataLoader
+│   │   ├── loaders.py              # Modular loaders (supports CSV, TSV, Parquet, and JSONL)
 │   │   ├── preprocessors.py        # Imputation, encoding & ABCDataPreprocessor
 │   │   ├── splitters.py            # Dataset split strategy & ABCDataSplitter
 │   │   └── data_loader_helper.py   # DataLoaderHelper Facade and pipeline orchestrator
@@ -51,7 +55,7 @@ regression-model-revolution-framework/
 │
 └── tests/                          # 🧪 Comprehensive Test Suite
     ├── __init__.py
-    ├── test_dataloader.py          # Tests for dataloading & preprocessing
+    ├── test_dataloader.py          # Tests for dataloading, preprocessing, and JSONL formats
     ├── test_model.py               # Tests for model initialization & executor
     └── test_visualizer.py          # Tests for premium visualizations & JSON reporting
 ```
@@ -73,14 +77,29 @@ pip install tabpfn kaggle
 
 ### 2. Run the Benchmarking Pipeline
 
-To run the benchmark pipeline instantly using the included synthetic dataset:
+The easiest way to run the pipeline with pre-configured settings is using the provided executable bash scripts under the `scripts/` directory:
+
 ```bash
-python main.py --dataset-path data/synthetic_regression.csv --target Target_Y
+# Run with a local CSV dataset
+./scripts/run_local_csv.sh
+
+# Run with a local JSONL dataset (supports dynamically aligned schemas!)
+./scripts/run_local_jsonl.sh
+
+# Run downloading a dataset from a remote URL
+./scripts/run_url.sh
 ```
+
+Alternatively, you can call `main.py` directly with custom command line arguments:
 
 To run with a custom local CSV dataset:
 ```bash
 python main.py --dataset-path path/to/dataset.csv --target name_of_target_column
+```
+
+To run with a local JSON Lines (`.jsonl`) dataset where some rows have missing keys:
+```bash
+python main.py --dataset-path data/synthetic_regression.jsonl --target Target_Y
 ```
 
 To automatically pull a dataset from Kaggle and execute the benchmark:
@@ -88,9 +107,9 @@ To automatically pull a dataset from Kaggle and execute the benchmark:
 python main.py --kaggle-dataset "sobhanmoosavi/us-accidents" --target "Severity"
 ```
 
-To download from a URL (e.g. UCI ML Database) and run:
+To download from a URL (e.g. UCI ML Database or GitHub dataset) and run:
 ```bash
-python main.py --url "https://archive.ics.uci.edu/ml/machine-learning-databases/housing/housing.data" --target "MEDV"
+python main.py --url "https://raw.githubusercontent.com/selva86/datasets/master/BostonHousing.csv" --target "medv"
 ```
 
 ---

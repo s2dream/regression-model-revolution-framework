@@ -24,6 +24,7 @@ data:
   output_dir: "outputs"
   target_column: "Target_Y"
   feature_columns: null   # List of columns to load as features (or null for all non-target columns)
+  ignored_columns: null   # List of columns to exclude before processing (or null to keep all)
   split:
     method: "train_test_split"  # Options: "train_test_split", "kfold", "timeseries"
     test_size: 0.2

@@ -61,7 +61,8 @@
 * **REQ-DL-02: HTTP URL 데이터 자동 다운로드**
   - **설명**: UCI 머신러닝 리포지토리 등 외부 다이렉트 다운로드 주소(URL)를 입력받았을 때, `URLDataLoader`를 통해 원본 데이터를 직접 내려받아 로컬에 보관할 수 있어야 합니다.
 * **REQ-DL-03: 다양한 데이터 포맷 파싱 및 대상 열 분리**
-  - **설명**: `LocalFileDataLoader`가 로컬의 `.csv`, `.tsv`, `.txt` (탭 구분자 포맷), `.parquet` 확장자를 자동으로 감지하여 적절한 판다스 판독 엔진을 통해 DataFrame 형태로 읽어 들일 수 있어야 합니다.
+  - **설명**: `LocalFileDataLoader`가 로컬의 `.csv`, `.tsv`, `.txt` (탭 구분자 포맷), `.parquet`, 그리고 `.jsonl` 확장자를 자동으로 감지하여 적절한 판다스 판독 엔진을 통해 DataFrame 형태로 읽어 들일 수 있어야 합니다.
+  - **JSONL 동적 스키마 로딩**: 각 행이 독립적인 JSON 객체로 기술되는 JSON Lines(`.jsonl`) 포맷의 경우, 누락된 값에 의해 행마다 존재하지 않는 키가 생길 수 있습니다. 데이터를 라인별로 읽으면서 새로운 키를 발견할 때마다 새롭게 컬럼을 동적으로 결합 및 확장하고, 키가 생략된 위치는 자동으로 `NaN`을 안전 매핑하여 판다스 데이터프레임으로 정렬 정형화해 로드하는 기능을 완수해야 합니다.
   - **커스텀 피처 지정**: `feature_columns` 옵션을 지원하여, 지정된 특정 피처 컬럼들만 데이터셋에서 안전하게 추출해 $X$ 매트릭스를 구성하고 타겟 $y$를 매핑하는 기능을 완수해야 합니다.
 
 ### 3.3 데이터 전처리 및 분할 (DataLoader - Preprocessing & Splitting)
@@ -106,7 +107,8 @@
 ## 4. 비기능적 요구사항 (Non-Functional Requirements)
 
 ### 4.1 사용성 및 접근성 (Usability & Config Driven Control)
-- 사용자는 `python main.py` 명령어 하나만으로 곧바로 프레임워크 전체 프로세스를 즉시 구동할 수 있어야 하며, 하이퍼파라미터 튜닝 시 스크립트 코드 변경 없이 `config.yml`의 키 값 수정만으로 전반적인 제어 권한을 행사할 수 있어야 합니다.
+- 사용자는 `python main.py` 명령어 뿐만 아니라 `scripts/` 디렉토리에 미리 보관해 둔 실행 스크립트 파일들(CSV 분석용 `./scripts/run_local_csv.sh`, JSONL 분석용 `./scripts/run_local_jsonl.sh`, URL 원격 다운로드용 `./scripts/run_url.sh`)을 실행하는 것만으로 곧바로 프레임워크 전체 오케스트레이션 프로세스를 즉시 구동 및 재현할 수 있어야 합니다.
+- 하이퍼파라미터 튜닝 시 스크립트 코드 변경 없이 `config.yml`의 키 값 수정만으로 전반적인 제어 권한을 행사할 수 있어야 합니다.
 
 ### 4.2 도메인 격리형 패키징 및 구조적 미학 (Domain Segregation)
 - 프레임워크 핵심 코드는 물리적 영역에 따라 `dataloader/`, `model/`, `util/` 도메인 폴더로 철저히 세분화되어 격리되어야 합니다.
