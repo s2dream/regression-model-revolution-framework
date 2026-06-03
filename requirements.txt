@@ -17,6 +17,7 @@ kaggle>=1.5.12
 
 # Configurations and Parsing
 PyYAML>=6.0
+streamlit>=1.20.0
 
 # Testing and Automation
 pytest>=7.0.0
