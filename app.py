@@ -110,6 +110,19 @@ def save_config(config_data, path="configs/web_config.yml"):
     with open(path, "w", encoding="utf-8") as f:
         yaml.safe_dump(config_data, f, default_flow_style=False, allow_unicode=True)
 
+def is_valid_image(filepath):
+    if not filepath or not os.path.exists(filepath):
+        return False
+    if os.path.getsize(filepath) == 0:
+        return False
+    try:
+        from PIL import Image
+        with Image.open(filepath) as img:
+            img.verify()
+        return True
+    except Exception:
+        return False
+
 def get_dataset_columns(file_path):
     if not file_path or not os.path.exists(file_path):
         return []
@@ -498,15 +511,15 @@ with tab_results:
             comp_rmse_img = os.path.join(output_dir, f"turn_{st.session_state.current_turn}_model_comparison_rmse.png")
             
             with col_chart1:
-                if os.path.exists(comp_r2_img):
+                if is_valid_image(comp_r2_img):
                     st.image(comp_r2_img, caption="R2 Comparison Chart")
                 else:
-                    st.info("R2 Comparison Chart not found.")
+                    st.info("R2 Comparison Chart not found or corrupted.")
             with col_chart2:
-                if os.path.exists(comp_rmse_img):
+                if is_valid_image(comp_rmse_img):
                     st.image(comp_rmse_img, caption="RMSE Comparison Chart")
                 else:
-                    st.info("RMSE Comparison Chart not found.")
+                    st.info("RMSE Comparison Chart not found or corrupted.")
                     
             # Individual Model Diagnostic Charts
             st.markdown("---")
@@ -519,15 +532,15 @@ with tab_results:
                 residuals_img = os.path.join(output_dir, f"turn_{st.session_state.current_turn}_{selected_model}_residuals.png")
                 
                 with col_diag1:
-                    if os.path.exists(pred_vs_act_img):
+                    if is_valid_image(pred_vs_act_img):
                         st.image(pred_vs_act_img, caption=f"{selected_model}: Actual vs Predicted")
                     else:
-                        st.info("Diagnostic plot not found.")
+                        st.info("Diagnostic plot not found or corrupted.")
                 with col_diag2:
-                    if os.path.exists(residuals_img):
+                    if is_valid_image(residuals_img):
                         st.image(residuals_img, caption=f"{selected_model}: Residuals Plot")
                     else:
-                        st.info("Residuals plot not found.")
+                        st.info("Residuals plot not found or corrupted.")
         else:
             st.warning("No metrics data found in report JSON.")
     else:

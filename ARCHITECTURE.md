@@ -9,21 +9,27 @@
 아래 다이어그램은 프레임워크의 핵심 실행 제어 흐름과 데이터의 파이프라인 처리 과정을 텍스트(ASCII/Unicode Art)로 시각화한 것입니다.
 
 ```text
-                    ┌───────────────────────────────┐
-                    │           config.yml          │ (Central Configuration)
-                    └───────────────┬───────────────┘
-                                    │ Loads Dynamic Settings (active_models, hyperparams)
-                                    ▼
-                    ┌───────────────────────────────┐
-                    │     CLI / User Entry Point    │
-                    │         (root/main.py)        │
-                    └───────────────┬───────────────┘
-                                    │ Instantiates & Runs
-                                    ▼
-                    ┌───────────────────────────────┐
-                    │        AutoMLPipeline         │
-                    │   (Orchestrator inside main)  │
-                    └──────┬────────┬────────────┬──┘
+                     ┌───────────────────────────────┐
+                     │      configs/default.yml      │ (Central Schema & Default Config)
+                     └───────┬───────────────┬───────┘
+                             │               │
+            ┌────────────────▼───────────────▼───────────────┐
+            │            app.py (Streamlit WebUI)            │ (Interactive Web Dashboard)
+            │  - Dynamic Parameter / Model Form Rendering     │
+            │  - Real-time Log Stream / Subprocess Runner    │
+            └────────────────┬───────────────────────────────┘
+                             │ Generates configs/web_config.yml & Executes
+                             ▼
+                     ┌───────────────────────────────┐
+                     │     CLI / User Entry Point    │
+                     │         (root/main.py)        │
+                     └───────────────┬───────────────┘
+                                     │ Instantiates & Runs
+                                     ▼
+                     ┌───────────────────────────────┐
+                     │        AutoMLPipeline         │
+                     │   (Orchestrator inside main)  │
+                     └──────┬────────┬────────────┬──┘
                            │        │            │
               ① Load &     │        │ ② Fit &    │ ③ Metrics & Predictions
               Preprocess   │        │ Evalu-     │    for Premium Reports
@@ -177,16 +183,19 @@ sequenceDiagram
 regression-model-revolution-framework/
 │
 ├── main.py                         # 프로젝트 전체 실행 진입점 (CLI Orchestrator)
+├── app.py                          # Streamlit 기반 대화형 웹 인터페이스 스튜디오 (WebUI)
 ├── configs/                        # 📂 설정 프로파일 보관소 (다양한 실험을 위한 YAML 구성 파일들)
 │   ├── default.yml                 # 기본 설정 프로파일 (기존 config.yml 이관)
 │   ├── kfold_split.yml             # 교차 검증(K-Fold Split) 실험 설정 프로파일
 │   ├── timeseries_split.yml        # 시계열 분할(TimeSeries Split) 실험 설정 프로파일
-│   └── custom_features.yml         # 커스텀 피처 변수 지정 실험 설정 프로파일
+│   ├── custom_features.yml         # 커스텀 피처 변수 지정 실험 설정 프로파일
+│   └── web_config.yml              # Web UI 실행에 의해 생성되는 자동 구성 프로파일
 │
 ├── scripts/                        # 🏃 시나리오별 파이프라인 일괄 실행 스크립트 디렉토리
 │   ├── run_local_csv.sh            # 로컬 CSV 데이터셋 학습 실행기
-│   ├── run_local_jsonl.sh           # 로컬 JSONL 데이터셋(동적 컬럼 지원) 학습 실행기
-│   └── run_url.sh                  # 원격 HTTP URL 파일 다운로드 후 학습 실행기
+│   ├── run_local_jsonl.sh          # 로컬 JSONL 데이터셋(동적 컬럼 지원) 학습 실행기
+│   ├── run_url.sh                  # 원격 HTTP URL 파일 다운로드 후 학습 실행기
+│   └── run_webui.sh                # Streamlit Web UI 기동 실행기
 │
 ├── automl_framework/               # 프레임워크 메인 패키지
 │   ├── __init__.py                 # 패키지 파사드 진입점 (DataLoaderHelper, ModelPool, Visualizer, Executor 외부 노출)
@@ -314,6 +323,16 @@ regression-model-revolution-framework/
   * `plot_residuals(y_true, y_pred, model_name, turn)`: 잔차 분석 산점도를 출력하여 등분산성(Heteroscedasticity) 유무를 진단할 수 있도록 지원합니다.
   * `plot_model_comparison(metrics, metric_name, turn)`: 전체 모델들의 성능(R², RMSE 등)을 한눈에 볼 수 있는 깔끔한 수평 바 차트(Horizontal Bar Chart)를 생성합니다.
   * `save_json_report(metrics, turn)`: 학습된 모든 모델의 상세 평가 수치 지표와 베스트 모델의 정보를 JSON 파일로 깔끔하게 포매팅하여 저장합니다.
+
+---
+
+### E. 대화형 웹 인터페이스: `app.py` (Streamlit WebUI)
+* **책임**: 브라우저 환경에서 전체 실험의 설계, 기동, 실시간 실행 추적, 모델 성능 진단 차트 조회를 단일 웹 대시보드로 통합 제어합니다.
+* **주요 메커니즘**:
+  - **동적 스키마 로딩 (`render_dynamic_params`)**: `default.yml` 구성 파일의 딕셔너리 구조를 동적으로 순회하며 매칭되는 위젯(Checkbox, Number Input, List Area 등)을 렌더링합니다. 설정 파일이 바뀌면 UI가 자동으로 업데이트되어 높은 확장성을 보장합니다.
+  - **데이터셋 컬럼 자동 분석**: 로컬 파일을 선택하면 데이터를 미세 리드하여 컬럼 목록을 실시간으로 가져옵니다. 사용자는 텍스트 타이핑 없이 드롭다운으로 편리하게 타겟 컬럼 및 제외 컬럼(`ignored_columns`)들을 매핑할 수 있습니다.
+  - **실시간 로그 스트리밍**: 실행 버튼 작동 시 `subprocess.Popen`을 사용해 `python main.py --config configs/web_config.yml`을 비동기 구동하고, 실시간 파이프라인 터미널 콘솔 스트림을 버퍼 사이즈 1 단위로 가로채어 화면에 뿌려줍니다.
+  - **인터랙티브 분석 결과 피드**: 실행이 성공하면 `outputs/` 내부의 JSON 성적 메트릭과 `Visualizer`가 드로잉한 대용량 차트 파일들을 탐색하여 UI 상에 챔피언 모델 정보와 잔차 및 예측 산포도를 동적으로 피딩합니다.
 
 ---
 

@@ -40,7 +40,7 @@ automl_framework/
 ## ✨ Features & Domains
 
 ### 1. Ingestion (`dataloader/`)
-- **Facade Strategy Pattern**: `DataLoaderHelper` delegates specialized loading, preprocessing, and splitting tasks to modular strategy subcomponents, and exposes a unified high-level `prepare_data` pipeline orchestrator method.
+- **Facade Strategy Pattern**: `DataLoaderHelper` delegates specialized loading, preprocessing, and splitting tasks to modular strategy subcomponents, and exposes a unified high-level `load_and_preprocess_data` pipeline orchestrator method.
 - **Kaggle API Integration (`loaders.py`)**: Fetch datasets from Kaggle directly by passing a dataset ID.
 - **Direct HTTP Downloading (`loaders.py`)**: Supports direct downloads from URLs (such as the UCI Machine Learning Repository or customized datasets).
 - **Graceful Preprocessing (`preprocessors.py`)**: Handles automated median imputation for numeric features, mode imputation for categorical features, and automatic dummy/one-hot encoding.
@@ -81,7 +81,7 @@ from automl_framework import DataLoaderHelper, ModelPool, StandardBenchmarkExecu
 
 # 1. Load, preprocess, and split Data in one unified step!
 dataloader_helper = DataLoaderHelper(data_dir="data")
-X_train, y_train, X_test, y_test = dataloader_helper.prepare_data(
+X_train, y_train, X_test, y_test = dataloader_helper.load_and_preprocess_data(
     "data/your_dataset.csv", target_column="target_column_name", test_size=0.2, random_state=42
 )
 

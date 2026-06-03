@@ -63,6 +63,7 @@
 * **REQ-DL-03: 다양한 데이터 포맷 파싱 및 대상 열 분리**
   - **설명**: `LocalFileDataLoader`가 로컬의 `.csv`, `.tsv`, `.txt` (탭 구분자 포맷), `.parquet`, 그리고 `.jsonl` 확장자를 자동으로 감지하여 적절한 판다스 판독 엔진을 통해 DataFrame 형태로 읽어 들일 수 있어야 합니다.
   - **JSONL 동적 스키마 로딩**: 각 행이 독립적인 JSON 객체로 기술되는 JSON Lines(`.jsonl`) 포맷의 경우, 누락된 값에 의해 행마다 존재하지 않는 키가 생길 수 있습니다. 데이터를 라인별로 읽으면서 새로운 키를 발견할 때마다 새롭게 컬럼을 동적으로 결합 및 확장하고, 키가 생략된 위치는 자동으로 `NaN`을 안전 매핑하여 판다스 데이터프레임으로 정렬 정형화해 로드하는 기능을 완수해야 합니다.
+  - **제외 컬럼 사전 필터링 (Ignored Columns)**: `ignored_columns` 옵션을 지원하여, 데이터 가공의 가장 첫 단계에서 불필요하거나 제외하고 싶은 열(Column)들을 지정하여 일괄적으로 드롭(drop)한 뒤 후속 분석을 실행할 수 있도록 해야 합니다.
   - **커스텀 피처 지정**: `feature_columns` 옵션을 지원하여, 지정된 특정 피처 컬럼들만 데이터셋에서 안전하게 추출해 $X$ 매트릭스를 구성하고 타겟 $y$를 매핑하는 기능을 완수해야 합니다.
 
 ### 3.3 데이터 전처리 및 분할 (DataLoader - Preprocessing & Splitting)
@@ -102,13 +103,24 @@
 * **REQ-VI-05: 이력 관리용 회차별 구조화 JSON 리포트 생성 (Structured Metadata Reporting)**
   - **설명**: 실행 회차 번호(Turn ID) 및 모델별 성능 평갓값(R², RMSE, MAE), 그리고 가장 우수한 R² 점수를 획득한 최종 Champion Model명과 저장소 경로를 담아 표준 JSON 리포트 파일(`turn_{turn}_report.json`)을 자동으로 보존해야 합니다.
 
+### 3.7 대화형 웹 인터페이스 (Interactive Web UI Studio)
+시스템은 CLI 뿐만 아니라 웹 상에서 동적으로 실험을 생성하고 모니터링할 수 있는 Streamlit 기반의 대형 웹 대시보드 스튜디오를 탑재해야 합니다.
+* **REQ-UI-01: 동적 설정 구성 및 스키마 기반 렌더링 (Dynamic Schema Rendering)**
+  - **설명**: UI 화면에 모델 목록이나 파라미터를 하드코딩하지 않고, `default.yml` 설정 파일을 동적으로 파싱하여 그에 매핑되는 하이퍼파라미터 입력 위젯(Slider, Number Input 등)을 자동 생성해 주어야 합니다. 이를 통해 코드 수정 없는 극도의 확장성을 제공해야 합니다.
+* **REQ-UI-02: 데이터셋 기반 컬럼 동적 바인딩 (Dynamic Column Binding)**
+  - **설명**: 로컬의 데이터셋을 지정할 시 데이터셋 구조를 판독하여 컬럼 목록을 실시간으로 가져와 Target, Features, Ignored 컬럼 설정을 클릭 한 번으로 선택할 수 있도록 컴포넌트를 설계해야 합니다.
+* **REQ-UI-03: 실시간 로그 스트리밍 콘솔 (Subprocess Real-time Log Streaming)**
+  - **설명**: 웹 상에서 실험 시작 시 백그라운드 subprocess로 `main.py` 파이프라인을 기동하고, 프로세스의 표준 출력(stdout)을 한 줄씩 가로채어 실시간 터미널 스타일로 시각화해야 합니다.
+* **REQ-UI-04: 성적표 및 시각화 결과 대시보드 (Interactive Result Dashboard)**
+  - **설명**: 실험 실행 완료 즉시 리포트 JSON 및 출력 차트 파일들을 탐색하여 대시보드에 Champion 모델 요약 정보, 모델별 성능 정렬 테이블, 그리고 Visualizer 플롯(실제치 vs 예측치, 잔차 분석 등)을 렌더링해야 합니다.
+
 ---
 
 ## 4. 비기능적 요구사항 (Non-Functional Requirements)
 
 ### 4.1 사용성 및 접근성 (Usability & Config Driven Control)
-- 사용자는 `python main.py` 명령어 뿐만 아니라 `scripts/` 디렉토리에 미리 보관해 둔 실행 스크립트 파일들(CSV 분석용 `./scripts/run_local_csv.sh`, JSONL 분석용 `./scripts/run_local_jsonl.sh`, URL 원격 다운로드용 `./scripts/run_url.sh`)을 실행하는 것만으로 곧바로 프레임워크 전체 오케스트레이션 프로세스를 즉시 구동 및 재현할 수 있어야 합니다.
-- 하이퍼파라미터 튜닝 시 스크립트 코드 변경 없이 `config.yml`의 키 값 수정만으로 전반적인 제어 권한을 행사할 수 있어야 합니다.
+- 사용자는 `python main.py` 명령어 뿐만 아니라 `scripts/` 디렉토리에 미리 보관해 둔 실행 스크립트 파일들(CSV 분석용 `./scripts/run_local_csv.sh`, JSONL 분석용 `./scripts/run_local_jsonl.sh`, URL 원격 다운로드용 `./scripts/run_url.sh`, Web UI 기동용 `./scripts/run_webui.sh`)을 실행하는 것만으로 곧바로 프레임워크 전체 오케스트레이션 프로세스를 즉시 구동 및 재현할 수 있어야 합니다.
+- 하이퍼파라미터 튜닝 시 스크립트 코드 변경 없이 `config.yml`의 키 값 수정이나 웹 대시보드에서의 조작만으로 전반적인 제어 권한을 행사할 수 있어야 합니다.
 
 ### 4.2 도메인 격리형 패키징 및 구조적 미학 (Domain Segregation)
 - 프레임워크 핵심 코드는 물리적 영역에 따라 `dataloader/`, `model/`, `util/` 도메인 폴더로 철저히 세분화되어 격리되어야 합니다.
