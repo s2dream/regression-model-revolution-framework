@@ -41,12 +41,11 @@
 │   dataloader/                │    │    │   util/visualizer.py)        │
 │   data_loader_helper.py)     │    │    ├──────────────────────────────┤
 ├──────────────────────────────┤    │    │ - plot_actual_vs_predicted() │
-│ - download_from_kaggle()     │    │    │ - plot_residuals()           │
-│ - download_from_url()        │    │    │ - plot_model_comparison()    │
-│ - load_dataset()             │    │    │ - save_json_report()         │
-│ - preprocess_data()          │    │    └──────────────────────────────┘
-│ - split_data()               │    │
-│ - prepare_data()             │    │
+│ - fetch_dataset()            │    │    │ - plot_residuals()           │
+│ - load_dataset()             │    │    │ - plot_model_comparison()    │
+│ - preprocess_data()          │    │    │ - save_json_report()         │
+│ - split_data()               │    │    └──────────────────────────────┘
+│ - load_and_preprocess_data() │    │
 │  (Delegates to modular       │    │
 │   strategies under-the-hood) │    │
 └──────────────────────────────┘    │
@@ -108,7 +107,11 @@ sequenceDiagram
 
     User->>Main: python main.py --dataset-path path.jsonl --target Target_Y
     activate Main
-    Main->>Helper: prepare_data(dataset_file, target_column)
+    Main->>Helper: fetch_dataset(dataset_path)
+    activate Helper
+    Helper-->>Main: dataset_file
+    deactivate Helper
+    Main->>Helper: load_and_preprocess_data(dataset_file, target_column)
     activate Helper
     
     Note over Helper,Loader: 데이터 수집 및 로딩 (Ingestion)
@@ -194,7 +197,6 @@ regression-model-revolution-framework/
 ├── scripts/                        # 🏃 시나리오별 파이프라인 일괄 실행 스크립트 디렉토리
 │   ├── run_local_csv.sh            # 로컬 CSV 데이터셋 학습 실행기
 │   ├── run_local_jsonl.sh          # 로컬 JSONL 데이터셋(동적 컬럼 지원) 학습 실행기
-│   ├── run_url.sh                  # 원격 HTTP URL 파일 다운로드 후 학습 실행기
 │   └── run_webui.sh                # Streamlit Web UI 기동 실행기
 │
 ├── automl_framework/               # 프레임워크 메인 패키지
@@ -202,10 +204,14 @@ regression-model-revolution-framework/
 │   │
 │   ├── dataloader/                 # 데이터 처리 서브패키지 (Data Domain)
 │   │   ├── __init__.py
-│   │   ├── loaders.py              # 데이터 로더 추상 베이스 클래스 및 로컬/원격 로더 구현체
+│   │   ├── loaders.py              # 데이터 로더 추상 베이스 클래스 및 로컬 로더 구현체
 │   │   ├── preprocessors.py        # 전처리기 추상 베이스 클래스 및 결측치/인코딩 구현체
 │   │   ├── splitters.py            # 데이터셋 분할기 추상 베이스 클래스 및 구현체
 │   │   └── data_loader_helper.py   # 기존 규격을 호환하는 퍼사드(Facade) DataLoaderHelper 및 파이프라인 일괄 준비
+│   │
+│   ├── planner/                    # 데이터 진단 및 실험 설계 플래너 서브패키지 (Planning Domain)
+│   │   ├── __init__.py
+│   │   └── data_planner.py         # 데이터 상태 분석 및 검증/알고리즘 제안기
 │   │
 │   ├── model/                      # 머신러닝 학습 서브패키지 (Model Domain)
 │   │   ├── __init__.py
@@ -251,7 +257,7 @@ regression-model-revolution-framework/
 * **`AutoMLPipeline` 클래스 핵심 메서드**:
   - **`__init__(config_path, turn, target, test_size)`**: 셸 및 CLI 오버라이드 인수(target, test_size)와 YAML 프로파일 설정을 조율하여 `DataLoaderHelper`, `ModelPool`, `StandardBenchmarkExecutor`, `Visualizer` 컴포넌트들을 통일화되어 초기화하고 실행 상태들을 멤버 변수로 관리합니다.
   - **`_load_config(config_path) -> dict` [Static]**: 지정된 YAML 파일을 로드하며, 부재 시 빈 딕셔너리로 안전 우회하는 예외 안전망을 가집니다.
-  - **`prepare_data(dataset_path, kaggle_dataset, url)`**: Ingestion 모듈을 제어해 로컬/원격 파일을 준비하고 전처리 및 스플리팅을 거쳐 학습/테스트 변수 상태를 갱신합니다.
+  - **`prepare_data(dataset_path)`**: Ingestion 모듈을 제어해 로컬 파일을 준비하고 전처리 및 스플리팅을 거쳐 학습/테스트 변수 상태를 갱신합니다.
   - **`train_and_evaluate() -> dict`**: 활성 모델 전체에 대한 훈련을 일괄 위임하고 테스트 평가 메트릭(RMSE, MAE, R2)을 사전 형태로 저장합니다.
   - **`generate_reports()`**: 프리미엄 시각화 플롯 차트 생성, 잔차 오차 산포도 렌더링, 성능비교 바 플롯 작성 및 최적 챔피언 결과 JSON 레포트 아카이빙을 총괄 실행합니다.
   - **`run(...)`**: 위의 데이터 로딩, 학습, 레포팅을 단 한 줄로 순차 오케스트레이션하여 일괄 처리하는 마스터 인터페이스입니다.
@@ -266,15 +272,13 @@ regression-model-revolution-framework/
 
 ### B. 데이터 로더 및 전처리 모듈: `automl_framework/dataloader/`
 #### `DataLoaderHelper` (Facade Class) 및 전략 클래스들
-* **책임**: 데이터 획득(Kaggle, HTTP URL)부터 학습 전 단계까지의 모든 데이터 처리를 담당합니다. `DataLoaderHelper` 클래스는 파사드(Facade) 역할을 하며 하위의 모듈화된 전략(Strategy) 클래스들에게 실제 처리를 위임합니다.
+* **책임**: 로컬 데이터 획득부터 학습 전 단계까지의 모든 데이터 처리를 담당합니다. `DataLoaderHelper` 클래스는 파사드(Facade) 역할을 하며 하위의 모듈화된 전략(Strategy) 클래스들에게 실제 처리를 위임합니다.
 * **핵심 메서드**:
-  * `fetch_dataset(dataset_path, kaggle_dataset, url)`: 로컬 파일 경로, Kaggle 데이터셋 명칭, 혹은 UCI HTTP URL을 인자로 주입받아, Ingestion 모듈을 제어하여 원격/로컬 파일을 안전하게 다운로드하고, 유효성이 검증된 로컬 절대 경로를 반환합니다.
-  * `prepare_data(dataset_file, target_column, test_size, random_state)`: 데이터 로딩, 결측치 임퓨테이션 및 원-핫 인코딩 전처리, train/test 스플릿 분할 프로세스를 내부적으로 통합 오케스트레이션하여 피팅 및 평가에 최적화된 학습/테스트 분할 데이터셋을 직접 생산해 반환하는 메인 퍼사드 메소드입니다.
+  * `fetch_dataset(dataset_path)`: 로컬 파일 경로를 인자로 주입받아, 로컬 데이터셋의 존재 유무 및 형식을 안전하게 검증하고, 유효성이 검증된 로컬 절대 경로를 반환합니다.
+  * `load_and_preprocess_data(dataset_file, target_column, test_size, random_state)`: 데이터 로딩, 결측치 임퓨테이션 및 원-핫 인코딩 전처리, train/test 스플릿 분할 프로세스를 내부적으로 통합 오케스트레이션하여 피팅 및 평가에 최적화된 학습/테스트 분할 데이터셋을 직접 생산해 반환하는 메인 퍼사드 메소드입니다.
 * **하위 전략 클래스 구성**:
   * **데이터 로더 (`loaders.ABCDataLoader`, `loaders.py`)**:
     * `LocalFileDataLoader`: 로컬 CSV, TSV, Parquet, 그리고 JSONL 포맷 데이터를 판다스 데이터프레임으로 자동 읽어 들이고 독립 변수(X)와 종속 변수(y)로 분리합니다. 특히 JSON Lines(`.jsonl`) 포맷의 경우, 행마다 누락된 값이 있어 키 분포가 다른 특성을 극복하기 위해 라인 단위 파싱 중 새로운 키(컬럼)가 발견될 때마다 동적으로 컬럼을 추가/확장 및 정렬하여 판다스 데이터프레임으로 안전하게 통합 로드(결손 부위는 `NaN` 매핑)하는 지능형 스키마 로딩을 제공합니다.
-    * `KaggleDataLoader`: Kaggle API를 사용하여 원격 데이터셋을 다운로드하고 압축을 해제합니다.
-    * `URLDataLoader`: 외부 웹 서버(예: UCI 머신러닝 리포지토리)에서 직접 데이터셋 파일을 가져옵니다.
   * **전처리기 (`preprocessors.ABCDataPreprocessor`, `preprocessors.py`)**:
     * `StandardDataPreprocessor`: 결측치 보정(수치형은 중앙값, 범주형은 최빈값 임퓨테이션) 및 범주형 변수의 원-핫 인코딩(Dummy Encoding)을 자동으로 수행합니다.
   * **분할기 (`splitters.ABCDataSplitter`, `splitters.py`)**:
@@ -284,7 +288,16 @@ regression-model-revolution-framework/
 
 ---
 
-### C. 모델 관리 및 실행 전략 모듈: `automl_framework/model/`
+### C. 데이터 진단 및 실험 플래너 모듈: `automl_framework/planner/`
+#### `DataPlanner` (Class, `automl_framework/planner/data_planner.py`)
+* **책임**: 다중 데이터셋 배치 실험(Batch Experiments) 구성을 총괄하여, 특정 데이터 디렉토리에서 여러 정형 데이터셋 파일을 검색(Scan)하고 각 데이터셋의 예측 대상(Target) 변수를 자동 추천하는 지능형 플래너입니다.
+* **핵심 메서드**:
+  * `scan_directory(directory_path) -> List[Dict[str, Any]]`: 지정된 데이터 디렉토리를 탐색하여 지원되는 데이터 파일(`.csv`, `.tsv`, `.txt`, `.parquet`, `.jsonl`) 목록을 스캔하고, 파일명, 파일 크기, 가용한 컬럼 목록, 추정된 target_column 정보를 메타데이터 리스트 형태로 구성해 반환합니다.
+  * `infer_target_column(columns) -> str`: 컬럼 목록에서 예측 대상(Target) 변수를 감지합니다. `target_y`, `target`, `label`, `y`, `class` 등 키워드를 이용한 Exact 및 Substring 매칭을 적용하고, 매칭에 실패할 경우 가장 마지막에 위치한 컬럼을 폴백(Fallback) 예측 타겟으로 추천합니다.
+
+---
+
+### D. 모델 관리 및 실행 전략 모듈: `automl_framework/model/`
 #### `ModelPool` (Class, `automl_framework/model/model_pool.py`)
 * **책임**: 알고리즘군(Tree 기반, 신경망 기반, 사전 학습 기반 등)의 모델 객체를 보유하는 데이터 저장소(Inventory Container)입니다.
 * **핵심 메서드**:
@@ -315,7 +328,7 @@ regression-model-revolution-framework/
 
 ---
 
-### D. 프리미엄 시각화 및 레포팅 모듈: `automl_framework/util/visualizer.py`
+### E. 프리미엄 시각화 및 레포팅 모듈: `automl_framework/util/visualizer.py`
 #### `Visualizer` (Class)
 * **책임**: 데이터 분석 결과 및 모델 성능 지표를 화려하고 세련된 그래픽 플롯(Premium Dark Theme) 및 구조화된 JSON 실행 메타데이터 파일로 보관합니다.
 * **핵심 메서드**:
@@ -326,13 +339,13 @@ regression-model-revolution-framework/
 
 ---
 
-### E. 대화형 웹 인터페이스: `app.py` (Streamlit WebUI)
+### F. 대화형 웹 인터페이스: `app.py` (Streamlit WebUI)
 * **책임**: 브라우저 환경에서 전체 실험의 설계, 기동, 실시간 실행 추적, 모델 성능 진단 차트 조회를 단일 웹 대시보드로 통합 제어합니다.
 * **주요 메커니즘**:
   - **동적 스키마 로딩 (`render_dynamic_params`)**: `default.yml` 구성 파일의 딕셔너리 구조를 동적으로 순회하며 매칭되는 위젯(Checkbox, Number Input, List Area 등)을 렌더링합니다. 설정 파일이 바뀌면 UI가 자동으로 업데이트되어 높은 확장성을 보장합니다.
-  - **데이터셋 컬럼 자동 분석**: 로컬 파일을 선택하면 데이터를 미세 리드하여 컬럼 목록을 실시간으로 가져옵니다. 사용자는 텍스트 타이핑 없이 드롭다운으로 편리하게 타겟 컬럼 및 제외 컬럼(`ignored_columns`)들을 매핑할 수 있습니다.
-  - **실시간 로그 스트리밍**: 실행 버튼 작동 시 `subprocess.Popen`을 사용해 `python main.py --config configs/web_config.yml`을 비동기 구동하고, 실시간 파이프라인 터미널 콘솔 스트림을 버퍼 사이즈 1 단위로 가로채어 화면에 뿌려줍니다.
-  - **인터랙티브 분석 결과 피드**: 실행이 성공하면 `outputs/` 내부의 JSON 성적 메트릭과 `Visualizer`가 드로잉한 대용량 차트 파일들을 탐색하여 UI 상에 챔피언 모델 정보와 잔차 및 예측 산포도를 동적으로 피딩합니다.
+  - **배치 데이터셋 제어 및 구성**: 플래너 모듈을 호출하여 지정한 디렉토리의 데이터 파일들을 스캔하고, 사용자가 개별 데이터셋의 배치 실험 포함 여부(include)를 켜고 끄며 타겟 컬럼을 드롭다운으로 변경할 수 있도록 인터랙티브 테이블을 제공합니다.
+  - **실시간 로그 스트리밍**: 실행 버튼 작동 시 `subprocess.Popen`을 사용해 `python main.py`를 비동기 구동하고, 실시간 파이프라인 터미널 콘솔 스트림을 버퍼 사이즈 1 단위로 가로채어 화면에 뿌려줍니다.
+  - **격리형 분석 결과 드롭다운 피드**: 실행이 성공하면 배치 실행 모드일 경우 각 데이터셋별 결과 디렉토리(`outputs/[dataset_name]/`)를 탐색하여 드롭다운 선택상자로 전환해가며 Champion 모델 정보와 잔차 및 예측 산포도를 동적으로 피딩합니다.
 
 ---
 

@@ -17,7 +17,7 @@ automl_framework/
 ├── dataloader/          # Data Domain (Facade & strategy submodules)
 │   ├── __init__.py
 │   ├── base.py          # Abstract base classes for loaders/preprocessors/splitters
-│   ├── loaders.py       # Modular loaders (Local, Kaggle, URL)
+│   ├── loaders.py       # Local file loader (CSV, TSV, Parquet, JSONL)
 │   ├── preprocessors.py # Standard data imputation & encoding
 │   ├── splitters.py     # Dataset split strategies (train/val/test)
 │   └── data_loader_helper.py # DataLoaderHelper facade class and data pipeline orchestrator
@@ -41,8 +41,7 @@ automl_framework/
 
 ### 1. Ingestion (`dataloader/`)
 - **Facade Strategy Pattern**: `DataLoaderHelper` delegates specialized loading, preprocessing, and splitting tasks to modular strategy subcomponents, and exposes a unified high-level `load_and_preprocess_data` pipeline orchestrator method.
-- **Kaggle API Integration (`loaders.py`)**: Fetch datasets from Kaggle directly by passing a dataset ID.
-- **Direct HTTP Downloading (`loaders.py`)**: Supports direct downloads from URLs (such as the UCI Machine Learning Repository or customized datasets).
+
 - **Graceful Preprocessing (`preprocessors.py`)**: Handles automated median imputation for numeric features, mode imputation for categorical features, and automatic dummy/one-hot encoding.
 - **Flexible Splitting (`splitters.py`)**: Supports standard train/test splitting as well as 3-way train/validation/test partitioning.
 

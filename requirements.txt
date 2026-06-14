@@ -12,9 +12,6 @@ tabpfn>=0.1.9
 matplotlib>=3.4.0
 seaborn>=0.11.0
 
-# Optional / External Data Source Connectors
-kaggle>=1.5.12
-
 # Configurations and Parsing
 PyYAML>=6.0
 streamlit>=1.20.0

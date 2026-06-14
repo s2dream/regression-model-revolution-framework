@@ -197,12 +197,40 @@ def render_dynamic_params(params_dict, key_prefix):
 # 🏁 INITIAL STATE & BASE CONFIG LOADING
 # ==========================================
 default_config = load_config("configs/default.yml")
+available_models = list(default_config.get("models", {}).keys())
+
 if "pipeline_running" not in st.session_state:
     st.session_state.pipeline_running = False
 if "run_logs" not in st.session_state:
     st.session_state.run_logs = ""
 if "current_turn" not in st.session_state:
     st.session_state.current_turn = 1
+
+# Initialize Planner variables in session state if not present
+if "target_column" not in st.session_state:
+    st.session_state.target_column = default_config.get("data", {}).get("target_column", "Target_Y")
+if "ignored_columns" not in st.session_state:
+    st.session_state.ignored_columns = default_config.get("data", {}).get("ignored_columns", []) or []
+if "feature_columns" not in st.session_state:
+    st.session_state.feature_columns = default_config.get("data", {}).get("feature_columns", []) or []
+if "split_method" not in st.session_state:
+    st.session_state.split_method = default_config.get("data", {}).get("split", {}).get("method", "train_test_split")
+if "test_size" not in st.session_state:
+    st.session_state.test_size = default_config.get("data", {}).get("split", {}).get("test_size", 0.2)
+if "n_splits" not in st.session_state:
+    st.session_state.n_splits = default_config.get("data", {}).get("split", {}).get("n_splits", 5)
+
+for model in available_models:
+    session_key = f"active_model_chk_{model}"
+    if session_key not in st.session_state:
+        st.session_state[session_key] = model in default_config.get("framework", {}).get("active_models", [])
+
+if "batch_jobs" not in st.session_state:
+    st.session_state.batch_jobs = []
+if "batch_selected_dataset" not in st.session_state:
+    st.session_state.batch_selected_dataset = ""
+if "run_mode" not in st.session_state:
+    st.session_state.run_mode = "Single Dataset Mode"
 
 
 # ==========================================
@@ -225,82 +253,200 @@ st.sidebar.markdown("### 📁 Dataset & Splitting")
 data_dir = st.sidebar.text_input("Data Directory", value=default_config.get("data", {}).get("data_dir", "data"))
 output_dir = st.sidebar.text_input("Output Directory", value=default_config.get("data", {}).get("output_dir", "outputs"))
 
-data_source = st.sidebar.selectbox("Data Source Mode", ["Local Directory", "Kaggle Dataset", "UCI URL / Direct Link"])
-
-dataset_path = None
-kaggle_dataset = None
-url = None
-
-if data_source == "Local Directory":
-    local_files = glob.glob(os.path.join(data_dir, "*"))
-    local_files = [f for f in local_files if f.endswith(('.csv', '.tsv', '.parquet', '.jsonl'))]
-    if local_files:
-        dataset_path = st.sidebar.selectbox("Select Local File", local_files)
-    else:
-        dataset_path = st.sidebar.text_input("Local File Path", value="")
-        st.sidebar.info("No matching dataset files found in data directory. Enter path manually.")
-elif data_source == "Kaggle Dataset":
-    kaggle_dataset = st.sidebar.text_input("Kaggle Dataset (e.g. 'crawford/80-cereals')", value="")
+local_files = glob.glob(os.path.join(data_dir, "*"))
+local_files = [f for f in local_files if f.endswith(('.csv', '.tsv', '.parquet', '.jsonl'))]
+if local_files:
+    dataset_path = st.sidebar.selectbox("Select Local File", local_files)
 else:
-    url = st.sidebar.text_input("Direct URL to CSV/TSV/JSONL", value="")
+    dataset_path = st.sidebar.text_input("Local File Path", value="")
+    st.sidebar.info("No matching dataset files found in data directory. Enter path manually.")
 
 # Dynamic Column configurations based on selected file (if exists)
 columns = []
-if data_source == "Local Directory" and dataset_path and os.path.exists(dataset_path):
+if dataset_path and os.path.exists(dataset_path):
     columns = get_dataset_columns(dataset_path)
 
 # Target column selection
-target_col_default = default_config.get("data", {}).get("target_column", "Target_Y")
+target_col_current = st.session_state.target_column
 if columns:
-    target_column = st.sidebar.selectbox("Target Column (y)", columns, index=columns.index(target_col_default) if target_col_default in columns else 0)
+    target_column = st.sidebar.selectbox("Target Column (y)", columns, index=columns.index(target_col_current) if target_col_current in columns else 0, key="target_column_select")
+    st.session_state.target_column = target_column
 else:
-    target_column = st.sidebar.text_input("Target Column (y)", value=target_col_default)
+    target_column = st.sidebar.text_input("Target Column (y)", value=target_col_current, key="target_column_input")
+    st.session_state.target_column = target_column
 
 # Ignored & Feature Columns
-ignored_cols_default = default_config.get("data", {}).get("ignored_columns", []) or []
-feature_cols_default = default_config.get("data", {}).get("feature_columns", []) or []
+ignored_cols_current = st.session_state.ignored_columns
+feature_cols_current = st.session_state.feature_columns
 
 if columns:
     # Filter out target column from choice lists
     remaining_cols = [c for c in columns if c != target_column]
-    ignored_columns = st.sidebar.multiselect("Ignored Columns (dropped first)", remaining_cols, default=[c for c in ignored_cols_default if c in remaining_cols])
+    ignored_columns = st.sidebar.multiselect("Ignored Columns (dropped first)", remaining_cols, default=[c for c in ignored_cols_current if c in remaining_cols], key="ignored_columns_select")
+    st.session_state.ignored_columns = ignored_columns
     
     # Filter out ignored columns from feature choice list
     feature_choices = [c for c in remaining_cols if c not in ignored_columns]
-    feature_columns = st.sidebar.multiselect("Feature Columns (X) [Leave empty to use all remaining]", feature_choices, default=[c for c in feature_cols_default if c in feature_choices])
+    feature_columns = st.sidebar.multiselect("Feature Columns (X) [Leave empty to use all remaining]", feature_choices, default=[c for c in feature_cols_current if c in feature_choices], key="feature_columns_select")
+    st.session_state.feature_columns = feature_columns
 else:
-    ignored_cols_str = st.sidebar.text_input("Ignored Columns (comma separated)", value=",".join(ignored_cols_default))
+    ignored_cols_str = st.sidebar.text_input("Ignored Columns (comma separated)", value=",".join(ignored_cols_current), key="ignored_columns_input")
     ignored_columns = [c.strip() for c in ignored_cols_str.split(",") if c.strip()]
+    st.session_state.ignored_columns = ignored_columns
     
-    feature_cols_str = st.sidebar.text_input("Feature Columns (comma separated) [Leave empty for all]", value=",".join(feature_cols_default))
+    feature_cols_str = st.sidebar.text_input("Feature Columns (comma separated) [Leave empty for all]", value=",".join(feature_cols_current), key="feature_columns_input")
     feature_columns = [c.strip() for c in feature_cols_str.split(",") if c.strip()]
+    st.session_state.feature_columns = feature_columns
 
 # Split Options (dynamically rendered from default_config data.split)
 st.sidebar.markdown("---")
 st.sidebar.markdown("### ✂️ Data Splitting Strategy")
-split_config = default_config.get("data", {}).get("split", {})
 
+current_method = st.session_state.split_method
+split_methods_list = ["train_test_split", "kfold", "timeseries"]
 split_method = st.sidebar.selectbox(
     "Split Method", 
-    ["train_test_split", "kfold", "timeseries"], 
-    index=["train_test_split", "kfold", "timeseries"].index(split_config.get("method", "train_test_split"))
+    split_methods_list, 
+    index=split_methods_list.index(current_method) if current_method in split_methods_list else 0,
+    key="split_method_select"
 )
+st.session_state.split_method = split_method
 
-split_params_to_render = {k: v for k, v in split_config.items() if k != "method"}
+split_params_to_render = {
+    "test_size": st.session_state.test_size,
+    "n_splits": st.session_state.n_splits,
+    "val_size": default_config.get("data", {}).get("split", {}).get("val_size", None),
+    "shuffle": default_config.get("data", {}).get("split", {}).get("shuffle", True)
+}
+
 st.sidebar.markdown("##### Split Parameters")
 updated_split_params = render_dynamic_params(split_params_to_render, "split")
 updated_split_params["method"] = split_method
+
+if "test_size" in updated_split_params:
+    st.session_state.test_size = updated_split_params["test_size"]
+if "n_splits" in updated_split_params:
+    st.session_state.n_splits = updated_split_params["n_splits"]
 
 
 # ==========================================
 # 📊 CENTRAL APPLICATION CONTENT: TABS
 # ==========================================
-tab_models, tab_custom, tab_runner, tab_results = st.tabs([
+tab_planner, tab_models, tab_custom, tab_runner, tab_results = st.tabs([
+    "📋 Data & Experiment Planner",
     "🛠️ Models & Active Pool", 
     "🧩 Custom Configurations",
     "⚙️ Runner Console", 
     "📈 Results & Metrics"
 ])
+
+# ------------------------------------------
+# TAB 0: DATA & EXPERIMENT PLANNER
+# ------------------------------------------
+# ------------------------------------------
+# TAB 0: DATA & EXPERIMENT PLANNER
+# ------------------------------------------
+with tab_planner:
+    st.markdown('<div class="premium-card">', unsafe_allow_html=True)
+    st.subheader("📋 Multi-Dataset Batch Planner")
+    st.write("지정된 데이터 디렉토리에서 여러 데이터 파일들을 감지하여 일괄 실험(Batch)을 구성합니다. 각 데이터셋의 실험 포함 여부 및 예측 대상(Target) 변수를 개별 설정할 수 있습니다.")
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # scan execution section
+    col_scan1, col_scan2 = st.columns([1, 2])
+    with col_scan1:
+        scan_clicked = st.button("🔍 Scan Data Directory", use_container_width=True, type="primary")
+    with col_scan2:
+        st.write(f"스캔 대상 디렉토리: `{data_dir}` (출력 경로: `{output_dir}`)")
+
+    # Perform scanning logic
+    if scan_clicked or (not st.session_state.batch_jobs and os.path.exists(data_dir)):
+        try:
+            from automl_framework.planner import DataPlanner
+            planner = DataPlanner()
+            scanned = planner.scan_directory(data_dir)
+            
+            # Map scanned items to session state, preserving user modifications if existing
+            new_jobs = []
+            for item in scanned:
+                existing = next((j for j in st.session_state.batch_jobs if j["file_path"] == item["file_path"]), None)
+                if existing:
+                    new_jobs.append({
+                        "file_path": item["file_path"],
+                        "file_name": item["file_name"],
+                        "file_size": item["file_size"],
+                        "columns": item["columns"],
+                        "target_column": existing["target_column"],
+                        "include": existing["include"]
+                    })
+                else:
+                    new_jobs.append({
+                        "file_path": item["file_path"],
+                        "file_name": item["file_name"],
+                        "file_size": item["file_size"],
+                        "columns": item["columns"],
+                        "target_column": item["target_column"],
+                        "include": True
+                    })
+            st.session_state.batch_jobs = new_jobs
+            if scan_clicked:
+                st.success(f"데이터 디렉토리에서 총 {len(new_jobs)}개의 데이터셋을 찾았습니다!")
+        except Exception as e:
+            st.error(f"디렉토리 스캔 오류: {e}")
+
+    # Render configurations
+    if st.session_state.batch_jobs:
+        st.markdown("---")
+        st.markdown("##### 📋 배치 실험 스캔 결과 및 개별 타겟 설정")
+        
+        # Table Header
+        h_inc, h_name, h_size, h_target = st.columns([1, 3, 2, 4])
+        h_inc.markdown("**Include**")
+        h_name.markdown("**File Name**")
+        h_size.markdown("**File Size**")
+        h_target.markdown("**Target Column (y)**")
+        
+        # Table Content
+        for idx, job in enumerate(st.session_state.batch_jobs):
+            c_inc, c_name, c_size, c_target = st.columns([1, 3, 2, 4])
+            with c_inc:
+                new_inc = st.checkbox("", value=job["include"], key=f"batch_inc_{idx}", label_visibility="collapsed")
+                st.session_state.batch_jobs[idx]["include"] = new_inc
+            with c_name:
+                st.markdown(f"`{job['file_name']}`")
+            with c_size:
+                st.write(job["file_size"])
+            with c_target:
+                cols_list = job["columns"]
+                if cols_list:
+                    # In case target_column is not in the list, fallback index to 0
+                    try:
+                        default_idx = cols_list.index(job["target_column"])
+                    except ValueError:
+                        default_idx = 0
+                    new_target = st.selectbox(
+                        "", 
+                        cols_list, 
+                        index=default_idx, 
+                        key=f"batch_target_{idx}", 
+                        label_visibility="collapsed"
+                    )
+                    st.session_state.batch_jobs[idx]["target_column"] = new_target
+                else:
+                    new_target = st.text_input(
+                        "", 
+                        value=job["target_column"], 
+                        key=f"batch_target_text_{idx}", 
+                        label_visibility="collapsed"
+                    )
+                    st.session_state.batch_jobs[idx]["target_column"] = new_target
+                    
+        # Help warning if nothing is selected
+        active_count = sum(1 for j in st.session_state.batch_jobs if j["include"])
+        if active_count == 0:
+            st.warning("⚠️ 선택된 실험 대상 데이터셋이 없습니다. 최소 1개 이상의 데이터셋을 선택해주세요.")
+    else:
+        st.info("데이터 디렉토리에 유효한 데이터 파일(.csv, .tsv, .parquet, .jsonl)이 없습니다. 파일을 배치해두거나 경로를 확인해주세요.")
 
 # ------------------------------------------
 # TAB 1: MODELS & ACTIVE POOL
@@ -321,8 +467,9 @@ with tab_models:
     for i, model in enumerate(available_models):
         col = active_cols[i % len(active_cols)]
         with col:
-            is_active_default = model in default_active_models
-            if st.checkbox(model, value=is_active_default, key=f"active_{model}"):
+            session_key = f"active_model_chk_{model}"
+            is_checked = st.checkbox(model, value=st.session_state[session_key], key=session_key)
+            if is_checked:
                 active_models.append(model)
 
     st.markdown("---")
@@ -374,7 +521,7 @@ with tab_runner:
         }),
         "framework": {
             "random_state": default_config.get("framework", {}).get("random_state", 42),
-            "test_size": default_config.get("framework", {}).get("test_size", 0.2),
+            "test_size": updated_split_params.get("test_size", default_config.get("framework", {}).get("test_size", 0.2)),
             "active_models": active_models
         },
         "data": {
@@ -395,6 +542,12 @@ with tab_runner:
     col_ctrl, col_status = st.columns([1, 1])
     with col_ctrl:
         st.markdown("##### Configuration Preview")
+        # If batch mode is active, display which datasets are scheduled to run
+        if st.session_state.run_mode == "Batch Experiments Mode" and st.session_state.batch_jobs:
+            active_jobs = [j["file_name"] for j in st.session_state.batch_jobs if j["include"]]
+            st.warning(f"⚠️ **배치 모드 활성화됨**: 다음 {len(active_jobs)}개 데이터셋에 대해 독립적인 실험이 순차 진행됩니다:")
+            for j in active_jobs:
+                st.write(f"- `{j}`")
         st.code(yaml.dump(compiled_config, default_flow_style=False), language="yaml")
     
     with col_status:
@@ -407,6 +560,21 @@ with tab_runner:
             st.markdown('Status: <span class="status-badge status-ready">Ready</span>', unsafe_allow_html=True)
             
         st.markdown("")
+        
+        # Select Execution Mode if batch_jobs are configured
+        active_batch_count = sum(1 for j in st.session_state.batch_jobs if j["include"])
+        if active_batch_count > 0:
+            run_mode_select = st.radio(
+                "Execution Mode", 
+                ["Single Dataset Mode", "Batch Experiments Mode"], 
+                index=0 if st.session_state.run_mode == "Single Dataset Mode" else 1,
+                key="run_mode_radio"
+            )
+            st.session_state.run_mode = run_mode_select
+        else:
+            st.session_state.run_mode = "Single Dataset Mode"
+            
+        st.markdown("")
         turn_index = st.number_input("Execution Turn Index", value=st.session_state.current_turn, min_value=1, step=1)
         st.session_state.current_turn = turn_index
 
@@ -417,52 +585,88 @@ with tab_runner:
         st.session_state.pipeline_running = True
         st.session_state.run_logs = ""
         
-        # 1. Save YAML config to web_config.yml
-        save_config(compiled_config, "configs/web_config.yml")
-        
-        st.info("Configuration saved to `configs/web_config.yml`. Initializing subprocess run...")
-        
-        # 2. Setup running commands
-        cmd = [sys.executable, "main.py", "--config", "configs/web_config.yml", "--turn", str(turn_index)]
-        if data_source == "Local Directory" and dataset_path:
-            cmd += ["--dataset-path", dataset_path]
-        elif data_source == "Kaggle Dataset" and kaggle_dataset:
-            cmd += ["--kaggle-dataset", kaggle_dataset]
-        elif data_source == "UCI URL / Direct Link" and url:
-            cmd += ["--url", url]
-            
-        st.write(f"Executing: `{' '.join(cmd)}`")
-        
-        # Execute subprocess and stream stdout
-        process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1
-        )
-        
-        log_container = st.empty()
-        
-        while True:
-            line = process.stdout.readline()
-            if not line and process.poll() is not None:
-                break
-            if line:
-                st.session_state.run_logs += line
-                # Display only last 200 lines to preserve browser memory
-                lines = st.session_state.run_logs.split("\n")
-                log_container.code("\n".join(lines[-200:]), language="text")
-                
-        rc = process.poll()
-        st.session_state.pipeline_running = False
-        
-        if rc == 0:
-            st.success(f"Execution completed successfully! Check outputs in '{output_dir}'.")
-            # Automatically switch to Results Tab if possible (we can rerun Streamlit)
-            st.rerun()
+        # Determine jobs to execute
+        if st.session_state.run_mode == "Batch Experiments Mode" and st.session_state.batch_jobs:
+            jobs_to_run = [j for j in st.session_state.batch_jobs if j["include"]]
         else:
-            st.error(f"Execution failed with return code {rc}. Review log output.")
+            # Single dataset mode
+            jobs_to_run = [{
+                "file_path": dataset_path,
+                "file_name": os.path.basename(dataset_path) if dataset_path else "",
+                "target_column": target_column
+            }]
+
+        if not jobs_to_run or (st.session_state.run_mode == "Single Dataset Mode" and not dataset_path):
+            st.error("실행할 대상 데이터셋이 존재하지 않습니다.")
+            st.session_state.pipeline_running = False
+        else:
+            total_jobs = len(jobs_to_run)
+            success_count = 0
+            
+            for idx, job in enumerate(jobs_to_run):
+                job_file = job["file_path"]
+                job_name = job["file_name"]
+                job_target = job["target_column"]
+                job_name_clean = os.path.splitext(job_name)[0]
+                
+                # Suffix output directory per dataset to avoid overwriting
+                if st.session_state.run_mode == "Batch Experiments Mode":
+                    job_output_dir = os.path.join(output_dir, job_name_clean)
+                else:
+                    job_output_dir = output_dir
+                
+                # 1. Update compiled_config with dataset-specific output directory and target column
+                compiled_config["data"]["output_dir"] = job_output_dir
+                compiled_config["data"]["target_column"] = job_target
+                compiled_config["data"]["dataset_path"] = job_file
+                
+                # Update framework.test_size
+                compiled_config["framework"]["test_size"] = updated_split_params.get("test_size", default_config.get("framework", {}).get("test_size", 0.2))
+                
+                save_config(compiled_config, "configs/web_config.yml")
+                
+                log_header = f"\n========================================\n🚀 [{idx+1}/{total_jobs}] Running dataset: {job_name}\nTarget column: {job_target}\nOutput directory: {job_output_dir}\n========================================\n"
+                st.session_state.run_logs += log_header
+                
+                # Stream log
+                log_container = st.empty()
+                log_container.code("\n".join(st.session_state.run_logs.split("\n")[-200:]), language="text")
+                
+                cmd = [sys.executable, "main.py", "--config", "configs/web_config.yml", "--turn", str(turn_index), "--dataset-path", job_file, "--target", job_target]
+                
+                process = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1
+                )
+                
+                while True:
+                    line = process.stdout.readline()
+                    if not line and process.poll() is not None:
+                        break
+                    if line:
+                        st.session_state.run_logs += line
+                        # Display only last 200 lines to preserve browser memory
+                        log_container.code("\n".join(st.session_state.run_logs.split("\n")[-200:]), language="text")
+                        
+                rc = process.poll()
+                if rc == 0:
+                    success_count += 1
+                    st.session_state.run_logs += f"\n✅ Successfully finished: {job_name}\n"
+                    if st.session_state.run_mode == "Batch Experiments Mode":
+                        st.session_state.batch_selected_dataset = job_name
+                else:
+                    st.session_state.run_logs += f"\n❌ Failed (Return code {rc}): {job_name}\n"
+            
+            st.session_state.pipeline_running = False
+            
+            if success_count == total_jobs:
+                st.success(f"All {total_jobs} experiments completed successfully!")
+                st.rerun()
+            else:
+                st.warning(f"Batch completed: {success_count}/{total_jobs} succeeded, {total_jobs - success_count} failed. Check console logs.")
 
     # Always show logs if they exist
     if st.session_state.run_logs:
@@ -475,8 +679,39 @@ with tab_runner:
 with tab_results:
     st.subheader("📊 Performance Dashboards & Charts")
     
+    # 🔍 Scan output directory for any subdirectories (indicating different datasets in Batch mode)
+    sub_dirs = []
+    if os.path.exists(output_dir) and os.path.isdir(output_dir):
+        for item in os.listdir(output_dir):
+            item_path = os.path.join(output_dir, item)
+            if os.path.isdir(item_path):
+                sub_dirs.append(item)
+    sub_dirs.sort()
+    
+    # Selection of output folder (Allows switching between single mode and different batch datasets)
+    if sub_dirs:
+        # Determine default selected directory based on last run dataset
+        default_idx = 0
+        if st.session_state.batch_selected_dataset:
+            clean_name = os.path.splitext(st.session_state.batch_selected_dataset)[0]
+            if clean_name in sub_dirs:
+                default_idx = sub_dirs.index(clean_name) + 1
+                
+        selected_target = st.selectbox(
+            "Select Experiment Dataset to View",
+            ["Single Mode (Root Output)"] + sub_dirs,
+            index=default_idx
+        )
+        
+        if selected_target == "Single Mode (Root Output)":
+            current_output_dir = output_dir
+        else:
+            current_output_dir = os.path.join(output_dir, selected_target)
+    else:
+        current_output_dir = output_dir
+        
     report_filename = f"turn_{st.session_state.current_turn}_report.json"
-    report_path = os.path.join(output_dir, report_filename)
+    report_path = os.path.join(current_output_dir, report_filename)
     
     if os.path.exists(report_path):
         # Load Report JSON
@@ -507,8 +742,8 @@ with tab_results:
             st.markdown("##### 📈 Benchmark Comparisons")
             col_chart1, col_chart2 = st.columns(2)
             
-            comp_r2_img = os.path.join(output_dir, f"turn_{st.session_state.current_turn}_model_comparison_r2.png")
-            comp_rmse_img = os.path.join(output_dir, f"turn_{st.session_state.current_turn}_model_comparison_rmse.png")
+            comp_r2_img = os.path.join(current_output_dir, f"turn_{st.session_state.current_turn}_model_comparison_r2.png")
+            comp_rmse_img = os.path.join(current_output_dir, f"turn_{st.session_state.current_turn}_model_comparison_rmse.png")
             
             with col_chart1:
                 if is_valid_image(comp_r2_img):
@@ -528,8 +763,8 @@ with tab_results:
             
             if selected_model:
                 col_diag1, col_diag2 = st.columns(2)
-                pred_vs_act_img = os.path.join(output_dir, f"turn_{st.session_state.current_turn}_{selected_model}_actual_vs_pred.png")
-                residuals_img = os.path.join(output_dir, f"turn_{st.session_state.current_turn}_{selected_model}_residuals.png")
+                pred_vs_act_img = os.path.join(current_output_dir, f"turn_{st.session_state.current_turn}_{selected_model}_actual_vs_pred.png")
+                residuals_img = os.path.join(current_output_dir, f"turn_{st.session_state.current_turn}_{selected_model}_residuals.png")
                 
                 with col_diag1:
                     if is_valid_image(pred_vs_act_img):

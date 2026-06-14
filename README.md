@@ -27,7 +27,6 @@ regression-model-revolution-framework/
 ├── scripts/                        # 🏃 Automated scenario-specific bash execution scripts
 │   ├── run_local_csv.sh            # Run AutoML benchmark pipeline with local CSV dataset
 │   ├── run_local_jsonl.sh          # Run AutoML benchmark pipeline with local JSONL (dynamic columns)
-│   ├── run_url.sh                  # Download dataset from direct URL and run benchmark
 │   └── run_webui.sh                # Run Streamlit WebUI studio
 ├── ARCHITECTURE.md                 # System modules & execution flow specs
 ├── REQ_SPEC.md                     # Requirements and functional specifications
@@ -73,9 +72,9 @@ You can install all necessary dependencies using the provided `requirements.txt`
 pip install -r requirements.txt
 ```
 
-*(Optional) If you want to use the TabPFN and Kaggle API integrations:*
+*(Optional) If you want to use the TabPFN integration:*
 ```bash
-pip install tabpfn kaggle
+pip install tabpfn
 ```
 
 ### 2. Run with Streamlit WebUI (Recommended)
@@ -97,8 +96,7 @@ The easiest way to run the pipeline with pre-configured settings is using the pr
 # Run with a local JSONL dataset (supports dynamically aligned schemas!)
 ./scripts/run_local_jsonl.sh
 
-# Run downloading a dataset from a remote URL
-./scripts/run_url.sh
+
 ```
 
 Alternatively, you can call `main.py` directly with custom command line arguments:
@@ -113,15 +111,7 @@ To run with a local JSON Lines (`.jsonl`) dataset where some rows have missing k
 python main.py --dataset-path data/synthetic_regression.jsonl --target Target_Y
 ```
 
-To automatically pull a dataset from Kaggle and execute the benchmark:
-```bash
-python main.py --kaggle-dataset "sobhanmoosavi/us-accidents" --target "Severity"
-```
 
-To download from a URL (e.g. UCI ML Database or GitHub dataset) and run:
-```bash
-python main.py --url "https://raw.githubusercontent.com/selva86/datasets/master/BostonHousing.csv" --target "medv"
-```
 
 ---
 

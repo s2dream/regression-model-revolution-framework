@@ -5,7 +5,7 @@ from typing import Tuple, Optional, Dict, Any
 
 logger = logging.getLogger(__name__)
 
-from automl_framework.dataloader.loaders import LocalFileDataLoader, KaggleDataLoader, URLDataLoader
+from automl_framework.dataloader.loaders import LocalFileDataLoader
 from automl_framework.dataloader.preprocessors import StandardDataPreprocessor
 from automl_framework.dataloader.splitters import TrainTestSplitter, KFoldSplitter, TimeSeriesSplitter
 
@@ -32,20 +32,7 @@ class DataLoaderHelper:
         else:
             return TrainTestSplitter()
 
-    def download_from_kaggle(self, dataset_name: str) -> str:
-        """
-        Downloads a dataset from Kaggle using KaggleDataLoader.
-        """
-        kaggler_dir = os.path.join(self.data_dir, "kaggle_dataset")
-        loader = KaggleDataLoader(dataset_name=dataset_name, target_column="", feature_columns=self.feature_columns, ignored_columns=self.ignored_columns, data_dir=kaggler_dir)
-        return loader.download_data()
 
-    def download_from_url(self, url: str, filename: str) -> str:
-        """
-        Downloads a dataset from URL using URLDataLoader.
-        """
-        loader = URLDataLoader(url=url, filename=filename, target_column="", feature_columns=self.feature_columns, ignored_columns=self.ignored_columns, data_dir=self.data_dir)
-        return loader.download_data()
 
     def load_dataset(self, filepath: str, target_column: str) -> Tuple[pd.DataFrame, pd.Series]:
         """
@@ -96,33 +83,18 @@ class DataLoaderHelper:
 
     def fetch_dataset(
         self,
-        dataset_path: Optional[str] = None,
-        kaggle_dataset: Optional[str] = None,
-        url: Optional[str] = None
+        dataset_path: Optional[str] = None
     ) -> str:
         """
-        Kaggle, URL, 혹은 로컬 경로로부터 데이터셋을 안전하게 다운로드하거나 
-        유효성 검사를 거쳐 최종 데이터셋 파일의 절대 경로를 반환합니다.
+        로컬 경로로부터 데이터셋을 안전하게 검증하고 최종 데이터셋 파일의 절대 경로를 반환합니다.
         """
         dataset_file = dataset_path
-        
-        if kaggle_dataset:
-            download_dir = self.download_from_kaggle(kaggle_dataset)
-            csv_files = [f for f in os.listdir(download_dir) if f.endswith('.csv')]
-            if csv_files:
-                dataset_file = os.path.join(download_dir, csv_files[0])
-            else:
-                raise FileNotFoundError(f"Kaggle에서 다운로드한 폴더 내에 CSV 파일이 존재하지 않습니다: {download_dir}")
-                
-        elif url:
-            # URL을 통해 downloaded_data.csv로 다운로드
-            dataset_file = self.download_from_url(url, "downloaded_data.csv")
 
         # 최종 경로 검증
         if not dataset_file:
             raise ValueError(
                 "사용 가능한 데이터셋 정보가 주어지지 않았습니다. "
-                "local path (--dataset-path), Kaggle dataset (--kaggle-dataset), 또는 UCI URL (--url) 중 하나를 지정해야 합니다."
+                "local path (--dataset-path)를 지정해야 합니다."
             )
             
         if not os.path.exists(dataset_file):

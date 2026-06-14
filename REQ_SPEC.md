@@ -34,9 +34,7 @@
 - **시각화 및 파일 입출력**:
   - `matplotlib`, `seaborn`: 프리미엄 디자인 규격이 적용된 테마 차트 렌더링
   - `json`: 표준 구조화 리포트 저장을 위한 내장 객체
-- **외부 데이터 소스 연동**:
-  - `kaggle`: Kaggle API 연동 및 원격 데이터셋 파일 다운로드 지원
-  - `urllib.request`: 내장 다운로더 모듈을 통한 직접 HTTP URL 파싱 지원
+
 
 ---
 
@@ -56,20 +54,17 @@
 
 ### 3.2 데이터 로드 및 수집 (DataLoader - Data Fetching & Loading)
 * `DataLoader`는 **파사드 패턴 (Facade Pattern)**을 취해 데이터 로드, 전처리, 분할에 대한 클라이언트 단일 진입점을 제공하며, 내부적으로는 `loaders.py`에 정의된 `ABCDataLoader` 규격 하의 개별 전략 클래스들(`loaders.py`)에 실행을 위임해야 합니다.
-* **REQ-DL-01: Kaggle 데이터 자동 연동 및 다운로드**
-  - **설명**: Kaggle의 데이터셋 고유 식별자(예: `'sobhanmoosavi/us-accidents'`)를 제공받았을 때, 내장 `KaggleDataLoader` 연동 모듈을 호출하여 데이터를 자동으로 다운로드하고 압축을 풀어 로컬 지정 디렉토리에 배치할 수 있어야 합니다.
-* **REQ-DL-02: HTTP URL 데이터 자동 다운로드**
-  - **설명**: UCI 머신러닝 리포지토리 등 외부 다이렉트 다운로드 주소(URL)를 입력받았을 때, `URLDataLoader`를 통해 원본 데이터를 직접 내려받아 로컬에 보관할 수 있어야 합니다.
-* **REQ-DL-03: 다양한 데이터 포맷 파싱 및 대상 열 분리**
+
+* **REQ-DL-01: 다양한 데이터 포맷 파싱 및 대상 열 분리**
   - **설명**: `LocalFileDataLoader`가 로컬의 `.csv`, `.tsv`, `.txt` (탭 구분자 포맷), `.parquet`, 그리고 `.jsonl` 확장자를 자동으로 감지하여 적절한 판다스 판독 엔진을 통해 DataFrame 형태로 읽어 들일 수 있어야 합니다.
   - **JSONL 동적 스키마 로딩**: 각 행이 독립적인 JSON 객체로 기술되는 JSON Lines(`.jsonl`) 포맷의 경우, 누락된 값에 의해 행마다 존재하지 않는 키가 생길 수 있습니다. 데이터를 라인별로 읽으면서 새로운 키를 발견할 때마다 새롭게 컬럼을 동적으로 결합 및 확장하고, 키가 생략된 위치는 자동으로 `NaN`을 안전 매핑하여 판다스 데이터프레임으로 정렬 정형화해 로드하는 기능을 완수해야 합니다.
   - **제외 컬럼 사전 필터링 (Ignored Columns)**: `ignored_columns` 옵션을 지원하여, 데이터 가공의 가장 첫 단계에서 불필요하거나 제외하고 싶은 열(Column)들을 지정하여 일괄적으로 드롭(drop)한 뒤 후속 분석을 실행할 수 있도록 해야 합니다.
   - **커스텀 피처 지정**: `feature_columns` 옵션을 지원하여, 지정된 특정 피처 컬럼들만 데이터셋에서 안전하게 추출해 $X$ 매트릭스를 구성하고 타겟 $y$를 매핑하는 기능을 완수해야 합니다.
 
 ### 3.3 데이터 전처리 및 분할 (DataLoader - Preprocessing & Splitting)
-* **REQ-DL-04: 자동 결측치 보정 및 범주형 데이터 변환 (Preprocessing)**
+* **REQ-DL-02: 자동 결측치 보정 및 범주형 데이터 변환 (Preprocessing)**
   - **설명**: `StandardDataPreprocessor`를 호출하여 수치형 결측치는 열의 **중앙값(Median)**으로, 범주형 결측치는 열의 **최빈값(Mode)**으로 임퓨팅한 후 **더미 변수화(Dummy Encoding, 원-핫 인코딩)**를 자동으로 실행해야 합니다. 다중공선성 문제를 방지하기 위해 첫 번째 범주를 제외하는 `drop_first=True` 전략을 고수합니다.
-* **REQ-DL-05: 난수 고정을 포함한 데이터셋 분할 (Data Splitting)**
+* **REQ-DL-03: 난수 고정을 포함한 데이터셋 분할 (Data Splitting)**
   - **설명**: 다양한 스플릿 방식(`TrainTestSplitter`, `KFoldSplitter`, `TimeSeriesSplitter`) 중 설정 프로파일에 지정된 기법을 선택적으로 로딩 및 동작시켜 데이터를 학습(Train) 및 최종 성능 측정(Test) 셋으로 분할하되, 난수 시드(`random_state`)를 지정하여 실행 재현성을 확보해야 합니다.
 
 ### 3.4 통일화된 모델 제어 및 모델 저장소 구성 (ModelPool & ModelWrapper)
@@ -114,12 +109,23 @@
 * **REQ-UI-04: 성적표 및 시각화 결과 대시보드 (Interactive Result Dashboard)**
   - **설명**: 실험 실행 완료 즉시 리포트 JSON 및 출력 차트 파일들을 탐색하여 대시보드에 Champion 모델 요약 정보, 모델별 성능 정렬 테이블, 그리고 Visualizer 플롯(실제치 vs 예측치, 잔차 분석 등)을 렌더링해야 합니다.
 
+### 3.8 다중 데이터셋 배치 플래너 (Multi-Dataset Batch Planner)
+시스템은 사용자가 데이터셋 지정 및 전처리 지정을 수행하기 전, 특정 디렉토리를 탐색해 대량의 데이터셋 목록을 스캔하고 사용자의 최종 승인 하에 일괄 실험(Batch)을 구성 및 오버라이드할 수 있는 플래너 모듈을 갖추어야 합니다.
+* **REQ-PL-01: 데이터 디렉토리 다중 스캔 (Directory Scanning)**
+  - **설명**: 지정된 데이터 디렉토리에서 지원하는 포맷(`.csv`, `.tsv`, `.txt`, `.parquet`, `.jsonl`)의 모든 데이터셋 파일을 검색하여 파일명, 파일 크기, 가용한 컬럼 목록 등의 메타데이터를 수집합니다.
+* **REQ-PL-02: 타겟 열 자동 추정 Heuristics (Target Column Inference)**
+  - **설명**: 감지된 각 데이터셋의 컬럼명 목록을 판독하여 예측 대상(Target) 변수를 자동 추정합니다. exact match 우선순위(`target_y`, `target`, `label`, `y`, `target_column`, `class`)를 거쳐, substring match(`target`, `label`, `class` 포함 컬럼) 순으로 찾고, 최후의 보루(Fallback)로 해당 데이터셋의 가장 마지막 열을 타겟으로 제안합니다.
+* **REQ-PL-03: 배치 구성 UI 제어 및 동적 오버라이드 (Interactive Batch Config)**
+  - **설명**: 사용자가 UI 상에서 스캔된 각 데이터셋 파일의 실험 포함 여부(checkbox)를 키고 끌 수 있게 지원하며, 스캔된 컬럼 목록 내에서 예측 대상 컬럼(y)을 개별 조율 및 오버라이드할 수 있는 편리한 환경을 제공합니다.
+* **REQ-PL-04: 배치 실험 격리 실행 루프 및 결과 드롭다운 전환**
+  - **설명**: 배치 모드 구동 시 각 데이터셋 실험 결과가 서로 덮어쓰지 않도록 `outputs/[dataset_name]/` 개별 격리 디렉토리에 챔피언 정보 리포트 JSON 및 프리미엄 분석 차트 이미지들을 보존하고, 결과 조회 탭에서 해당 데이터셋별 서브디렉토리를 드롭다운으로 선택하여 결과를 유연하게 실시간으로 전환하며 모니터링할 수 있도록 지원합니다.
+
 ---
 
 ## 4. 비기능적 요구사항 (Non-Functional Requirements)
 
 ### 4.1 사용성 및 접근성 (Usability & Config Driven Control)
-- 사용자는 `python main.py` 명령어 뿐만 아니라 `scripts/` 디렉토리에 미리 보관해 둔 실행 스크립트 파일들(CSV 분석용 `./scripts/run_local_csv.sh`, JSONL 분석용 `./scripts/run_local_jsonl.sh`, URL 원격 다운로드용 `./scripts/run_url.sh`, Web UI 기동용 `./scripts/run_webui.sh`)을 실행하는 것만으로 곧바로 프레임워크 전체 오케스트레이션 프로세스를 즉시 구동 및 재현할 수 있어야 합니다.
+- 사용자는 `python main.py` 명령어 뿐만 아니라 `scripts/` 디렉토리에 미리 보관해 둔 실행 스크립트 파일들(CSV 분석용 `./scripts/run_local_csv.sh`, JSONL 분석용 `./scripts/run_local_jsonl.sh`, Web UI 기동용 `./scripts/run_webui.sh`)을 실행하는 것만으로 곧바로 프레임워크 전체 오케스트레이션 프로세스를 즉시 구동 및 재현할 수 있어야 합니다.
 - 하이퍼파라미터 튜닝 시 스크립트 코드 변경 없이 `config.yml`의 키 값 수정이나 웹 대시보드에서의 조작만으로 전반적인 제어 권한을 행사할 수 있어야 합니다.
 
 ### 4.2 도메인 격리형 패키징 및 구조적 미학 (Domain Segregation)
@@ -148,7 +154,7 @@
 ```
 
 1. **config.yml 로드**: 프로그램 부팅과 함께 `configs/` 내부의 설정 프로파일(기본 configs/default.yml) 파일을 우선 읽어 들이고 셸 환경 인수로 보정하여 정책을 정의합니다.
-2. **CLI Entry & Ingestion**: Kaggle API, UCI HTTP, 로컬 CSV 판독 또는 모의 자가 생성 루틴을 돌려 원본 데이터프레임을 생성하고 타겟 벡터를 분리합니다 (`loaders.py` 위임).
+2. **CLI Entry & Ingestion**: 로컬 CSV 판독 또는 모의 자가 생성 루틴을 돌려 원본 데이터프레임을 생성하고 타겟 벡터를 분리합니다 (`loaders.py` 위임).
 3. **Data Preprocessor**: 누락 값 검측 후 수치열은 중앙값, 범주열은 최빈값 임퓨팅 및 원-핫 인코딩(Dummy 변수 변환)을 거쳐 정규 매트릭스로 조율합니다 (`preprocessors.py` 위임).
 4. **Data Splitting**: 재현용 난수 시드를 걸어 학습 및 평가용 테스트 데이터로 조각냅니다 (`splitters.py` 위임).
 5. **Model Executor Fit**: 설정된 `active_models` 목록으로 빌드되어 `ModelPool`에 저장된 가용 모델 어댑터들을 `StandardBenchmarkExecutor`가 일괄 학습시킵니다.

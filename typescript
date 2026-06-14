@@ -1,0 +1,58 @@
+Script started on Sun Jun 14 22:11:10 2026
+ls[1m[7m%[27m[1m[0m                                                                                                                                   [0m[27m[24m[J(py312) jeonghoon@Jeonghoonui-MacBookPro regression-model-revolution-framework % [K[?2004hlls[?2004l
+__pycache__		automl_framework	LICENSE			README.md		tests
+app.py			catboost_info		logs			REQ_SPEC.md		typescript
+ARCHITECTURE_REPORT.md	configs			main.py			requirements.txt
+ARCHITECTURE.md		data			outputs			scripts
+[1m[7m%[27m[1m[0m                                                                                                                                   [0m[27m[24m[J(py312) jeonghoon@Jeonghoonui-MacBookPro regression-model-revolution-framework % [K[?2004hlls scripts[1m/[0m[0m [?2004l
+run_local_csv.sh	run_local_jsonl.sh	run_webui.sh
+[1m[7m%[27m[1m[0m                                                                                                                                   [0m[27m[24m[J(py312) jeonghoon@Jeonghoonui-MacBookPro regression-model-revolution-framework % [K[?2004hssh scripts[1m/[0m[0m/w run_webui.sh[1m [0m[0m [?2004l
+========================================================
+🏃 Starting Streamlit WebUI Studio...
+========================================================
+2026-06-14 22:12:23.952 Uvicorn server started on 0.0.0.0:8501
+[0m
+[34m[1m  You can now view your Streamlit app in your browser.[0m
+[0m
+[34m  Local URL: [0m[1mhttp://localhost:8501[0m
+[34m  Network URL: [0m[1mhttp://172.30.1.30:8501[0m
+[0m
+[34m[1m  For better performance, install the Watchdog module:[0m
+
+  $ xcode-select --install
+  $ pip install watchdog
+            [0m
+2026-06-14 22:12:25.452 The widget with key "active_model_chk_XGBoost" was created with a default value but also had its value set via the Session State API.
+Stack (most recent call last):
+  File "/Users/jeonghoon/opt/anaconda3/envs/py312/lib/python3.12/threading.py", line 1032, in _bootstrap
+    self._bootstrap_inner()
+  File "/Users/jeonghoon/opt/anaconda3/envs/py312/lib/python3.12/threading.py", line 1075, in _bootstrap_inner
+    self.run()
+  File "/Users/jeonghoon/opt/anaconda3/envs/py312/lib/python3.12/threading.py", line 1012, in run
+    self._target(*self._args, **self._kwargs)
+  File "/Users/jeonghoon/opt/anaconda3/envs/py312/lib/python3.12/site-packages/streamlit/runtime/scriptrunner/script_runner.py", line 419, in _run_script_thread
+    self._run_script(request.rerun_data)
+  File "/Users/jeonghoon/opt/anaconda3/envs/py312/lib/python3.12/site-packages/streamlit/runtime/scriptrunner/script_runner.py", line 814, in _run_script
+    ) = exec_func_with_error_handling(code_to_exec, ctx)
+  File "/Users/jeonghoon/opt/anaconda3/envs/py312/lib/python3.12/site-packages/streamlit/runtime/scriptrunner/exec_code.py", line 129, in exec_func_with_error_handling
+    result = func()
+  File "/Users/jeonghoon/opt/anaconda3/envs/py312/lib/python3.12/site-packages/streamlit/runtime/scriptrunner/script_runner.py", line 789, in code_to_exec
+    exec(code, module.__dict__)  # noqa: S102
+  File "/Users/jeonghoon/github/regression-model-revolution-framework/app.py", line 473, in <module>
+    is_checked = st.checkbox(model, value=st.session_state[session_key], key=session_key)
+  File "/Users/jeonghoon/opt/anaconda3/envs/py312/lib/python3.12/site-packages/streamlit/runtime/metrics_util.py", line 698, in wrapped_func
+    result = non_optional_func(*args, **kwargs)
+  File "/Users/jeonghoon/opt/anaconda3/envs/py312/lib/python3.12/site-packages/streamlit/elements/widgets/checkbox.py", line 201, in checkbox
+    return self._checkbox(
+  File "/Users/jeonghoon/opt/anaconda3/envs/py312/lib/python3.12/site-packages/streamlit/elements/widgets/checkbox.py", line 389, in _checkbox
+    check_widget_policies(
+  File "/Users/jeonghoon/opt/anaconda3/envs/py312/lib/python3.12/site-packages/streamlit/elements/lib/policies.py", line 187, in check_widget_policies
+    check_session_state_rules(
+  File "/Users/jeonghoon/opt/anaconda3/envs/py312/lib/python3.12/site-packages/streamlit/elements/lib/policies.py", line 92, in check_session_state_rules
+    _LOGGER.warning(
+^C[34m  Stopping...[0m
+[1m[7m%[27m[1m[0m                                                                                                                                   [0m[27m[24m[J(py312) jeonghoon@Jeonghoonui-MacBookPro regression-model-revolution-framework % [K[?2004h[?2004l
+[1m[7m%[27m[1m[0m                                                                                                                                   [0m[27m[24m[J(py312) jeonghoon@Jeonghoonui-MacBookPro regression-model-revolution-framework % [K[?2004h칟ㅁㄱ[?2004l
+zsh: command not found: 칟ㅁㄱ
+[1m[7m%[27m[1m[0m                                                                                                                                   [0m[27m[24m[J(py312) jeonghoon@Jeonghoonui-MacBookPro regression-model-revolution-framework % [K[?2004hcclear[?2004l
+[H[2J[3J[1m[7m%[27m[1m[0m                                                                                                                                   [0m[27m[24m[J(py312) jeonghoon@Jeonghoonui-MacBookPro regression-model-revolution-framework % [K[?2004h

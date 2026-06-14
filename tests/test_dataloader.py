@@ -282,6 +282,29 @@ def test_local_file_data_loader_jsonl(dummy_jsonl_path):
     assert pd.isna(X.loc[2, "Feature_Cat"])
 
 
+def test_remote_loaders_removed():
+    """Verify that KaggleDataLoader and URLDataLoader have been removed from the package imports."""
+    with pytest.raises(ImportError):
+        from automl_framework.dataloader import KaggleDataLoader  # type: ignore
+        
+    with pytest.raises(ImportError):
+        from automl_framework.dataloader import URLDataLoader  # type: ignore
+
+
+def test_data_loader_helper_fetch_exceptions():
+    """Verify that fetch_dataset raises ValueError when path is missing and FileNotFoundError when not found."""
+    facade = DataLoaderHelper()
+    
+    # 1. Missing dataset path
+    with pytest.raises(ValueError, match="사용 가능한 데이터셋 정보가 주어지지 않았습니다"):
+        facade.fetch_dataset(dataset_path=None)
+        
+    # 2. Non-existent path
+    with pytest.raises(FileNotFoundError, match="지정한 데이터셋 경로가 로컬에 존재하지 않습니다"):
+        facade.fetch_dataset(dataset_path="non_existent_file_path_xyz.csv")
+
+
+
 
 
 

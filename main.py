@@ -78,18 +78,14 @@ class AutoMLPipeline:
 
     def prepare_data(
         self, 
-        dataset_path: Optional[str] = None, 
-        kaggle_dataset: Optional[str] = None, 
-        url: Optional[str] = None
+        dataset_path: Optional[str] = None
     ):
-        """Step 1: Download, load, preprocess, and partition dataset."""
+        """Step 1: Load, preprocess, and partition dataset."""
         logger = logging.getLogger("automl_framework.main")
         
         # Fetch dataset absolute filepath
         dataset_file_path = self.dataloader_helper.fetch_dataset(
-            dataset_path=dataset_path,
-            kaggle_dataset=kaggle_dataset,
-            url=url
+            dataset_path=dataset_path
         )
         
         # Load, preprocess, and partition train/test splits
@@ -154,12 +150,10 @@ class AutoMLPipeline:
 
     def run(
         self, 
-        dataset_path: Optional[str] = None, 
-        kaggle_dataset: Optional[str] = None, 
-        url: Optional[str] = None
+        dataset_path: Optional[str] = None
     ):
         """One-click pipeline runner executing all AutoML phases sequentially."""
-        self.prepare_data(dataset_path, kaggle_dataset, url)
+        self.prepare_data(dataset_path)
         self.train_and_evaluate()
         self.generate_reports()
 
@@ -172,8 +166,6 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--test-size", type=float, default=None, help="Proportion of the dataset to use for testing. Overrides YAML config.")
     parser.add_argument("--turn", type=int, default=1, help="Current execution turn index (used for naming reports and outputs).")
     parser.add_argument("--dataset-path", type=str, default=None, help="Path to local dataset CSV. Overrides YAML config.")
-    parser.add_argument("--kaggle-dataset", type=str, default=None, help="Optional Kaggle dataset name to download (e.g. 'user/dataset-name')")
-    parser.add_argument("--url", type=str, default=None, help="Optional direct download URL (e.g. UCI dataset)")
     return parser.parse_args()
 
 
@@ -205,9 +197,7 @@ def main():
     # Execute full pipeline
     try:
         pipeline.run(
-            dataset_path=args.dataset_path,
-            kaggle_dataset=args.kaggle_dataset,
-            url=args.url
+            dataset_path=args.dataset_path
         )
     except Exception as e:
         logger.critical(f"CRITICAL ERROR running AutoML Pipeline: {e}", exc_info=True)
