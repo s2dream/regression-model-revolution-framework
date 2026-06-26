@@ -67,9 +67,18 @@
 │                   (automl_framework/model/model_pool.py)                  │
 ├───────────────────────────────────────────────────────────────────────────┤
 │ - models: Dict[str, ABCModelWrapper]                                      │
-│ - _initialize_default_models() -> Bootstraps via config.yml active_models │
+│ - _initialize_default_models() -> Delegates creation to ModelFactory      │
 │ - add_custom_model(name, model_instance)                                  │
 │ - list_available_models()                                                 │
+└──────────────────────────────────────┬────────────────────────────────────┘
+                                       │ Uses Factory Method
+                                       ▼
+┌───────────────────────────────────────────────────────────────────────────┐
+│                               ModelFactory                                │
+│                  (automl_framework/model/model_factory.py)                │
+├───────────────────────────────────────────────────────────────────────────┤
+│ + create_model(model_type, config, random_state) -> ABCModelWrapper       │
+│ - ModelType (Enum): XGBoost, MLP, TabPFN, RandomForest, CatBoost, etc.     │
 └──────────────────────────────────────┬────────────────────────────────────┘
                                        │
                                        │ Stores & Standardizes
@@ -98,78 +107,145 @@ sequenceDiagram
     autonumber
     actor User as User/CLI
     participant Main as main.py (AutoMLPipeline)
+    participant Pool as ModelPool
+    participant Type as ModelType (Enum)
+    participant Factory as ModelFactory
     participant Helper as DataLoaderHelper
     participant Loader as LocalFileDataLoader
     participant Prep as StandardDataPreprocessor
     participant Split as TrainTestSplitter
-    participant Pool as ModelPool
     participant Exec as StandardBenchmarkExecutor
+    participant Wrapper as ModelWrapper
     participant Vis as Visualizer
 
-    User->>Main: python main.py --dataset-path path.jsonl --target Target_Y
+    %% ==========================================
+    %% 1. 초기화 단계 (Initialization Phase)
+    %% ==========================================
+    Note over User, Main: [1. 초기화 단계]
+    User->>Main: AutoMLPipeline 객체 생성 (config_path, turn, target, test_size)
     activate Main
-    Main->>Helper: prepare_data(dataset_file, target_column)
+    Main->>Helper: DataLoaderHelper 인스턴스 생성
+    
+    Main->>Pool: ModelPool 인스턴스 생성 (random_state, config)
+    activate Pool
+    Pool->>Pool: _initialize_default_models() 호출
+    
+    loop YAML 설정 내 활성 모델 목록 순회 (active_models)
+        Pool->>Type: ModelType.from_str(model_name) 호출
+        activate Type
+        Type-->>Pool: ModelType Enum 상수 반환
+        deactivate Type
+        
+        Pool->>Factory: create_model(model_type, config, random_state) 호출
+        activate Factory
+        Note over Factory: 관련 패키지 동적 임포트 및<br/>개별 Regressor 생성
+        Factory-->>Pool: concrete ModelWrapper 객체 반환
+        deactivate Factory
+        
+        Pool->>Pool: self.models[model_type.value]에 래퍼 보관
+    end
+    Pool-->>Main: ModelPool 객체 반환
+    deactivate Pool
+    
+    Main->>Exec: StandardBenchmarkExecutor 인스턴스 생성 (pool 주입)
+    Main->>Vis: Visualizer 인스턴스 생성 (output_dir 설정)
+    Main-->>User: 초기화 완료
+    deactivate Main
+
+    %% ==========================================
+    %% 2. 데이터 준비 단계 (Data Preparation Phase)
+    %% ==========================================
+    Note over User, Main: [2. 데이터 수집 및 전처리 단계]
+    User->>Main: pipeline.run(dataset_path, kaggle_dataset, url) 실행
+    activate Main
+    Main->>Main: prepare_data(dataset_path, kaggle_dataset, url)
+    Main->>Helper: fetch_dataset(...) 호출
+    Helper-->>Main: 로컬에 캐싱/다운로드된 데이터셋 경로 반환
+    
+    Main->>Helper: load_and_preprocess_data(...) 호출
     activate Helper
     
-    Note over Helper,Loader: 데이터 수집 및 로딩 (Ingestion)
-    Helper->>Loader: load_data()
+    Helper->>Loader: load_data() 호출
     activate Loader
-    Note over Loader: 라인 단위 JSONL 파싱 및<br/>동적 컬럼(새로운 Key) 추가/정렬
-    Loader-->>Helper: X (DataFrame), y (Series)
+    Note over Loader: CSV/TSV/Parquet/JSONL 파싱<br/>JSONL의 경우 동적 컬럼 자동 생성
+    Loader-->>Helper: raw DataFrame X, Series y 반환
     deactivate Loader
 
-    Note over Helper,Prep: 데이터 전처리 (Preprocessing)
-    Helper->>Prep: preprocess(X)
+    Helper->>Prep: preprocess(X) 호출
     activate Prep
-    Note over Prep: 결측치 보정(임퓨테이션) &<br/>범주형 변수 원-핫 인코딩
-    Prep-->>Helper: X_processed (DataFrame)
+    Note over Prep: 결측치 임퓨테이션 (Median/Mode)<br/>범주형 변수 더미(원-핫) 인코딩
+    Prep-->>Helper: 전처리 완료된 X_processed 반환
     deactivate Prep
 
-    Note over Helper,Split: 데이터 분할 (Splitting)
-    Helper->>Split: split(X_processed, y)
+    Helper->>Split: split(X_processed, y) 호출
     activate Split
-    Split-->>Helper: X_train, y_train, X_test, y_test
+    Note over Split: random_state 기준 Train/Test 데이터 분할
+    Split-->>Helper: 분할된 X_train, y_train, X_test, y_test 반환
     deactivate Split
-    
-    Helper-->>Main: X_train, y_train, X_test, y_test
+
+    Helper-->>Main: X_train, y_train, X_test, y_test 반환
     deactivate Helper
 
-    Note over Main,Exec: 모델 풀 구축 및 학습 (Training)
-    Main->>Exec: fit_all(X_train, y_train)
+    %% ==========================================
+    %% 3. 모델 학습 및 평가 단계 (Model Training & Evaluation Phase)
+    %% ==========================================
+    Note over Main, Exec: [3. 모델 학습 및 스코어링 단계]
+    Main->>Main: train_and_evaluate() 실행
+    Main->>Exec: fit_all(X_train, y_train) 호출
     activate Exec
-    loop ModelPool의 활성 모델 목록 순회 (XGBoost, MLP, RF, CatBoost 등)
-        Exec->>Pool: Get wrapped model
-        Exec->>Exec: fit(X_train, y_train)
+    loop ModelPool 내 활성 모델 순회
+        Exec->>Pool: Get wrapped model instance
+        Exec->>Wrapper: fit(X_train, y_train) 호출
+        activate Wrapper
+        Note over Wrapper: 모델별 학습 수행 (예외 감내 쉴딩 적용)
+        Wrapper-->>Exec: 완료
+        deactivate Wrapper
     end
-    Exec-->>Main: Done
+    Exec-->>Main: 학습 완료
     deactivate Exec
 
-    Note over Main,Exec: 모델 테스트 평가 (Evaluation)
-    Main->>Exec: evaluate_all(X_test, y_test)
+    Main->>Exec: evaluate_all(X_test, y_test) 호출
     activate Exec
-    loop ModelPool의 활성 모델 목록 순회
-        Exec->>Exec: predict(X_test) & 평가 메트릭 계산
+    loop 학습 완료된 각 모델 순회
+        Exec->>Wrapper: predict(X_test) 호출
+        activate Wrapper
+        Wrapper-->>Exec: 예측값 y_pred 반환
+        deactivate Wrapper
+        Exec->>Exec: 회귀 평가 지표(RMSE, MAE, R2) 계산
     end
-    Exec-->>Main: metrics (RMSE, MAE, R2)
+    Exec-->>Main: 모델별 metrics 결과 딕셔너리 반환
     deactivate Exec
 
-    Note over Main,Vis: 프리미엄 가시화 및 리포팅 (Visualization & Reports)
-    Main->>Vis: plot_model_comparison(metrics)
-    activate Vis
-    Vis-->>Main: 모델별 R2/RMSE 비교 차트 저장
-    deactivate Vis
+    %% ==========================================
+    %% 4. 시각화 및 리포팅 단계 (Visualization & Reporting Phase)
+    %% ==========================================
+    Note over Main, Vis: [4. 시각화 및 리포트 파일 저장 단계]
+    Main->>Main: generate_reports() 실행
+    Main->>Vis: plot_model_comparison(metrics, metric_name, turn) 호출
+    Note over Vis: 모델간 R2 및 RMSE 비교 바 차트 저장
     
-    Main->>Vis: plot_actual_vs_predicted() & plot_residuals()
-    activate Vis
-    Vis-->>Main: 산포도 및 잔차 분석 그래프 저장
-    deactivate Vis
+    Main->>Exec: get_predictions(X_test) 호출
+    activate Exec
+    loop ModelPool 내 활성 모델 순회
+        Exec->>Wrapper: predict(X_test) 호출
+        activate Wrapper
+        Wrapper-->>Exec: y_pred 반환
+        deactivate Wrapper
+    end
+    Exec-->>Main: 전체 모델의 y_pred 딕셔너리 반환
+    deactivate Exec
 
-    Main->>Vis: save_json_report(metrics)
-    activate Vis
-    Vis-->>Main: turn_{turn}_report.json 저장
-    deactivate Vis
+    loop 각 모델의 y_pred 순회
+        Main->>Vis: plot_actual_vs_predicted(y_test, y_pred, model_name, turn) 호출
+        Note over Vis: 실제값 vs 예측값 산포도 및 y=x 가이드선 저장
+        Main->>Vis: plot_residuals(y_test, y_pred, model_name, turn) 호출
+        Note over Vis: 잔차 분포 산포도 그래프 저장
+    end
 
-    Main-->>User: 1위 Champion Model 정보 출력하며 완료
+    Main->>Vis: save_json_report(metrics, turn) 호출
+    Vis-->>Main: 저장된 turn_{turn}_report.json 경로 반환
+    
+    Main-->>User: 최적 우승(Champion) 모델 출력하며 파이프라인 최종 완료
     deactivate Main
 ```
 
@@ -210,6 +286,7 @@ regression-model-revolution-framework/
 │   ├── model/                      # 머신러닝 학습 서브패키지 (Model Domain)
 │   │   ├── __init__.py
 │   │   ├── model_pool.py           # 모델 저장소(ModelPool)
+│   │   ├── model_factory.py        # 모델 팩토리(ModelFactory) 및 상수 정의(ModelType)
 │   │   ├── model_executor.py       # 추상 실행기(ABCModelExecutor) 및 일괄 벤치마크 실행기(StandardBenchmarkExecutor)
 │   │   ├── wrappers.py             # 개별 모델 규격 어댑터 (Wrapper)
 │   │   └── architecture/           # 딥러닝/신경망 모델 아키텍처 정의
@@ -288,7 +365,15 @@ regression-model-revolution-framework/
 #### `ModelPool` (Class, `automl_framework/model/model_pool.py`)
 * **책임**: 알고리즘군(Tree 기반, 신경망 기반, 사전 학습 기반 등)의 모델 객체를 보유하는 데이터 저장소(Inventory Container)입니다.
 * **핵심 메서드**:
-  * `_initialize_default_models()`: `config.yml` 내 `active_models` 목록에 정의된 모델들만 필터링하여 생성자에 설정 하이퍼파라미터(`config["models"][ModelName]`)들을 동적으로 주입하여 초기화합니다.
+  * `_initialize_default_models()`: 설정 파일의 `active_models` 목록에 정의된 모델들을 `ModelFactory.create_model(...)`을 호출하여 위임 초기화하고 적재합니다.
+  * `add_custom_model(name, model_instance)`: 외부 커스텀 모델 인스턴스(또는 `ABCModelWrapper`)를 풀에 추가합니다. `ModelType` Enum과 일반 `str` 모두 키 값으로 안전하게 허용합니다.
+  * `get_model(name)`: 지정된 모델을 반환합니다. `ModelType` Enum과 일반 `str` 키를 모두 수용합니다.
+
+#### `ModelFactory` & `ModelType` (Class/Enum, `automl_framework/model/model_factory.py`)
+* **책임**: Factory Method 디자인 패턴을 기반으로 개별 모델 Wrapper의 인스턴스 생성 책임을 전담합니다.
+* **핵심 구성요소**:
+  * `ModelType` (Enum): 지원되는 기본 모델명(`XGBoost`, `MLP`, `TabPFN`, `RandomForest`, `CatBoost`, `Transformer`)의 상수 표현입니다. 대소문자 및 기호 무관하게 유연하게 변환을 지원하는 `from_str()` 유틸리티를 제공합니다.
+  * `ModelFactory.create_model(model_type, config, random_state)`: 입력받은 `model_type`에 해당되는 개별 전용 모델 Wrapper(`ModelWrapperXGBoost`, `ModelWrapperMLP` 등)를 빌드하여 반환합니다.
 
 #### `TransformerBasedRegression` (PyTorch Module, `automl_framework/model/architecture/transformer_encoder.py`)
 * **책임**: 시퀀스 데이터를 처리하여 회귀 예측을 수행하는 PyTorch 기반 모델입니다.

@@ -47,6 +47,7 @@ regression-model-revolution-framework/
 │   ├── model/                      # 🤖 Machine Learning core subpackage
 │   │   ├── __init__.py
 │   │   ├── model_pool.py           # ModelPool inventory repository
+│   │   ├── model_factory.py        # ModelFactory & ModelType Enum (Factory Method pattern)
 │   │   ├── model_executor.py       # Benchmark executors (StandardBenchmarkExecutor)
 │   │   ├── wrappers.py             # Exception-shielded model wrappers (XGBoost, MLP, TabPFN, RF, CatBoost, Transformer)
 │   │   └── architecture/           # Neural network model architectures
