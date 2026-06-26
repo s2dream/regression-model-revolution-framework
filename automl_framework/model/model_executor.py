@@ -37,6 +37,14 @@ class StandardBenchmarkExecutor(ABCModelExecutor):
 
     def fit_all(self, X_train: pd.DataFrame, y_train: pd.Series) -> None:
         """Fits all models in the pool on the training data."""
+        hpo_config = self.pool.config.get("hpo", {})
+        if hpo_config.get("enabled", False):
+            from automl_framework.model.hpo import run_hpo_tuning
+            try:
+                run_hpo_tuning(self.pool, X_train, y_train)
+            except Exception as e:
+                logger.error(f"Failed to run HPO: {e}", exc_info=True)
+
         for name, model_wrap in self.pool.models.items():
             logger.info(f"Training model: {name}...")
             try:

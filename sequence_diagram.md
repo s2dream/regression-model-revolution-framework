@@ -99,6 +99,28 @@ sequenceDiagram
     Main->>Main: Execute train_and_evaluate()
     Main->>Exec: Call fit_all(X_train, y_train)
     activate Exec
+
+    opt If HPO is Enabled (Optuna)
+        Exec->>Pool: run_hpo_tuning(pool, X_train, y_train)
+        activate Pool
+        loop For each active model in pool (excluding TabPFN)
+            loop For each trial in 1..n_trials
+                Pool->>Factory: create_model(model_type, trial_config, random_state)
+                activate Factory
+                Factory-->>Pool: Return trial wrapper instance
+                deactivate Factory
+                Pool->>Pool: Fit trial wrapper on train split & score validation RMSE
+            end
+            Pool->>Factory: create_model(model_type, best_config, random_state)
+            activate Factory
+            Factory-->>Pool: Return best wrapper instance
+            deactivate Factory
+            Pool->>Pool: Update self.models[name] with best wrapper
+        end
+        Pool-->>Exec: HPO Tuning Complete
+        deactivate Pool
+    end
+
     loop For each wrapped model in ModelPool
         Exec->>Pool: Retrieve model wrapper instance
         Exec->>Wrapper: Call fit(X_train, y_train)

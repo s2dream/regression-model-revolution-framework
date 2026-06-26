@@ -193,6 +193,28 @@ sequenceDiagram
     Main->>Main: train_and_evaluate() 실행
     Main->>Exec: fit_all(X_train, y_train) 호출
     activate Exec
+
+    opt HPO (Optuna) 활성화 시
+        Exec->>Pool: run_hpo_tuning(pool, X_train, y_train) 호출
+        activate Pool
+        loop TabPFN을 제외한 각 활성 모델 순회
+            loop 1..n_trials 횟수만큼 반복
+                Pool->>Factory: create_model(model_type, trial_config, random_state) 호출
+                activate Factory
+                Factory-->>Pool: 임시 trial 래퍼 반환
+                deactivate Factory
+                Pool->>Pool: train split 학습 및 validation RMSE 계산
+            end
+            Pool->>Factory: create_model(model_type, best_config, random_state) 호출
+            activate Factory
+            Factory-->>Pool: 최적의 파라미터가 적용된 래퍼 반환
+            deactivate Factory
+            Pool->>Pool: self.models[name]을 최적 래퍼로 교체
+        end
+        Pool-->>Exec: HPO 튜닝 완료
+        deactivate Pool
+    end
+
     loop ModelPool 내 활성 모델 순회
         Exec->>Pool: Get wrapped model instance
         Exec->>Wrapper: fit(X_train, y_train) 호출

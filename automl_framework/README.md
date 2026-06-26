@@ -26,6 +26,7 @@ automl_framework/
 │   ├── __init__.py
 │   ├── model_pool.py    # ModelPool data container for bound model inventory
 │   ├── model_factory.py # ModelFactory class and ModelType Enum for Factory Method pattern
+│   ├── hpo.py           # Optuna-based hyperparameter optimization (HPO) tuner
 │   ├── model_executor.py# Execution strategies (ABCModelExecutor & StandardBenchmarkExecutor)
 │   ├── wrappers.py      # Standardized wrappers for Scikit-Learn, XGBoost, TabPFN, CatBoost, Transformer
 │   └── architecture/    # Neural network model architectures
@@ -50,6 +51,7 @@ automl_framework/
 ### 2. Core Learners & Executors (`model/`)
 - **ModelPool Container (`model_pool.py`)**: Acts purely as a robust, configuration-driven **inventory repository** for wrapped models. Supports retrieval and custom model addition with strings and `ModelType` Enum values.
 - **Model Factory (`model_factory.py`)**: Encapsulates model building logic utilizing the **Factory Method** design pattern, mapping configurations to wrappers with a robust, case-insensitive `ModelType` Enum.
+- **Optuna Tuning (`hpo.py`)**: Runs automated hyperparameter optimization (HPO) using Optuna on train splits. Tunes critical parameters for XGBoost, CatBoost, RandomForest, MLP, and Transformer, and skips TabPFN and custom models.
 - **Benchmark Executors (`model_executor.py`)**: Decouples active fitting and prediction algorithms from inventory data using a strategy pattern. Extends `ABCModelExecutor` for highly scalable workflows.
 - **Universal Adapters (`wrappers.py`)**: Wraps `XGBoost`, `TabPFN`, `CatBoost`, `Multi-Layer Perceptron (MLP)`, standard baselines, and `TransformerBasedRegression` into uniform, exception-shielded wrappers.
 - **Transformer-Based Regression (`architecture/transformer_encoder.py`)**: Implements standard sequence-based deep learning regression using PyTorch, with adjustable pooling strategies (`mean`, `max`, `last`), sequence padding masking, and support for both scalar regression and probabilistic mean/variance distribution estimation.

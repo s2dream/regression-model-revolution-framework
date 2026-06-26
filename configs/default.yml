@@ -18,6 +18,11 @@ framework:
     - RandomForest
     - CatBoost
 
+# Hyperparameter Optimization Settings
+hpo:
+  enabled: false
+  n_trials: 10
+
 # Data Pipeline Settings
 data:
   data_dir: "data"

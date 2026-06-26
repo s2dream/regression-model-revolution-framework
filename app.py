@@ -287,9 +287,18 @@ split_method = st.sidebar.selectbox(
 )
 
 split_params_to_render = {k: v for k, v in split_config.items() if k != "method"}
-st.sidebar.markdown("##### Split Parameters")
 updated_split_params = render_dynamic_params(split_params_to_render, "split")
 updated_split_params["method"] = split_method
+
+
+# ==========================================
+# 🎯 HYPERPARAMETER OPTIMIZATION (OPTUNA)
+# ==========================================
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 🎯 Hyperparameter Optimization")
+hpo_config = default_config.get("hpo", {})
+hpo_enabled = st.sidebar.checkbox("Enable HPO (Optuna)", value=hpo_config.get("enabled", False))
+hpo_trials = st.sidebar.number_input("HPO Trials per Model", min_value=2, max_value=100, value=hpo_config.get("n_trials", 10), step=1)
 
 
 # ==========================================
@@ -384,6 +393,10 @@ with tab_runner:
             "feature_columns": feature_columns if feature_columns else None,
             "ignored_columns": ignored_columns if ignored_columns else None,
             "split": updated_split_params
+        },
+        "hpo": {
+            "enabled": hpo_enabled,
+            "n_trials": hpo_trials
         },
         "models": updated_models_params
     }
