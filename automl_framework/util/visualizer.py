@@ -142,7 +142,14 @@ class Visualizer:
         logger.info(f"Saved Model Comparison plot to {filepath}")
         return filepath
 
-    def save_json_report(self, metrics: Dict[str, Dict[str, float]], turn: int = 1, shap_reports: Dict[str, Dict[str, str]] = None, learning_curves: Dict[str, str] = None) -> str:
+    def save_json_report(
+        self, 
+        metrics: Dict[str, Dict[str, float]], 
+        turn: int = 1, 
+        shap_reports: Dict[str, Dict[str, str]] = None, 
+        learning_curves: Dict[str, str] = None,
+        markdown_report_path: str = None
+    ) -> str:
         """
         Saves the turn's execution and performance metrics in an structured JSON report.
         
@@ -158,6 +165,8 @@ class Visualizer:
             report_data["shap_reports"] = shap_reports
         if learning_curves:
             report_data["learning_curves"] = learning_curves
+        if markdown_report_path:
+            report_data["markdown_report_path"] = markdown_report_path
             
         filename = f"turn_{turn}_report.json"
         filepath = os.path.join(self.output_dir, filename)
@@ -318,4 +327,97 @@ class Visualizer:
         plt.close()
         logger.info(f"Saved Learning Curve plot to {filepath}")
         return filepath
+
+    def save_markdown_report(
+        self,
+        metrics: Dict[str, Dict[str, float]],
+        turn: int = 1,
+        dataset_info: Dict[str, Any] = None,
+        shap_reports: Dict[str, Dict[str, str]] = None,
+        learning_curves: Dict[str, str] = None
+    ) -> str:
+        """
+        Generates a professional and comprehensive Markdown report detailing the benchmark execution.
+        
+        Returns:
+            str: Path to the saved report
+        """
+        import datetime
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        # Sort models by R2 score
+        sorted_models = sorted(metrics.items(), key=lambda x: x[1].get("R2", -999), reverse=True)
+        best_model = sorted_models[0][0] if sorted_models else None
+        
+        lines = []
+        lines.append(f"# 📊 AutoML Tabular Regression Benchmark Report (Turn {turn})")
+        lines.append(f"**Report Generated At**: `{timestamp}`")
+        
+        if dataset_info:
+            lines.append("\n## 📁 Dataset & Execution Metadata")
+            lines.append(f"- **Target Column**: `{dataset_info.get('target_column')}`")
+            lines.append(f"- **Features Count**: `{dataset_info.get('num_features')}`")
+            lines.append(f"- **Training Set Size**: `{dataset_info.get('train_size')} samples`")
+            lines.append(f"- **Testing Set Size**: `{dataset_info.get('test_size')} samples`")
+            lines.append(f"- **Validation Strategy**: `{dataset_info.get('split_method', 'Holdout')}`")
+            
+        lines.append("\n## 🏆 Model Leaderboard")
+        lines.append("| Rank | Model | RMSE | MAE | R² Score | Status |")
+        lines.append("| :---: | :--- | :---: | :---: | :---: | :---: |")
+        
+        for idx, (model_name, scores) in enumerate(sorted_models):
+            rank = idx + 1
+            rmse = f"{scores.get('RMSE', 0.0):.4f}"
+            mae = f"{scores.get('MAE', 0.0):.4f}"
+            r2 = f"{scores.get('R2', 0.0):.4f}"
+            status = "🥇 Champion" if model_name == best_model else "Active"
+            lines.append(f"| {rank} | **{model_name}** | {rmse} | {mae} | {r2} | {status} |")
+            
+        lines.append("\n## 🔍 Detailed Model Diagnostics & Explainability")
+        
+        for model_name, scores in sorted_models:
+            lines.append(f"\n### 🤖 {model_name}")
+            lines.append(f"- **RMSE**: `{scores.get('RMSE', 0.0):.6f}`")
+            lines.append(f"- **MAE**: `{scores.get('MAE', 0.0):.6f}`")
+            lines.append(f"- **R² Score**: `{scores.get('R2', 0.0):.6f}`")
+            
+            lines.append("- **Diagnostic Plots Available**:")
+            pred_vs_act_img = f"turn_{turn}_{model_name}_actual_vs_pred.png"
+            residuals_img = f"turn_{turn}_{model_name}_residuals.png"
+            lines.append(f"  - Actual vs Predicted: [`{pred_vs_act_img}`](file://{os.path.abspath(os.path.join(self.output_dir, pred_vs_act_img))})")
+            lines.append(f"  - Residuals Plot: [`{residuals_img}`](file://{os.path.abspath(os.path.join(self.output_dir, residuals_img))})")
+            
+            # Add learning curve if available
+            if learning_curves and model_name in learning_curves:
+                curve_filename = os.path.basename(learning_curves[model_name])
+                lines.append(f"  - Learning Curve (Loss History): [`{curve_filename}`](file://{os.path.abspath(learning_curves[model_name])})")
+                
+            # Add SHAP details if available
+            if shap_reports and model_name in shap_reports:
+                lines.append("- **Model Explainability (SHAP)**:")
+                summary_img = os.path.basename(shap_reports[model_name].get("summary_plot", ""))
+                bar_img = os.path.basename(shap_reports[model_name].get("bar_plot", ""))
+                if summary_img:
+                    lines.append(f"  - Beeswarm Summary Plot: [`{summary_img}`](file://{os.path.abspath(shap_reports[model_name]['summary_plot'])})")
+                if bar_img:
+                    lines.append(f"  - Feature Importance (Bar): [`{bar_img}`](file://{os.path.abspath(shap_reports[model_name]['bar_plot'])})")
+                    
+        lines.append("\n## 💡 Analytical Insights & System Recommendations")
+        if best_model:
+            lines.append(f"1. **Champion Selected**: `{best_model}` achieved the highest generalization performance with an R² Score of `{metrics[best_model].get('R2', 0.0):.4f}`.")
+            if "MLP" in metrics and "Transformer" in metrics:
+                lines.append("2. **Model Comparison**: Deep learning models were benchmarked alongside traditional gradient-boosted trees to verify representation capability.")
+            lines.append("3. **Actionable Step**: Deploy the champion model wrapper using serialization tools for inference or API routing.")
+            
+        markdown_content = "\n".join(lines)
+        
+        filename = f"turn_{turn}_report.md"
+        filepath = os.path.join(self.output_dir, filename)
+        
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(markdown_content)
+            
+        logger.info(f"Saved professional Markdown report to {filepath}")
+        return filepath
+
 

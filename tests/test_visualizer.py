@@ -127,4 +127,45 @@ def test_visualizer_plot_learning_curve(temp_output_dir):
     assert "learning_curve" in filepath
 
 
+def test_visualizer_save_markdown_report(temp_output_dir):
+    """Test save_markdown_report outputs a correct Markdown report file."""
+    visualizer = Visualizer(output_dir=temp_output_dir)
+    
+    metrics = {
+        "MLP": {"RMSE": 1.25, "MAE": 1.10, "R2": 0.95},
+        "RandomForest": {"RMSE": 2.20, "MAE": 1.80, "R2": 0.90}
+    }
+    
+    dataset_info = {
+        "target_column": "target",
+        "num_features": 8,
+        "train_size": 800,
+        "test_size": 200,
+        "split_method": "KFold"
+    }
+    
+    filepath = visualizer.save_markdown_report(
+        metrics=metrics,
+        turn=1,
+        dataset_info=dataset_info,
+        shap_reports={"MLP": {"summary_plot": "mlp_summary.png", "bar_plot": "mlp_bar.png"}},
+        learning_curves={"MLP": "mlp_loss.png"}
+    )
+    
+    assert filepath != ""
+    assert os.path.exists(filepath)
+    assert filepath.endswith(".md")
+    
+    # Read the markdown and verify key contents
+    with open(filepath, "r", encoding="utf-8") as f:
+        content = f.read()
+        
+    assert "AutoML Tabular Regression Benchmark Report" in content
+    assert "Model Leaderboard" in content
+    assert "🥇 Champion" in content
+    assert "MLP" in content
+    assert "Target Column" in content
+
+
+
 

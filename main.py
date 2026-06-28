@@ -189,8 +189,32 @@ class AutoMLPipeline:
                 except Exception as e:
                     logger.error(f"Error generating learning curve for model {model_name}: {e}", exc_info=True)
 
+        # Collect dataset information for executive report
+        dataset_info = {
+            "target_column": self.target_column,
+            "num_features": self.X_train.shape[1] if self.X_train is not None else 0,
+            "train_size": len(self.X_train) if self.X_train is not None else 0,
+            "test_size": len(self.X_test) if self.X_test is not None else 0,
+            "split_method": self.config.get("data", {}).get("split", {}).get("method", "Holdout")
+        }
+        
+        # Save professional Markdown report
+        markdown_report_path = self.visualizer.save_markdown_report(
+            metrics=self.metrics,
+            turn=self.turn,
+            dataset_info=dataset_info,
+            shap_reports=shap_reports,
+            learning_curves=learning_curves
+        )
+
         # Save structured JSON execution report
-        report_path = self.visualizer.save_json_report(self.metrics, turn=self.turn, shap_reports=shap_reports, learning_curves=learning_curves)
+        report_path = self.visualizer.save_json_report(
+            metrics=self.metrics, 
+            turn=self.turn, 
+            shap_reports=shap_reports, 
+            learning_curves=learning_curves,
+            markdown_report_path=markdown_report_path
+        )
         
         best_model = max(self.metrics.keys(), key=lambda k: self.metrics[k]["R2"])
         best_r2 = self.metrics[best_model]["R2"]

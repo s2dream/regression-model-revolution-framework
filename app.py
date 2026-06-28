@@ -547,6 +547,13 @@ with tab_results:
             st.markdown("##### Model Metrics Comparison Table")
             st.dataframe(df_metrics.style.highlight_max(axis=0, subset=['R2'], color='#0f3d24').highlight_min(axis=0, subset=['RMSE', 'MAE'], color='#0f3d24'))
             
+            # Display detailed markdown report if available
+            md_report_path = report_data.get("markdown_report_path")
+            if md_report_path and os.path.exists(md_report_path):
+                with st.expander("📋 View Detailed Executive Report", expanded=True):
+                    with open(md_report_path, "r", encoding="utf-8") as f:
+                        st.markdown(f.read())
+            
             # Model Comparison Charts
             st.markdown("---")
             st.markdown("##### 📈 Benchmark Comparisons")
