@@ -14,6 +14,12 @@ class ABCModelWrapper(ABC):
         self.name = name
         self.model = model_instance
 
+    def get_loss_history(self) -> list:
+        """
+        Returns the training loss history if available.
+        """
+        return []
+
     @abstractmethod
     def fit(self, X: pd.DataFrame, y: pd.Series) -> 'ABCModelWrapper':
         """
@@ -65,12 +71,20 @@ class ModelWrapperXGBoost(ABCModelWrapper):
     def fit(self, X: pd.DataFrame, y: pd.Series) -> 'ModelWrapperXGBoost':
         X_arr = X.to_numpy() if isinstance(X, pd.DataFrame) else X
         y_arr = y.to_numpy() if isinstance(y, pd.Series) else y
-        self.model.fit(X_arr, y_arr)
+        self.model.fit(X_arr, y_arr, eval_set=[(X_arr, y_arr)], verbose=False)
         return self
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
         X_arr = X.to_numpy() if isinstance(X, pd.DataFrame) else X
         return self.model.predict(X_arr)
+
+    def get_loss_history(self) -> list:
+        try:
+            evals = self.model.evals_result()
+            metric_key = list(evals['validation_0'].keys())[0]
+            return list(evals['validation_0'][metric_key])
+        except Exception:
+            return []
 
 
 class ModelWrapperMLP(ABCModelWrapper):
@@ -92,6 +106,12 @@ class ModelWrapperMLP(ABCModelWrapper):
         X_scaled = self.scaler.fit_transform(X_arr)
         self.model.fit(X_scaled, y_arr)
         return self
+
+    def get_loss_history(self) -> list:
+        try:
+            return list(self.model.loss_curve_)
+        except Exception:
+            return []
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
         X_arr = X.to_numpy() if isinstance(X, pd.DataFrame) else X
@@ -139,6 +159,14 @@ class ModelWrapperCatBoost(ABCModelWrapper):
         self.model.fit(X_arr, y_arr)
         return self
 
+    def get_loss_history(self) -> list:
+        try:
+            evals = self.model.get_evals_result()
+            metric_key = list(evals['learn'].keys())[0]
+            return list(evals['learn'][metric_key])
+        except Exception:
+            return []
+
     def predict(self, X: pd.DataFrame) -> np.ndarray:
         X_arr = X.to_numpy() if isinstance(X, pd.DataFrame) else X
         return self.model.predict(X_arr)
@@ -164,6 +192,7 @@ class ModelWrapperTransformer(ABCModelWrapper):
         self.lr = lr
         self.batch_size = batch_size
         self.verbose = verbose
+        self.loss_history = []
         
         # Optimizer Setup
         import torch.optim as optim
@@ -203,6 +232,7 @@ class ModelWrapperTransformer(ABCModelWrapper):
         
         self.model.train()
         dataset_size = X_tensor.size(0)
+        self.loss_history = []
         
         for epoch in range(self.epochs):
             permutation = torch.randperm(dataset_size)
@@ -231,10 +261,14 @@ class ModelWrapperTransformer(ABCModelWrapper):
                 epoch_loss += loss.item()
                 num_batches += 1
                 
+            self.loss_history.append(epoch_loss / max(1, num_batches))
             if self.verbose and (epoch + 1) % max(1, self.epochs // 5) == 0:
                 logger.info(f"Epoch {epoch+1}/{self.epochs} - Loss: {epoch_loss/num_batches:.6f}")
                 
         return self
+
+    def get_loss_history(self) -> list:
+        return self.loss_history
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
         import torch

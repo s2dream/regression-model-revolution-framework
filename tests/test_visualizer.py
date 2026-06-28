@@ -114,3 +114,17 @@ def test_visualizer_shap_explainability(temp_output_dir):
     assert os.path.exists(paths["bar_plot"])
 
 
+def test_visualizer_plot_learning_curve(temp_output_dir):
+    """Test plot_learning_curve outputs a correct PNG file."""
+    visualizer = Visualizer(output_dir=temp_output_dir)
+    loss_history = [10.0, 8.5, 6.2, 4.1, 2.5, 1.2]
+    
+    filepath = visualizer.plot_learning_curve(loss_history, model_name="MLP", turn=1)
+    
+    assert filepath != ""
+    assert os.path.exists(filepath)
+    assert filepath.endswith(".png")
+    assert "learning_curve" in filepath
+
+
+

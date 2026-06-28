@@ -587,6 +587,14 @@ with tab_results:
                     else:
                         st.info("Residuals plot not found or corrupted.")
 
+                # If learning curve exists, render it below
+                learning_curves = report_data.get("learning_curves", {})
+                if selected_model in learning_curves:
+                    curve_img = learning_curves[selected_model]
+                    if is_valid_image(curve_img):
+                        st.markdown("###### 📈 Loss / Learning Curve")
+                        st.image(curve_img, caption=f"{selected_model}: Loss Curve", use_column_width=True)
+
             # Model Explainability (SHAP Plots)
             shap_reports = report_data.get("shap_reports", {})
             if shap_reports:

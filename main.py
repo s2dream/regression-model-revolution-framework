@@ -175,8 +175,22 @@ class AutoMLPipeline:
                     except Exception as e:
                         logger.error(f"Error computing SHAP values for model {model_name}: {e}", exc_info=True)
 
+        # Generate learning curves for iterative models
+        learning_curves = {}
+        for model_name in self.metrics.keys():
+            model_wrap = self.pool.get_model(model_name)
+            if model_wrap is not None:
+                try:
+                    loss_hist = model_wrap.get_loss_history()
+                    if loss_hist:
+                        path = self.visualizer.plot_learning_curve(loss_hist, model_name, self.turn)
+                        if path:
+                            learning_curves[model_name] = path
+                except Exception as e:
+                    logger.error(f"Error generating learning curve for model {model_name}: {e}", exc_info=True)
+
         # Save structured JSON execution report
-        report_path = self.visualizer.save_json_report(self.metrics, turn=self.turn, shap_reports=shap_reports)
+        report_path = self.visualizer.save_json_report(self.metrics, turn=self.turn, shap_reports=shap_reports, learning_curves=learning_curves)
         
         best_model = max(self.metrics.keys(), key=lambda k: self.metrics[k]["R2"])
         best_r2 = self.metrics[best_model]["R2"]

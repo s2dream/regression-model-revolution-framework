@@ -142,7 +142,7 @@ class Visualizer:
         logger.info(f"Saved Model Comparison plot to {filepath}")
         return filepath
 
-    def save_json_report(self, metrics: Dict[str, Dict[str, float]], turn: int = 1, shap_reports: Dict[str, Dict[str, str]] = None) -> str:
+    def save_json_report(self, metrics: Dict[str, Dict[str, float]], turn: int = 1, shap_reports: Dict[str, Dict[str, str]] = None, learning_curves: Dict[str, str] = None) -> str:
         """
         Saves the turn's execution and performance metrics in an structured JSON report.
         
@@ -156,6 +156,8 @@ class Visualizer:
         }
         if shap_reports:
             report_data["shap_reports"] = shap_reports
+        if learning_curves:
+            report_data["learning_curves"] = learning_curves
             
         filename = f"turn_{turn}_report.json"
         filepath = os.path.join(self.output_dir, filename)
@@ -289,4 +291,31 @@ class Visualizer:
             plt.close()
 
         return paths
+
+    def plot_learning_curve(self, loss_history: list, model_name: str, turn: int = 1) -> str:
+        """
+        Plots the training loss curve for iterative models.
+        
+        Returns:
+            str: Path to the saved visualization
+        """
+        if not loss_history:
+            return ""
+            
+        fig, ax = plt.subplots(figsize=(7, 4.5))
+        ax.plot(range(1, len(loss_history) + 1), loss_history, color=self.palette[0], lw=2, label="Train Loss")
+        
+        ax.set_title(f"{model_name}: Learning Curve (Turn {turn})", color='#ffffff', pad=15)
+        ax.set_xlabel("Epoch / Iteration")
+        ax.set_ylabel("Loss / Error")
+        ax.legend(facecolor='#161b22', edgecolor='#30363d', labelcolor='#c9d1d9')
+        
+        plt.tight_layout()
+        
+        filename = f"turn_{turn}_{model_name}_learning_curve.png"
+        filepath = os.path.join(self.output_dir, filename)
+        plt.savefig(filepath, facecolor=fig.get_facecolor(), edgecolor='none', dpi=200)
+        plt.close()
+        logger.info(f"Saved Learning Curve plot to {filepath}")
+        return filepath
 
