@@ -195,11 +195,11 @@ models:
 
 ## 🎯 Optuna를 활용한 하이퍼파라미터 최적화 (HPO)
 
-본 프레임워크는 **Optuna**를 활용한 자동화된 하이퍼파라미터 튜닝 기능을 갖추고 있습니다. 이 기능이 활성화되면, AutoML 파이프라인은 모델 학습을 기동하기 전에 내부 검증 분할 세트에서 오차(RMSE)를 최소화하도록 하이퍼파라미터 탐색을 선행 수행합니다.
+본 프레임워크는 **Optuna**를 활용한 자동화된 하이퍼파라미터 튜닝 기능을 갖추고 있습니다. 이 기능이 활성화되면, AutoML 파이프라인은 모델 학습을 기동하기 전에 내부 검증 분할 세트에서 오차를 최소화하거나 R² Score를 최대화하도록 하이퍼파라미터 탐색을 선행 수행합니다.
 
-### HPO 작동 방식:
+### HPO 작동 방식 및 강점:
 1. **검증 데이터 분할 (Validation Split)**: 최종 평가를 진행할 테스트 데이터셋이 하이퍼파라미터 튜닝 과정에 노출(Data Leakage)되지 않도록, 학습 데이터셋 내부에서 검증을 위한 80/20 비율 분할을 1회 추가로 실행합니다.
-2. **대상 모델 (Model Coverage)**: 활성 모델 중 HPO 튜닝에 부합하는 알고리즘인 `XGBoost`, `CatBoost`, `RandomForest`, `MLP`, 그리고 PyTorch 기반 `Transformer` 회귀 신경망이 튜닝 프로세스에 진입합니다.
+2. **다양한 평가 지표 지원 (Target Metric Selection)**: 최적화 대상을 단순 RMSE에 국한하지 않고, 분석가의 요건에 맞춰 **RMSE(Root Mean Squared Error)**, **MAE(Mean Absolute Error)**, 또는 **R² Score** 중 원하는 지표를 선택적으로 지정하여 탐색 방향("minimize" 또는 "maximize")을 정밀 조율합니다.
 3. **스마트 스킵 로직 (Smart Skip Logic)**: 사전 학습 구조로 튜닝이 불필요한 `TabPFN`이나 사용자가 임의 등록한 커스텀 모델 등은 탐색 단계에서 안전하게 스킵됩니다.
 4. **최종 재학습 (Refitting)**: 탐색이 성공적으로 끝나면 가장 우수한 점수를 보인 하이퍼파라미터를 `ModelPool` 설정에 업데이트하고, 해당 최적 설정을 사용하여 전체 훈련 분할 데이터를 대상으로 최종 피팅(fit)을 완성합니다.
 
@@ -222,11 +222,31 @@ hpo:
 
 ---
 
+## 🧠 모델 설명력 분석 (SHAP) & 학습 곡선 (Loss Curves)
+
+분석의 신뢰도를 한 차원 높이고 기계학습 모델의 블랙박스 성질을 해결하기 위해 두 가지 핵심 해석 도구가 파이프라인에 통합되었습니다:
+
+### 1. SHAP (SHapley Additive exPlanations) 시각화
+설정 파일의 `explainability.enabled: true` 지정 시 또는 WebUI에서 활성화 시, 학습 완료 후 자동으로 피처의 영향도를 분석합니다.
+- **트리 모델 고속화**: XGBoost, CatBoost, RandomForest 등 트리 계열 모델은 초고속 `TreeExplainer`를 통해 SHAP 값을 즉시 연산합니다.
+- **일반 모델 대응**: MLP, Transformer 등은 모델-어그노스틱(Model-Agnostic) explainer로 자동 포백(Fallback)하되, 연산 성능 확보를 위해 훈련 데이터를 자동으로 다운샘플링(`max_samples`)하여 지연을 방지합니다.
+- **생성 플롯**:
+  - **Beeswarm Plot(요약 분포도)**: 개별 피처의 값이 타겟 변수를 증가시켰는지 감소시켰는지의 영향력 방향성과 분포를 시각화합니다.
+  - **Bar Plot(중요도 차트)**: 피처가 모델 예측에 기여한 평균적인 절댓값을 기준으로 중요도를 가로 바 차트로 보여줍니다.
+
+### 2. 에포크/이터레이션별 학습 곡선 (Loss Curves)
+반복 학습이 필요한 모델(MLP, XGBoost, CatBoost, PyTorch Transformer)의 훈련 과정을 투명하게 모니터링하기 위해, 학습 이터레이션이나 에포크별 손실 함수(Loss) 추이를 기록하여 차트로 드로잉합니다.
+- 이를 통해 모델이 최적점에 잘 도달했는지, 오버피팅(과적합)이나 학습 부족 상태에 놓였는지를 개발자가 직접 판단할 수 있습니다.
+
+---
+
 ## 📊 출력 결과 & 보고서
 
-매 실행이 완료되면 프레임워크는 `outputs/` 디렉토리에 전문가 수준의 분석 에셋을 저장합니다:
-- `outputs/turn_1_model_comparison_r2.png` - 모델별 R2 Score를 나란히 비교 분석하는 수평 바 차트.
-- `outputs/turn_1_model_comparison_rmse.png` - 모델별 오차(RMSE) 지표 비교 수평 바 차트.
-- `outputs/turn_1_[Model]_actual_vs_pred.png` - 실제값과 예측치 간 편차와 y=x 가이드 피팅 라인을 표시하는 산포도.
-- `outputs/turn_1_[Model]_residuals.png` - 오차의 등분산성(Heteroscedasticity)을 진단하기 위한 잔차 분석 플롯.
-- `outputs/turn_1_report.json` - 최고 성적의 알고리즘(Champion) 및 전 모델 평가지표 세부정보를 수록한 JSON 결과 리포트.
+매 실행이 완료되면 프레임워크는 `outputs/` 디렉토리에 전문가 수준의 분석 에셋을 자동으로 누적 보존합니다:
+- `outputs/turn_1_report.md` - 전처리 형상 정보, 모델별 성능 Leaderboard 테이블, 개별 플롯 하이퍼링크 및 해석 권장사항이 집약된 **전문적 상세 리포트**. (웹 대시보드에서 바로 조회 가능)
+- `outputs/turn_1_report.json` - 프로그램 연동을 위한 Champion 모델 정보 및 수치 메트릭을 수록한 표준 JSON 보고서.
+- `outputs/turn_1_model_comparison_r2.png` / `_rmse.png` - 모델별 성적을 나란히 평가하는 수평 비교 막대 차트.
+- `outputs/turn_1_[Model]_actual_vs_pred.png` - 실제값과 예측치의 산포도 및 완벽 일치 가이드 피팅 라인(y=x).
+- `outputs/turn_1_[Model]_residuals.png` - 오차의 등분산성을 진단하기 위한 잔차 분석 산점도.
+- `outputs/turn_1_[Model]_shap_summary.png` / `_shap_bar.png` - SHAP 피처 해석 Beeswarm 분포도 및 중요도 바 차트.
+- `outputs/turn_1_[Model]_learning_curve.png` - 훈련 반복 횟수에 따른 Loss 곡선 차트.
