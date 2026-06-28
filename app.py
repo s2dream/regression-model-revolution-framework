@@ -299,6 +299,11 @@ st.sidebar.markdown("### 🎯 Hyperparameter Optimization")
 hpo_config = default_config.get("hpo", {})
 hpo_enabled = st.sidebar.checkbox("Enable HPO (Optuna)", value=hpo_config.get("enabled", False))
 hpo_trials = st.sidebar.number_input("HPO Trials per Model", min_value=2, max_value=100, value=hpo_config.get("n_trials", 10), step=1)
+hpo_metric = st.sidebar.selectbox(
+    "HPO Optimization Metric",
+    options=["RMSE", "MAE", "R2"],
+    index=["RMSE", "MAE", "R2"].index(hpo_config.get("metric", "RMSE").upper() if hpo_config.get("metric") else "RMSE")
+)
 
 
 # ==========================================
@@ -396,7 +401,8 @@ with tab_runner:
         },
         "hpo": {
             "enabled": hpo_enabled,
-            "n_trials": hpo_trials
+            "n_trials": hpo_trials,
+            "metric": hpo_metric
         },
         "models": updated_models_params
     }

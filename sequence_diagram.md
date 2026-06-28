@@ -1,12 +1,12 @@
-# 📊 AutoML Regression Framework - Full Sequence Diagram
+# 📊 AutoML Regression Framework - 전체 시퀀스 다이어그램 (Full Sequence Diagram)
 
-This document contains a comprehensive sequence diagram representing the entire workflow of the **Regression Model Revolution Framework**, including the newly refactored **Factory Method** design pattern for model creation.
+본 문서는 모델 생성을 위해 새로 리팩토링된 **팩토리 메서드(Factory Method)** 디자인 패턴을 포함하여, **Regression Model Revolution Framework**의 전체 파이프라인 워크플로우를 보여주는 종합 시퀀스 다이어그램을 제공합니다.
 
 ---
 
-## 🗺️ Mermaid Sequence Diagram
+## 🗺️ Mermaid 시퀀스 다이어그램
 
-Below is the complete sequence diagram mapping out initialization, data loading/preprocessing, training, evaluation, and visualization.
+아래는 초기화, 데이터 로드/전처리, 학습, 평가 및 시각화 프로세스를 설명하는 전체 시퀀스 다이어그램입니다.
 
 ```mermaid
 sequenceDiagram
@@ -21,158 +21,158 @@ sequenceDiagram
     participant Prep as StandardDataPreprocessor
     participant Split as TrainTestSplitter
     participant Exec as StandardBenchmarkExecutor
-    participant Wrapper as ModelWrapper (e.g. XGBoost)
+    participant Wrapper as ModelWrapper (예: XGBoost)
     participant Vis as Visualizer
 
     %% ==========================================
-    %% 1. INITIALIZATION PHASE
+    %% 1. 초기화 단계 (INITIALIZATION PHASE)
     %% ==========================================
-    Note over User, Main: [1. Initialization Phase]
-    User->>Main: Instantiate AutoMLPipeline(config_path, turn, target, test_size)
+    Note over User, Main: [1. 초기화 단계]
+    User->>Main: AutoMLPipeline(config_path, turn, target, test_size) 인스턴스 생성
     activate Main
-    Main->>Helper: Instantiate DataLoaderHelper(data_dir, config)
+    Main->>Helper: DataLoaderHelper(data_dir, config) 인스턴스 생성
     
-    Main->>Pool: Instantiate ModelPool(random_state, config)
+    Main->>Pool: ModelPool(random_state, config) 인스턴스 생성
     activate Pool
-    Pool->>Pool: Call _initialize_default_models()
+    Pool->>Pool: _initialize_default_models() 호출
     
-    loop For each active_model name in config ("XGBoost", "MLP", etc.)
-        Pool->>Type: Resolve string name via ModelType.from_str(model_name)
+    loop 설정 파일 내 각 활성 모델 이름 순회 (active_models: "XGBoost", "MLP" 등)
+        Pool->>Type: ModelType.from_str(model_name) 호출을 통해 문자열 변환
         activate Type
-        Type-->>Pool: Return ModelType Enum member
+        Type-->>Pool: ModelType Enum 멤버 반환
         deactivate Type
         
-        Pool->>Factory: Create model via create_model(model_type, config, random_state)
+        Pool->>Factory: create_model(model_type, config, random_state) 호출
         activate Factory
-        Note over Factory: Resolve imports & build raw regressor
-        Factory-->>Pool: Return concrete ModelWrapper instance
+        Note over Factory: 관련 패키지 동적 임포트 및<br/>개별 Regressor 객체 빌드
+        Factory-->>Pool: 구체적인 ModelWrapper 인스턴스 반환
         deactivate Factory
         
-        Pool->>Pool: Store wrapper in self.models[model_type.value]
+        Pool->>Pool: self.models[model_type.value]에 래퍼 저장
     end
-    Pool-->>Main: Return ModelPool instance
+    Pool-->>Main: ModelPool 인스턴스 반환
     deactivate Pool
     
-    Main->>Exec: Instantiate StandardBenchmarkExecutor(pool)
-    Main->>Vis: Instantiate Visualizer(output_dir)
-    Main-->>User: Pipeline Initialized
+    Main->>Exec: StandardBenchmarkExecutor(pool) 인스턴스 생성
+    Main->>Vis: Visualizer(output_dir) 인스턴스 생성
+    Main-->>User: 파이프라인 초기화 완료
     deactivate Main
 
     %% ==========================================
-    %% 2. DATA PREPARATION PHASE
+    %% 2. 데이터 준비 단계 (DATA PREPARATION PHASE)
     %% ==========================================
-    Note over User, Main: [2. Ingestion & Preprocessing Phase]
-    User->>Main: Call pipeline.run(dataset_path, kaggle_dataset, url)
+    Note over User, Main: [2. 데이터 수집 및 전처리 단계]
+    User->>Main: pipeline.run(dataset_path, kaggle_dataset, url) 호출
     activate Main
-    Main->>Main: Execute prepare_data(dataset_path, kaggle_dataset, url)
-    Main->>Helper: Call fetch_dataset(...)
-    Helper-->>Main: Return resolved local dataset filepath
+    Main->>Main: prepare_data(dataset_path, kaggle_dataset, url) 실행
+    Main->>Helper: fetch_dataset(...) 호출
+    Helper-->>Main: 확인된 로컬 데이터셋 파일 경로 반환
     
-    Main->>Helper: Call load_and_preprocess_data(dataset_file, target, test_size, random_state)
+    Main->>Helper: load_and_preprocess_data(dataset_file, target, test_size, random_state) 호출
     activate Helper
     
-    Helper->>Loader: Call load_data()
+    Helper->>Loader: load_data() 호출
     activate Loader
-    Note over Loader: Parse format (CSV/TSV/Parquet/JSONL)<br/>Handle dynamic JSONL keys
-    Loader-->>Helper: Return raw DataFrame X, Series y
+    Note over Loader: 파일 포맷 파싱 (CSV/TSV/Parquet/JSONL)<br/>JSONL의 누락된 키 및 동적 컬럼 해결
+    Loader-->>Helper: 원본 DataFrame X, Series y 반환
     deactivate Loader
 
-    Helper->>Prep: Call preprocess(X)
+    Helper->>Prep: preprocess(X) 호출
     activate Prep
-    Note over Prep: Median/Mode Imputation<br/>One-Hot Dummy Encoding
-    Prep-->>Helper: Return preprocessed DataFrame X_processed
+    Note over Prep: 결측치 보정 (Median/Mode)<br/>원-핫 더미 인코딩 (One-Hot Dummy Encoding)
+    Prep-->>Helper: 전처리 완료된 DataFrame X_processed 반환
     deactivate Prep
 
-    Helper->>Split: Call split(X_processed, y)
+    Helper->>Split: split(X_processed, y) 호출
     activate Split
-    Note over Split: Partition train/test splits based on random_state
-    Split-->>Helper: Return X_train, y_train, X_test, y_test
+    Note over Split: random_state 기준으로 Train/Test 분할 수행
+    Split-->>Helper: 분할된 X_train, y_train, X_test, y_test 반환
     deactivate Split
 
-    Helper-->>Main: Return X_train, y_train, X_test, y_test
+    Helper-->>Main: X_train, y_train, X_test, y_test 반환
     deactivate Helper
 
     %% ==========================================
-    %% 3. MODEL TRAINING & SCORING PHASE
+    %% 3. 모델 학습 및 평가 단계 (MODEL TRAINING & SCORING PHASE)
     %% ==========================================
-    Note over Main, Exec: [3. Model Training & Scoring Phase]
-    Main->>Main: Execute train_and_evaluate()
-    Main->>Exec: Call fit_all(X_train, y_train)
+    Note over Main, Exec: [3. 모델 학습 및 스코어링 단계]
+    Main->>Main: train_and_evaluate() 실행
+    Main->>Exec: fit_all(X_train, y_train) 호출
     activate Exec
 
-    opt If HPO is Enabled (Optuna)
-        Exec->>Pool: run_hpo_tuning(pool, X_train, y_train)
+    opt HPO (Optuna) 활성화 시
+        Exec->>Pool: run_hpo_tuning(pool, X_train, y_train) 호출
         activate Pool
-        loop For each active model in pool (excluding TabPFN)
-            loop For each trial in 1..n_trials
-                Pool->>Factory: create_model(model_type, trial_config, random_state)
+        loop 모델 풀 내 각 활성 모델 순회 (TabPFN 제외)
+            loop 1..n_trials 횟수만큼 반복
+                Pool->>Factory: create_model(model_type, trial_config, random_state) 호출
                 activate Factory
-                Factory-->>Pool: Return trial wrapper instance
+                Factory-->>Pool: 임시 trial 래퍼 인스턴스 반환
                 deactivate Factory
-                Pool->>Pool: Fit trial wrapper on train split & score validation RMSE
+                Pool->>Pool: Train 분할로 학습 및 validation RMSE 점수 검증
             end
-            Pool->>Factory: create_model(model_type, best_config, random_state)
+            Pool->>Factory: create_model(model_type, best_config, random_state) 호출
             activate Factory
-            Factory-->>Pool: Return best wrapper instance
+            Factory-->>Pool: 최적 파라미터 래퍼 인스턴스 반환
             deactivate Factory
-            Pool->>Pool: Update self.models[name] with best wrapper
+            Pool->>Pool: 최적 래퍼로 self.models[name] 업데이트
         end
-        Pool-->>Exec: HPO Tuning Complete
+        Pool-->>Exec: HPO 최적화 완료
         deactivate Pool
     end
 
-    loop For each wrapped model in ModelPool
-        Exec->>Pool: Retrieve model wrapper instance
-        Exec->>Wrapper: Call fit(X_train, y_train)
+    loop ModelPool 내 각 모델 Wrapper 순회
+        Exec->>Pool: 모델 래퍼 인스턴스 조회
+        Exec->>Wrapper: fit(X_train, y_train) 호출
         activate Wrapper
-        Note over Wrapper: Fit raw estimator under exception-shielding
-        Wrapper-->>Exec: Done
+        Note over Wrapper: 예외 감내 쉴딩(Exception-shielding) 하에<br/>개별 모델 학습
+        Wrapper-->>Exec: 완료
         deactivate Wrapper
     end
-    Exec-->>Main: Training Completed
+    Exec-->>Main: 일괄 학습 완료
     deactivate Exec
 
-    Main->>Exec: Call evaluate_all(X_test, y_test)
+    Main->>Exec: evaluate_all(X_test, y_test) 호출
     activate Exec
-    loop For each trained model wrapper in ModelPool
-        Exec->>Wrapper: Call predict(X_test)
+    loop 학습 완료된 각 모델 Wrapper 순회
+        Exec->>Wrapper: predict(X_test) 호출
         activate Wrapper
-        Wrapper-->>Exec: Return y_pred array
+        Wrapper-->>Exec: 예측값 y_pred 배열 반환
         deactivate Wrapper
-        Exec->>Exec: Calculate metrics (RMSE, MAE, R2)
+        Exec->>Exec: 평가 지표(RMSE, MAE, R2 Score) 계산
     end
-    Exec-->>Main: Return metrics Dict
+    Exec-->>Main: 지표 결과 Dict 반환
     deactivate Exec
 
     %% ==========================================
-    %% 4. VISUALIZATION & REPORTING PHASE
+    %% 4. 시각화 및 리포팅 단계 (VISUALIZATION & REPORTING PHASE)
     %% ==========================================
-    Note over Main, Vis: [4. Visuals & Reporting Phase]
-    Main->>Main: Execute generate_reports()
-    Main->>Vis: Call plot_model_comparison(metrics, metric_name, turn)
-    Note over Vis: Save model_comparison_r2/rmse horizontal bar chart
+    Note over Main, Vis: [4. 시각화 및 리포트 파일 저장 단계]
+    Main->>Main: generate_reports() 실행
+    Main->>Vis: plot_model_comparison(metrics, metric_name, turn) 호출
+    Note over Vis: 모델간 R2 및 RMSE 비교 수평 바 차트 저장
     
-    Main->>Exec: Call get_predictions(X_test)
+    Main->>Exec: get_predictions(X_test) 호출
     activate Exec
-    loop For each model wrapper in ModelPool
-        Exec->>Wrapper: Call predict(X_test)
+    loop ModelPool 내 각 모델 Wrapper 순회
+        Exec->>Wrapper: predict(X_test) 호출
         activate Wrapper
-        Wrapper-->>Exec: Return y_pred array
+        Wrapper-->>Exec: 예측값 y_pred 배열 반환
         deactivate Wrapper
     end
-    Exec-->>Main: Return predictions Dict
+    Exec-->>Main: 전체 예측값 Dict 반환
     deactivate Exec
 
-    loop For each model prediction array
-        Main->>Vis: Call plot_actual_vs_predicted(y_test, y_pred, model_name, turn)
-        Note over Vis: Save Actual vs Predicted Scatter Plot with Identity line
-        Main->>Vis: Call plot_residuals(y_test, y_pred, model_name, turn)
-        Note over Vis: Save Heteroscedasticity Residual Plot
+    loop 각 모델 예측값 순회
+        Main->>Vis: plot_actual_vs_predicted(y_test, y_pred, model_name, turn) 호출
+        Note over Vis: 실제값 vs 예측값 산포도 및 y=x 기준선 저장
+        Main->>Vis: plot_residuals(y_test, y_pred, model_name, turn) 호출
+        Note over Vis: 등분산성 검증용 잔차 분석 플롯 저장
     end
 
-    Main->>Vis: Call save_json_report(metrics, turn)
-    Vis-->>Main: Return turn_report.json filepath
+    Main->>Vis: save_json_report(metrics, turn) 호출
+    Vis-->>Main: 저장된 turn_report.json 파일 경로 반환
     
-    Main-->>User: Pipeline Execution Finished (Show Best Champion Model)
+    Main-->>User: 파이프라인 실행 종료 (우승 Champion 모델 출력)
     deactivate Main
 ```

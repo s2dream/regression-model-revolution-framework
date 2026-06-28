@@ -22,6 +22,7 @@ framework:
 hpo:
   enabled: false
   n_trials: 10
+  metric: "RMSE"  # Target metric for optimization (Options: "RMSE", "MAE", "R2")
 
 # Data Pipeline Settings
 data:

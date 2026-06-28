@@ -1,100 +1,97 @@
-# 🚀 Antigravity AutoML Regression Framework - Subpackage
+# 🚀 Regression Model Revolution Framework - 서브패키지
 
-This directory contains a premium, highly modular **AutoML Regression Framework** tailored for high-performance tabular learning. It integrates classical baselines, neural estimators, and cutting-edge tabular architectures like **TabPFN** and **XGBoost** with an automated, high-fidelity visualization suite.
+이 디렉토리는 정형 데이터(Tabular Data)를 활용한 고성능 머신러닝에 초점을 맞춘 **AutoML Regression Framework**의 코어 서브패키지를 포함하고 있습니다. 클래식 머신러닝 모델, 신경망 추정기, 최신 정형 데이터 모델인 **TabPFN** 및 **XGBoost** 래퍼와 함께 자동화된 시각화 리포팅 분석 도구를 통합하여 제공합니다.
 
 ---
 
-## 📂 Internal Package Architecture
+## 📂 내부 패키지 아키텍처
 
-The framework is structured into highly cohesive, dedicated domain subpackages:
+프레임워크 코어는 응집도가 높고 독립적인 성격의 세부 도메인 패키지들로 나뉘어 설계되었습니다:
 
 ```
 automl_framework/
 │
-├── __init__.py          # Facade layer exposing high-level classes
-├── README.md            # Subpackage documentation
+├── __init__.py          # 상위 Facade 레이어 (DataLoaderHelper, ModelPool, Visualizer, Executor 노출)
+├── README.md            # [본 파일] 서브패키지 기술 문서
 │
-├── dataloader/          # Data Domain (Facade & strategy submodules)
+├── dataloader/          # 데이터 가공 도메인 (DataLoader Facade & 전략 클래스)
 │   ├── __init__.py
-│   ├── base.py          # Abstract base classes for loaders/preprocessors/splitters
-│   ├── loaders.py       # Modular loaders (Local, Kaggle, URL)
-│   ├── preprocessors.py # Standard data imputation & encoding
-│   ├── splitters.py     # Dataset split strategies (train/val/test)
-│   └── data_loader_helper.py # DataLoaderHelper facade class and data pipeline orchestrator
+│   ├── base.py          # 로더, 전처리, 스플리터 전용 추상 베이스 클래스 (ABC)
+│   ├── loaders.py       # 로컬 파일, Kaggle, 원격 URL 대상 모듈별 파일 로더
+│   ├── preprocessors.py # 표준 결측치 보정(Median/Mode) 및 더미 인코더
+│   ├── splitters.py     # 데이터셋 학습/테스트 분할 전략 (Train-Test, K-Fold, Time-Series)
+│   └── data_loader_helper.py # DataLoaderHelper Facade 클래스 및 파이프라인 일괄 준비자
 │
-├── model/               # Model Domain (Inventory & execution strategies)
+├── model/               # 모델 및 학습 도메인 (모델 풀, 생성 팩토리, 실행 전략)
 │   ├── __init__.py
-│   ├── model_pool.py    # ModelPool data container for bound model inventory
-│   ├── model_factory.py # ModelFactory class and ModelType Enum for Factory Method pattern
-│   ├── hpo.py           # Optuna-based hyperparameter optimization (HPO) tuner
-│   ├── model_executor.py# Execution strategies (ABCModelExecutor & StandardBenchmarkExecutor)
-│   ├── wrappers.py      # Standardized wrappers for Scikit-Learn, XGBoost, TabPFN, CatBoost, Transformer
-│   └── architecture/    # Neural network model architectures
-│       └── transformer_encoder.py # PyTorch Transformer-based sequence regression (TransformerBasedRegression)
+│   ├── model_pool.py    # 활성 머신러닝 모델 인벤토리를 보유하는 ModelPool 데이터 컨테이너
+│   ├── model_factory.py # Factory Method 패턴을 준수하는 ModelFactory 및 ModelType Enum
+│   ├── hpo.py           # Optuna 기반 자동 하이퍼파라미터 최적화(HPO) 튜너
+│   ├── model_executor.py# 실행 전략 인터페이스 (ABCModelExecutor & StandardBenchmarkExecutor)
+│   ├── wrappers.py      # Scikit-Learn, XGBoost, TabPFN, CatBoost, Transformer 규격 통일 래퍼
+│   └── architecture/    # PyTorch 모델 정의 레이어
+│       └── transformer_encoder.py # PyTorch 기반 시퀀스 회귀 트랜스포머 (TransformerBasedRegression)
 │
-└── util/                # Utility & Analytics Domain (Premium dark theme visualizer)
+└── util/                # 시각화 및 결과 리포팅 도메인 (다크 테마 차트 렌더링)
     ├── __init__.py
-    └── visualizer.py    # Elegant matplotlib/seaborn visualization and JSON reporting
+    └── visualizer.py    # Matplotlib/Seaborn 기반 시각화 및 결과 리포팅 JSON 작성
 ```
 
 ---
 
-## ✨ Features & Domains
+## ✨ 기능 특징 및 세부 역할
 
-### 1. Ingestion (`dataloader/`)
-- **Facade Strategy Pattern**: `DataLoaderHelper` delegates specialized loading, preprocessing, and splitting tasks to modular strategy subcomponents, and exposes a unified high-level `load_and_preprocess_data` pipeline orchestrator method.
-- **Kaggle API Integration (`loaders.py`)**: Fetch datasets from Kaggle directly by passing a dataset ID.
-- **Direct HTTP Downloading (`loaders.py`)**: Supports direct downloads from URLs (such as the UCI Machine Learning Repository or customized datasets).
-- **Graceful Preprocessing (`preprocessors.py`)**: Handles automated median imputation for numeric features, mode imputation for categorical features, and automatic dummy/one-hot encoding.
-- **Flexible Splitting (`splitters.py`)**: Supports standard train/test splitting as well as 3-way train/validation/test partitioning.
+### 1. 데이터 수집 및 가공 (`dataloader/`)
+- **Facade 전략 패턴 (Facade Strategy Pattern)**: `DataLoaderHelper` 클래스가 모든 가공 단계의 단일 진입점이 되어 로딩, 전처리, 스플릿의 동작을 하위 전략 인스턴스에 안전하게 위임하고, 통합 실행 메소드 `load_and_preprocess_data`를 노출합니다.
+- **Kaggle API 연동 (`loaders.py`)**: Kaggle 데이터셋 식별자(ID) 입력 시 Kaggle 공식 CLI API를 호출하여 데이터 원본을 자동 다운로드합니다.
+- **다이렉트 HTTP 다운로드 (`loaders.py`)**: UCI 머신러닝 저장소나 임의의 원격 URL로부터 데이터를 웹 소켓 스트림으로 즉시 다운로드하여 보관할 수 있습니다.
+- **결측치 및 인코딩 자동 보정 (`preprocessors.py`)**: 수치형 변수는 **중앙값(Median)**, 범주형 변수는 **최빈값(Mode)**으로 결측치를 정밀 보정하고 범주형 열은 더미화(Dummy / One-Hot Encoding)를 자동으로 전개합니다.
+- **유연한 분할 전략 (`splitters.py`)**: 기본적인 Train-Test 분할 외에도 최적 튜닝을 위한 3-way 검증 분할 및 K-Fold, Time-Series 스플릿 기법을 지원합니다.
 
-### 2. Core Learners & Executors (`model/`)
-- **ModelPool Container (`model_pool.py`)**: Acts purely as a robust, configuration-driven **inventory repository** for wrapped models. Supports retrieval and custom model addition with strings and `ModelType` Enum values.
-- **Model Factory (`model_factory.py`)**: Encapsulates model building logic utilizing the **Factory Method** design pattern, mapping configurations to wrappers with a robust, case-insensitive `ModelType` Enum.
-- **Optuna Tuning (`hpo.py`)**: Runs automated hyperparameter optimization (HPO) using Optuna on train splits. Tunes critical parameters for XGBoost, CatBoost, RandomForest, MLP, and Transformer, and skips TabPFN and custom models.
-- **Benchmark Executors (`model_executor.py`)**: Decouples active fitting and prediction algorithms from inventory data using a strategy pattern. Extends `ABCModelExecutor` for highly scalable workflows.
-- **Universal Adapters (`wrappers.py`)**: Wraps `XGBoost`, `TabPFN`, `CatBoost`, `Multi-Layer Perceptron (MLP)`, standard baselines, and `TransformerBasedRegression` into uniform, exception-shielded wrappers.
-- **Transformer-Based Regression (`architecture/transformer_encoder.py`)**: Implements standard sequence-based deep learning regression using PyTorch, with adjustable pooling strategies (`mean`, `max`, `last`), sequence padding masking, and support for both scalar regression and probabilistic mean/variance distribution estimation.
+### 2. 모델 풀 및 실행 전략 (`model/`)
+- **ModelPool 컨테이너 (`model_pool.py`)**: 복잡한 실행 로직을 제외하고, 오직 설정에 부합하는 활성 모델 래퍼들을 저장하고 조회하는 **순수 데이터 컨테이너(Inventory Repository)**의 역할을 담당합니다.
+- **Model Factory 설계 (`model_factory.py`)**: 객체 생성의 복잡성을 외부로 격리하기 위해 **Factory Method** 패턴을 적용하였습니다. 대소문자나 문장 형식에 무관하게 매핑되는 `ModelType` Enum을 기반으로 최적화된 하이퍼파라미터 사전을 받아 Wrapper 인스턴스를 조립합니다.
+- **Optuna HPO 최적화 (`hpo.py`)**: 학습 단계 진입 전, 훈련 셋의 일부 분할 영역에서 **Optuna** 최적화 알고리즘을 가동하여 개별 튜닝 대상 모델의 RMSE 오차를 최소화하는 하이퍼파라미터를 찾고, 모델 풀을 동적 갱신합니다 (TabPFN 등 튜닝 불필요 모델은 스킵).
+- **Benchmark 실행 분리 (`model_executor.py`)**: 모델 풀의 결합을 분리하기 위해 학습 및 추론 제어 흐름을 `ABCModelExecutor` 전략 객체로 추상화하였습니다. 기본으로 `StandardBenchmarkExecutor`를 제공하며, 향후 분산 학습이나 교차 검증용 실행 전략으로의 치환을 매끄럽게 지원합니다.
+- **표준 어댑터 Wrapper (`wrappers.py`)**: Scikit-Learn 계열, XGBoost, CatBoost, TabPFN, 그리고 PyTorch 신경망 모델들을 동일한 호출 표준(`fit`, `predict`) 하에 구동할 수 있도록 감싸며, 일부 라이브러리 부재 시에도 전체 파이프라인의 크래시를 차단하는 런타임 쉴드 예외 처리를 보유합니다.
+- **PyTorch Transformer 기반 회귀 (`architecture/transformer_encoder.py`)**: 순차 피처 인코딩 및 Position Embedding을 연동하고, pooling(`mean`, `max`, `last`) 및 masking을 지원하는 트랜스포머 회귀 신경망을 제공합니다. 결정론적 단일 값(scalar) 예측 외에도 평균과 strictly positive 분산을 학습하여 확률 분포를 추정하는 Gaussian NLL Loss 기반 학습 모드를 지원합니다.
 
-### 3. Analytics & Visuals (`util/visualizer.py`)
-Generates production-grade, dark-themed visualizations:
-- **Actual vs. Predicted Plot**: Diagonal identity line chart mapping model alignment and prediction variance (`turn_{turn}_{model_name}_actual_vs_pred.png`).
-- **Residual Analysis Plot**: Residual error scatter plot supporting diagnoses of heteroscedasticity (`turn_{turn}_{model_name}_residuals.png`).
-- **Cross-Model Benchmarking**: High-fidelity horizontal bar charts directly comparing $R^2$, $RMSE$, and $MAE$ values (`turn_{turn}_model_comparison_{metric}.png`).
-- **Turn Reports**: Standardized `.json` documents capturing all metrics per turn and highlighting the best-performing champion model (`turn_{turn}_report.json`).
+### 3. 고품질 분석 및 리포팅 (`util/visualizer.py`)
+전문가 보고용 다크 슬레이트 테마의 그래픽 차트를 자동 렌더링합니다:
+- **실제치 vs 예측치 산포도**: 실제값과 예측치 간의 오차 분포를 파스텔톤 플롯으로 매핑하고 이상적인 1:1 완벽 가이드 선(y=x)을 함께 렌더링합니다 (`turn_{turn}_{model_name}_actual_vs_pred.png`).
+- **잔차 오차 분석 플롯**: 예측 오차의 분산 경향성과 등분산성을 한눈에 진단할 수 있는 잔차 분석 scatter plot을 그립니다 (`turn_{turn}_{model_name}_residuals.png`).
+- **모델 간 비교 바 차트**: 성능비교 목적으로 모델별 $R^2$, $RMSE$, $MAE$ 성능 지표를 가로 막대 형태로 시각화하여 순위와 차이를 시각적 표현합니다 (`turn_{turn}_model_comparison_{metric}.png`).
+- **JSON 실행 보고서**: 각 실행 턴(Turn) 정보, 전 알고리즘의 세부 성적표, 그리고 1위에 해당하는 최적의 Champion 모델에 대한 메타데이터 기록을 구조화된 JSON 형태로 기록 보존합니다 (`turn_{turn}_report.json`).
 
 ---
 
-## 🛠️ Usage Guidelines
+## 🛠️ 프로그래밍 방식 사용법 (Programmatic Usage)
 
-This directory is structured as a **modular Python package** using a Facade pattern. If you wish to execute the complete AutoML benchmarking pipeline, please run the orchestrator **`main.py`** located in the **project root directory**:
+본 디렉토리는 독립 패키지이므로, CLI 스크립트 외에도 자체 파이썬 프로그램 상에서 라이브러리 형태로 직접 임포트하여 활용할 수 있습니다. 
 
+반드시 프로젝트 루트 폴더에서 작동을 권장합니다:
 ```bash
-# Go to the project root
+# 프로젝트 루트로 이동
 cd /Users/jeonghoon/github/regression-model-revolution-framework
-
-# Run the framework by specifying a local dataset CSV path and target column
-python main.py --dataset-path data/synthetic_regression.csv --target Target_Y
 ```
 
-For custom programatic usage within your own python scripts:
+코드 연동 예시:
 ```python
-# Simple top-level Facade import!
-# Simple top-level Facade import!
+# Facade 레이어로부터 깔끔하게 핵심 클래스를 임포트합니다.
 from automl_framework import DataLoaderHelper, ModelPool, StandardBenchmarkExecutor, Visualizer
 
-# 1. Load, preprocess, and split Data in one unified step!
+# 1. 데이터 수집, 결측치 임퓨테이션 및 인코딩, 분할을 원스톱으로 수행합니다.
 dataloader_helper = DataLoaderHelper(data_dir="data")
 X_train, y_train, X_test, y_test = dataloader_helper.load_and_preprocess_data(
     "data/your_dataset.csv", target_column="target_column_name", test_size=0.2, random_state=42
 )
 
-# 2. Setup Decoupled ML Pipeline
+# 2. 모델 풀 및 실행 전략 기동
 pool = ModelPool(random_state=42)
 executor = StandardBenchmarkExecutor(pool)
 executor.fit_all(X_train, y_train)
 
-# 3. Analyze & Plot
+# 3. 모델 성능 지표 계산 및 다크 슬레이트 분석 보고서 저장
 visualizer = Visualizer(output_dir="outputs")
 metrics = executor.evaluate_all(X_test, y_test)
 visualizer.save_json_report(metrics, turn=1)

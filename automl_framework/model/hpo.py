@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from typing import Dict, Any
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 from automl_framework.model.model_pool import ModelPool
 from automl_framework.model.model_factory import ModelFactory, ModelType
@@ -27,6 +27,8 @@ def run_hpo_tuning(pool: ModelPool, X_train: pd.DataFrame, y_train: pd.Series):
 
     hpo_config = pool.config.get("hpo", {})
     n_trials = hpo_config.get("n_trials", 10)
+    metric = hpo_config.get("metric", "RMSE").upper()
+    logger.info(f"🎯 HPO optimization metric selected: {metric}")
 
     # Enable Optuna log visibility so the user can see HPO progress in real-time
     optuna.logging.set_verbosity(optuna.logging.INFO)
@@ -100,15 +102,24 @@ def run_hpo_tuning(pool: ModelPool, X_train: pd.DataFrame, y_train: pd.Series):
                 )
                 model_wrap.fit(X_t, y_t)
                 preds = model_wrap.predict(X_v)
-                rmse = np.sqrt(mean_squared_error(y_v, preds))
-                return rmse
+                
+                if metric == "RMSE":
+                    score = np.sqrt(mean_squared_error(y_v, preds))
+                elif metric == "MAE":
+                    score = mean_absolute_error(y_v, preds)
+                elif metric == "R2":
+                    score = r2_score(y_v, preds)
+                else:
+                    score = np.sqrt(mean_squared_error(y_v, preds))
+                return score
             except Exception as e:
                 logger.warning(f"Trial failed for {name} with parameters {suggested_params}: {e}")
-                return float("inf")
+                return float("-inf") if metric == "R2" else float("inf")
 
         try:
             # Create study and run optimization
-            study = optuna.create_study(direction="minimize")
+            direction = "maximize" if metric == "R2" else "minimize"
+            study = optuna.create_study(direction=direction)
             study.optimize(objective, n_trials=n_trials)
 
             best_params = study.best_params.copy()
@@ -118,7 +129,7 @@ def run_hpo_tuning(pool: ModelPool, X_train: pd.DataFrame, y_train: pd.Series):
                 ]
 
             logger.info(
-                f"🎉 HPO complete for {name}. Best parameters: {best_params} (Best Validation RMSE: {study.best_value:.4f})"
+                f"🎉 HPO complete for {name}. Best parameters: {best_params} (Best Validation {metric}: {study.best_value:.4f})"
             )
 
             # Save best parameters back to pool config
