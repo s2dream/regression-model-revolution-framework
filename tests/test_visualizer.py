@@ -78,3 +78,39 @@ def test_visualizer_save_json_report(temp_output_dir, dummy_results):
     assert data["turn"] == 1
     assert "MLP" in data["metrics"]
     assert data["best_model"] == "MLP"  # MLP R2 (0.95) > RandomForest R2 (0.90)
+
+
+def test_visualizer_shap_explainability(temp_output_dir):
+    """Test plot_shap_explainability runs and outputs correct PNG files."""
+    import pandas as pd
+    
+    # Generate dummy training and test datasets
+    X_train = pd.DataFrame({"feat1": [1.0, 2.0, 3.0, 4.0, 5.0], "feat2": [0.5, 1.5, 2.5, 3.5, 4.5]})
+    X_test = pd.DataFrame({"feat1": [1.5, 2.5], "feat2": [0.75, 1.75]})
+    
+    # Use a custom class instead of MagicMock to prevent shap from misidentifying it as a linear model
+    class DummyModel:
+        def predict(self, X):
+            return np.array([1.5] * len(X))
+            
+    dummy_model_wrap = DummyModel()
+    
+    visualizer = Visualizer(output_dir=temp_output_dir)
+    
+    # Run explainability plotting with a small number of samples
+    paths = visualizer.plot_shap_explainability(
+        model_wrap=dummy_model_wrap,
+        X_train=X_train,
+        X_test=X_test,
+        model_name="CustomEstimator",
+        turn=1,
+        max_samples=3
+    )
+    
+    # Verify that paths are returned and the files exist
+    assert "summary_plot" in paths
+    assert "bar_plot" in paths
+    assert os.path.exists(paths["summary_plot"])
+    assert os.path.exists(paths["bar_plot"])
+
+

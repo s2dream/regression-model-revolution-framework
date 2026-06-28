@@ -305,6 +305,27 @@ hpo_metric = st.sidebar.selectbox(
     index=["RMSE", "MAE", "R2"].index(hpo_config.get("metric", "RMSE").upper() if hpo_config.get("metric") else "RMSE")
 )
 
+# ==========================================
+# 🧠 EXPLAINABILITY (SHAP)
+# ==========================================
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 🧠 Explainability (SHAP)")
+exp_config = default_config.get("explainability", {})
+shap_enabled = st.sidebar.checkbox("Enable SHAP Analysis", value=exp_config.get("enabled", False))
+shap_target = st.sidebar.selectbox(
+    "SHAP Target Model",
+    options=["champion", "all"],
+    format_func=lambda x: "Champion Model Only" if x == "champion" else "All Active Models",
+    index=["champion", "all"].index(exp_config.get("target", "champion").lower() if exp_config.get("target") else "champion")
+)
+shap_samples = st.sidebar.number_input(
+    "SHAP Max Background Samples",
+    min_value=10,
+    max_value=1000,
+    value=exp_config.get("max_samples", 100),
+    step=10
+)
+
 
 # ==========================================
 # 📊 CENTRAL APPLICATION CONTENT: TABS
@@ -403,6 +424,11 @@ with tab_runner:
             "enabled": hpo_enabled,
             "n_trials": hpo_trials,
             "metric": hpo_metric
+        },
+        "explainability": {
+            "enabled": shap_enabled,
+            "target": shap_target,
+            "max_samples": shap_samples
         },
         "models": updated_models_params
     }
@@ -560,6 +586,33 @@ with tab_results:
                         st.image(residuals_img, caption=f"{selected_model}: Residuals Plot")
                     else:
                         st.info("Residuals plot not found or corrupted.")
+
+            # Model Explainability (SHAP Plots)
+            shap_reports = report_data.get("shap_reports", {})
+            if shap_reports:
+                st.markdown("---")
+                st.markdown("##### 🧠 Model Explainability (SHAP Plots)")
+                
+                # Dropdown to select model for SHAP plots
+                shap_models = list(shap_reports.keys())
+                selected_shap_model = st.selectbox("Select Model for SHAP Explanation", shap_models)
+                
+                if selected_shap_model:
+                    model_shap = shap_reports[selected_shap_model]
+                    summary_img = model_shap.get("summary_plot")
+                    bar_img = model_shap.get("bar_plot")
+                    
+                    col_shap1, col_shap2 = st.columns(2)
+                    with col_shap1:
+                        if summary_img and is_valid_image(summary_img):
+                            st.image(summary_img, caption=f"{selected_shap_model}: SHAP Beeswarm Plot")
+                        else:
+                            st.info("SHAP Beeswarm Plot not found or corrupted.")
+                    with col_shap2:
+                        if bar_img and is_valid_image(bar_img):
+                            st.image(bar_img, caption=f"{selected_shap_model}: SHAP Feature Importance (Bar)")
+                        else:
+                            st.info("SHAP Feature Importance (Bar) not found or corrupted.")
         else:
             st.warning("No metrics data found in report JSON.")
     else:

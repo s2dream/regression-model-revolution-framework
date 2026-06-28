@@ -140,8 +140,43 @@ class AutoMLPipeline:
             self.visualizer.plot_actual_vs_predicted(self.y_test, y_pred, model_name=model_name, turn=self.turn)
             self.visualizer.plot_residuals(self.y_test, y_pred, model_name=model_name, turn=self.turn)
             
+        # Optional Explainability (SHAP Analysis)
+        shap_reports = {}
+        exp_config = self.config.get("explainability", {})
+        if exp_config.get("enabled", False):
+            logger.info("🧠 SHAP Explainability analysis started...")
+            target = exp_config.get("target", "champion").lower()
+            max_samples = exp_config.get("max_samples", 100)
+            
+            # Identify models to analyze
+            models_to_analyze = []
+            best_model = max(self.metrics.keys(), key=lambda k: self.metrics[k]["R2"]) if self.metrics else None
+            
+            if target == "champion" and best_model:
+                models_to_analyze = [best_model]
+            elif target == "all":
+                models_to_analyze = list(self.metrics.keys())
+                
+            for model_name in models_to_analyze:
+                model_wrap = self.pool.get_model(model_name)
+                if model_wrap is not None:
+                    try:
+                        logger.info(f"Computing SHAP values for model: {model_name}")
+                        paths = self.visualizer.plot_shap_explainability(
+                            model_wrap=model_wrap,
+                            X_train=self.X_train,
+                            X_test=self.X_test,
+                            model_name=model_name,
+                            turn=self.turn,
+                            max_samples=max_samples
+                        )
+                        if paths:
+                            shap_reports[model_name] = paths
+                    except Exception as e:
+                        logger.error(f"Error computing SHAP values for model {model_name}: {e}", exc_info=True)
+
         # Save structured JSON execution report
-        report_path = self.visualizer.save_json_report(self.metrics, turn=self.turn)
+        report_path = self.visualizer.save_json_report(self.metrics, turn=self.turn, shap_reports=shap_reports)
         
         best_model = max(self.metrics.keys(), key=lambda k: self.metrics[k]["R2"])
         best_r2 = self.metrics[best_model]["R2"]

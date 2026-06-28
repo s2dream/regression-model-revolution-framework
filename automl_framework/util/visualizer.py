@@ -142,7 +142,7 @@ class Visualizer:
         logger.info(f"Saved Model Comparison plot to {filepath}")
         return filepath
 
-    def save_json_report(self, metrics: Dict[str, Dict[str, float]], turn: int = 1) -> str:
+    def save_json_report(self, metrics: Dict[str, Dict[str, float]], turn: int = 1, shap_reports: Dict[str, Dict[str, str]] = None) -> str:
         """
         Saves the turn's execution and performance metrics in an structured JSON report.
         
@@ -154,7 +154,9 @@ class Visualizer:
             "metrics": metrics,
             "best_model": max(metrics.keys(), key=lambda k: metrics[k]["R2"]) if metrics else None
         }
-        
+        if shap_reports:
+            report_data["shap_reports"] = shap_reports
+            
         filename = f"turn_{turn}_report.json"
         filepath = os.path.join(self.output_dir, filename)
         
@@ -163,3 +165,128 @@ class Visualizer:
             
         logger.info(f"Saved JSON report to {filepath}")
         return filepath
+
+    def plot_shap_explainability(self, model_wrap, X_train: pd.DataFrame, X_test: pd.DataFrame, model_name: str, turn: int = 1, max_samples: int = 100) -> Dict[str, str]:
+        """
+        Computes SHAP values and saves Beeswarm and Bar Plots for the given model wrapper.
+        Includes safety shielding and fallback strategies.
+        
+        Returns:
+            Dict[str, str]: Dictionary containing file paths to generated plots
+        """
+        try:
+            import shap
+        except ImportError:
+            logger.warning("⚠️ 'shap' library is not installed. Skipping SHAP analysis.")
+            return {}
+
+        logger.info(f"🧠 Computing SHAP values for model: {model_name}...")
+        
+        # Prepare datasets: downsample for performance
+        if len(X_train) > max_samples:
+            X_background = shap.sample(X_train, max_samples, random_state=42)
+        else:
+            X_background = X_train
+
+        X_explain = X_test
+        if len(X_test) > max_samples:
+            X_explain = shap.sample(X_test, max_samples, random_state=42)
+
+        explainer = None
+        shap_values = None
+
+        # Build Explainer based on model class/type
+        try:
+            from automl_framework.model.model_factory import ModelType
+            try:
+                model_type = ModelType.from_str(model_name)
+            except ValueError:
+                model_type = None
+
+            # TreeExplainer is extremely fast and works directly on tree ensembles
+            if model_type in [ModelType.XGBOOST, ModelType.CATBOOST, ModelType.RANDOM_FOREST]:
+                try:
+                    explainer = shap.TreeExplainer(model_wrap.model)
+                    shap_values = explainer(X_explain)
+                except Exception as e:
+                    logger.debug(f"Failed to initialize TreeExplainer for {model_name}: {e}. Falling back to default Explainer.")
+                    explainer = None
+
+            # Fallback model-agnostic Permutation/Kernel Explainer
+            if explainer is None:
+                explainer = shap.Explainer(model_wrap.predict, X_background)
+                shap_values = explainer(X_explain)
+
+        except Exception as e:
+            logger.error(f"Failed to initialize explainer or calculate SHAP values for {model_name}: {e}", exc_info=True)
+            return {}
+
+        paths = {}
+
+        # 1. Beeswarm / Summary Plot
+        try:
+            plt.figure(figsize=(8, 5))
+            
+            # Support both shap.Explanation and numpy arrays
+            try:
+                if hasattr(shap_values, "values"):
+                    shap.plots.beeswarm(shap_values, show=False)
+                else:
+                    shap.summary_plot(shap_values, X_explain, show=False)
+            except Exception:
+                shap.summary_plot(shap_values, X_explain, show=False)
+
+            fig = plt.gcf()
+            fig.patch.set_facecolor('#0d1117')
+            ax = plt.gca()
+            ax.set_facecolor('#161b22')
+            ax.xaxis.label.set_color('#8b949e')
+            ax.yaxis.label.set_color('#8b949e')
+            ax.tick_params(colors='#8b949e')
+            plt.title(f"{model_name}: SHAP Summary (Turn {turn})", color='#ffffff', pad=15)
+            plt.tight_layout()
+
+            summary_filename = f"turn_{turn}_{model_name}_shap_summary.png"
+            summary_path = os.path.join(self.output_dir, summary_filename)
+            plt.savefig(summary_path, facecolor=fig.get_facecolor(), edgecolor='none', dpi=200)
+            plt.close()
+            paths["summary_plot"] = summary_path
+            logger.info(f"Saved SHAP Beeswarm plot to {summary_path}")
+        except Exception as e:
+            logger.error(f"Failed to generate SHAP Beeswarm plot for {model_name}: {e}", exc_info=True)
+            plt.close()
+
+        # 2. Bar Plot (Feature Importance)
+        try:
+            plt.figure(figsize=(8, 5))
+            
+            try:
+                if hasattr(shap_values, "values"):
+                    shap.plots.bar(shap_values, show=False)
+                else:
+                    shap.summary_plot(shap_values, X_explain, plot_type="bar", show=False)
+            except Exception:
+                shap.summary_plot(shap_values, X_explain, plot_type="bar", show=False)
+
+            fig = plt.gcf()
+            fig.patch.set_facecolor('#0d1117')
+            ax = plt.gca()
+            ax.set_facecolor('#161b22')
+            ax.xaxis.label.set_color('#8b949e')
+            ax.yaxis.label.set_color('#8b949e')
+            ax.tick_params(colors='#8b949e')
+            plt.title(f"{model_name}: Feature Importance (Turn {turn})", color='#ffffff', pad=15)
+            plt.tight_layout()
+
+            bar_filename = f"turn_{turn}_{model_name}_shap_bar.png"
+            bar_path = os.path.join(self.output_dir, bar_filename)
+            plt.savefig(bar_path, facecolor=fig.get_facecolor(), edgecolor='none', dpi=200)
+            plt.close()
+            paths["bar_plot"] = bar_path
+            logger.info(f"Saved SHAP Bar plot to {bar_path}")
+        except Exception as e:
+            logger.error(f"Failed to generate SHAP Bar plot for {model_name}: {e}", exc_info=True)
+            plt.close()
+
+        return paths
+
