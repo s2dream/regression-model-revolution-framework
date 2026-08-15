@@ -10,6 +10,7 @@ from automl_framework.model.wrappers import (
     ModelWrapperCatBoost,
     ModelWrapperTransformer,
     ModelWrapperTabPFN,
+    ModelWrapperTabICL,
 )
 from automl_framework.model.model_pool import ModelPool
 from automl_framework.model.model_executor import StandardBenchmarkExecutor
@@ -35,7 +36,7 @@ def full_models_config():
     return {
         "framework": {
             "random_state": 42,
-            "active_models": ["XGBoost", "MLP", "RandomForest", "CatBoost", "Transformer"]
+            "active_models": ["XGBoost", "MLP", "RandomForest", "CatBoost", "Transformer", "TabICL"]
         },
         "models": {
             "XGBoost": {"n_estimators": 5, "max_depth": 2, "learning_rate": 0.1},
@@ -44,6 +45,7 @@ def full_models_config():
             "CatBoost": {"iterations": 5, "depth": 2, "verbose": 0},
             "Transformer": {"epochs": 3, "d_model": 16, "nhead": 2, "num_layers": 1, "batch_size": 16},
             "TabPFN": {"N_ensemble_configurations": 2},
+            "TabICL": {"n_estimators": 2, "device": "cpu", "batch_size": 2},
         }
     }
 
@@ -63,6 +65,9 @@ def test_model_type_from_str_resolution():
     assert ModelType.from_str("transformer") == ModelType.TRANSFORMER
     assert ModelType.from_str("TabPFN") == ModelType.TABPFN
     assert ModelType.from_str("tabpfn") == ModelType.TABPFN
+    assert ModelType.from_str("TabICL") == ModelType.TABICL
+    assert ModelType.from_str("tabicl") == ModelType.TABICL
+    assert ModelType.from_str("tab_icl") == ModelType.TABICL
 
     with pytest.raises(ValueError, match="is not a valid ModelType"):
         ModelType.from_str("NonExistentModel")
@@ -75,6 +80,7 @@ def test_model_type_from_str_resolution():
     ("CatBoost", ModelWrapperCatBoost),
     ("Transformer", ModelWrapperTransformer),
     ("TabPFN", ModelWrapperTabPFN),
+    ("TabICL", ModelWrapperTabICL),
 ])
 def test_model_factory_creates_all_wrappers(full_models_config, model_name, expected_wrapper_type):
     """Verifies that ModelFactory correctly builds all wrapper types."""
@@ -84,7 +90,7 @@ def test_model_factory_creates_all_wrappers(full_models_config, model_name, expe
     assert wrapper.name == model_name
 
 
-@pytest.mark.parametrize("model_name", ["XGBoost", "MLP", "RandomForest", "CatBoost", "Transformer"])
+@pytest.mark.parametrize("model_name", ["XGBoost", "MLP", "RandomForest", "CatBoost", "Transformer", "TabICL"])
 def test_all_models_fit_and_predict(synthetic_data, full_models_config, model_name):
     """Verifies fit and predict workflow for each individual model wrapper."""
     X, y = synthetic_data
@@ -104,19 +110,19 @@ def test_full_model_pool_and_executor(synthetic_data, full_models_config):
     pool = ModelPool(random_state=42, config=full_models_config)
     
     available = pool.list_available_models()
-    assert set(available) == {"XGBoost", "MLP", "RandomForest", "CatBoost", "Transformer"}
+    assert set(available) == {"XGBoost", "MLP", "RandomForest", "CatBoost", "Transformer", "TabICL"}
     
     executor = StandardBenchmarkExecutor(pool)
     executor.fit_all(X, y)
     
     preds = executor.get_predictions(X)
-    assert len(preds) == 5
+    assert len(preds) == 6
     for name in available:
         assert name in preds
         assert preds[name].shape == (len(X),)
         
     metrics = executor.evaluate_all(X, y)
-    assert len(metrics) == 5
+    assert len(metrics) == 6
     for name in available:
         assert "RMSE" in metrics[name]
         assert "MAE" in metrics[name]

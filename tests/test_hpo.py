@@ -89,6 +89,20 @@ def test_hpo_tabpfn_is_skipped(hpo_dataset, hpo_config):
     assert pool.get_model("TabPFN") is orig_tabpfn
 
 
+def test_hpo_tabicl_is_skipped(hpo_dataset, hpo_config):
+    """Verifies TabICL is skipped during the HPO optimization process."""
+    X, y = hpo_dataset
+    hpo_config["framework"]["active_models"] = ["TabICL"]
+    hpo_config["models"]["TabICL"] = {"n_estimators": 2, "device": "cpu", "batch_size": 2}
+    
+    pool = ModelPool(random_state=42, config=hpo_config)
+    orig_tabicl = pool.get_model("TabICL")
+    
+    run_hpo_tuning(pool, X, y)
+    
+    assert pool.get_model("TabICL") is orig_tabicl
+
+
 def test_hpo_custom_and_invalid_models_skipped(hpo_dataset, hpo_config):
     """Verifies custom models and invalid model type strings are skipped gracefully."""
     X, y = hpo_dataset

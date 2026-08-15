@@ -249,3 +249,19 @@ class ModelWrapperTransformer(ABCModelWrapper):
                 pred = self.model(X_tensor)
                 return pred.squeeze(-1).numpy()
 
+
+class ModelWrapperTabICL(ABCModelWrapper):
+    """
+    Dedicated wrapper for TabICL (Tabular In-Context Learning) Regressor.
+    """
+    def fit(self, X: pd.DataFrame, y: pd.Series) -> 'ModelWrapperTabICL':
+        X_arr = X.to_numpy(dtype=np.float32) if isinstance(X, pd.DataFrame) else np.array(X, dtype=np.float32)
+        y_arr = y.to_numpy(dtype=np.float32) if isinstance(y, pd.Series) else np.array(y, dtype=np.float32)
+        self.model.fit(X_arr, y_arr)
+        return self
+
+    def predict(self, X: pd.DataFrame) -> np.ndarray:
+        X_arr = X.to_numpy(dtype=np.float32) if isinstance(X, pd.DataFrame) else np.array(X, dtype=np.float32)
+        preds = self.model.predict(X_arr)
+        return np.asarray(preds, dtype=np.float32).reshape(-1)
+

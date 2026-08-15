@@ -15,6 +15,7 @@ framework:
     - XGBoost
     - MLP
     - TabPFN
+    - TabICL
     - RandomForest
     - CatBoost
 
@@ -53,6 +54,11 @@ models:
   
   TabPFN:
     N_ensemble_configurations: 32
+
+  TabICL:
+    n_estimators: 8
+    device: "cpu"
+    batch_size: 4
   
   RandomForest:
     n_estimators: 100

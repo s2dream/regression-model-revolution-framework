@@ -38,8 +38,8 @@ def run_hpo_tuning(pool: ModelPool, X_train: pd.DataFrame, y_train: pd.Series):
             logger.info(f"Skipping HPO for custom/non-standard model: '{name}'")
             continue
 
-        if model_type == ModelType.TABPFN:
-            logger.info("TabPFN is a pre-trained network and does not require HPO. Skipping...")
+        if model_type in (ModelType.TABPFN, ModelType.TABICL):
+            logger.info(f"{name} is a pre-trained foundation model and does not require HPO. Skipping...")
             continue
 
         logger.info(f"Tuning hyperparameters for model: {name} (trials={n_trials})...")

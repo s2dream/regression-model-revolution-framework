@@ -7,6 +7,7 @@ from automl_framework.model.wrappers import (
     ModelWrapperXGBoost,
     ModelWrapperMLP,
     ModelWrapperTabPFN,
+    ModelWrapperTabICL,
     ModelWrapperRandomForest,
     ModelWrapperCatBoost,
     ModelWrapperTransformer,
@@ -19,6 +20,7 @@ class ModelType(str, Enum):
     XGBOOST = "XGBoost"
     MLP = "MLP"
     TABPFN = "TabPFN"
+    TABICL = "TabICL"
     RANDOM_FOREST = "RandomForest"
     CATBOOST = "CatBoost"
     TRANSFORMER = "Transformer"
@@ -64,6 +66,8 @@ class ModelFactory:
             return ModelFactory._build_mlp(config, random_state)
         elif model_type == ModelType.TABPFN:
             return ModelFactory._build_tabpfn(config, random_state)
+        elif model_type == ModelType.TABICL:
+            return ModelFactory._build_tabicl(config, random_state)
         elif model_type == ModelType.RANDOM_FOREST:
             return ModelFactory._build_random_forest(config, random_state)
         elif model_type == ModelType.CATBOOST:
@@ -122,6 +126,20 @@ class ModelFactory:
 
         tabpfn_model = TabPFNRegressor(**tabpfn_params)
         return ModelWrapperTabPFN(ModelType.TABPFN.value, tabpfn_model)
+
+    @staticmethod
+    def _build_tabicl(config: Dict[str, Any], random_state: int) -> ABCModelWrapper:
+        try:
+            from tabicl import TabICLRegressor
+        except ImportError:
+            raise Exception("import tabicl package is required. Please run pip install tabicl")
+
+        tabicl_params = config.get("models", {}).get(ModelType.TABICL.value, {}).copy()
+        if "random_state" not in tabicl_params:
+            tabicl_params["random_state"] = random_state
+
+        tabicl_model = TabICLRegressor(**tabicl_params)
+        return ModelWrapperTabICL(ModelType.TABICL.value, tabicl_model)
 
     @staticmethod
     def _build_random_forest(config: Dict[str, Any], random_state: int) -> ABCModelWrapper:
