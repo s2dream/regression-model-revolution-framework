@@ -1,6 +1,7 @@
 import os
 import json
 import numpy as np
+import pandas as pd
 import pytest
 from automl_framework.util import Visualizer
 
@@ -58,11 +59,11 @@ def test_visualizer_plot_model_comparison(temp_output_dir, dummy_results):
     
     assert os.path.exists(filepath)
     assert filepath.endswith(".png")
-    assert "comparison_r2" in filepath
+    assert "model_comparison_r2" in filepath
 
 
 def test_visualizer_save_json_report(temp_output_dir, dummy_results):
-    """Test save_json_report generates a correct JSON structure detailing performance champions."""
+    """Test save_json_report dumps a structured JSON file."""
     _, _, metrics = dummy_results
     visualizer = Visualizer(output_dir=temp_output_dir)
     
@@ -130,3 +131,81 @@ def test_visualizer_save_markdown_summary(temp_output_dir, dummy_results):
     assert "RandomForest" in md_content
     assert "Target_Y" in md_content
 
+
+def test_visualizer_shap_explainability(temp_output_dir):
+    """Test plot_shap_explainability runs and outputs correct PNG files."""
+    X_train = pd.DataFrame({"feat1": [1.0, 2.0, 3.0, 4.0, 5.0], "feat2": [0.5, 1.5, 2.5, 3.5, 4.5]})
+    X_test = pd.DataFrame({"feat1": [1.5, 2.5], "feat2": [0.75, 1.75]})
+    
+    class DummyModel:
+        def predict(self, X):
+            return np.array([1.5] * len(X))
+            
+    dummy_model_wrap = DummyModel()
+    visualizer = Visualizer(output_dir=temp_output_dir)
+    
+    paths = visualizer.plot_shap_explainability(
+        model_wrap=dummy_model_wrap,
+        X_train=X_train,
+        X_test=X_test,
+        model_name="CustomEstimator",
+        turn=1,
+        max_samples=3
+    )
+    
+    assert "summary_plot" in paths
+    assert "bar_plot" in paths
+    assert os.path.exists(paths["summary_plot"])
+    assert os.path.exists(paths["bar_plot"])
+
+
+def test_visualizer_plot_learning_curve(temp_output_dir):
+    """Test plot_learning_curve outputs a correct PNG file."""
+    visualizer = Visualizer(output_dir=temp_output_dir)
+    loss_history = [10.0, 8.5, 6.2, 4.1, 2.5, 1.2]
+    
+    filepath = visualizer.plot_learning_curve(loss_history, model_name="MLP", turn=1)
+    
+    assert filepath != ""
+    assert os.path.exists(filepath)
+    assert filepath.endswith(".png")
+    assert "learning_curve" in filepath
+
+
+def test_visualizer_save_markdown_report(temp_output_dir):
+    """Test save_markdown_report outputs a correct Markdown report file."""
+    visualizer = Visualizer(output_dir=temp_output_dir)
+    
+    metrics = {
+        "MLP": {"RMSE": 1.25, "MAE": 1.10, "R2": 0.95},
+        "RandomForest": {"RMSE": 2.20, "MAE": 1.80, "R2": 0.90}
+    }
+    
+    dataset_info = {
+        "target_column": "target",
+        "num_features": 8,
+        "train_size": 800,
+        "test_size": 200,
+        "split_method": "KFold"
+    }
+    
+    filepath = visualizer.save_markdown_report(
+        metrics=metrics,
+        turn=1,
+        dataset_info=dataset_info,
+        shap_reports={"MLP": {"summary_plot": "mlp_summary.png", "bar_plot": "mlp_bar.png"}},
+        learning_curves={"MLP": "mlp_loss.png"}
+    )
+    
+    assert filepath != ""
+    assert os.path.exists(filepath)
+    assert filepath.endswith(".md")
+    
+    with open(filepath, "r", encoding="utf-8") as f:
+        content = f.read()
+        
+    assert "AutoML Tabular Regression Benchmark Report" in content
+    assert "Model Leaderboard" in content
+    assert "🥇 Champion" in content
+    assert "MLP" in content
+    assert "Target Column" in content

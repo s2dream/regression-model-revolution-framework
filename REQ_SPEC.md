@@ -1,6 +1,6 @@
-# [AutoML Regression Framework] 역요구사항 명세서 (Reverse Requirements Specification)
+# [AutoML Regression Framework] 요구사항 명세서 (Requirements Specification)
 
-본 문서는 현재 구현되어 있는 **AutoML Regression Framework**의 전체 소스 코드와 아키텍처를 분석하여 시스템의 설계 의도, 핵심 기능, 세부 요구사항, 그리고 품질 속성을 체계적으로 정의한 **소프트웨어 요구사항 명세서 (SRS)**입니다.
+본 문서는 **AutoML Regression Framework**의 전체 소스 코드와 아키텍처를 기반으로 시스템의 설계 의도, 핵심 기능, 세부 요구사항, 그리고 품질 속성을 체계적으로 정의한 **소프트웨어 요구사항 명세서 (SRS)**입니다.
 
 ---
 
@@ -13,7 +13,7 @@
 - **엔드투엔드 솔루션 제공**: 데이터 수집/수신, 결측치 보정 및 인코딩 전처리, 모델 팩토리 인스턴스화, Optuna HPO 자동 튜닝, 일괄 벤치마크 학습 및 평가, SHAP 피처 기여도 분석, 프리미엄 다크 테마 분석 플롯 생성 및 구조화 리포트 저장을 아우르는 단일 파이프라인을 구축합니다.
 - **개발 부담 최소화 및 무코드 설정**: 기계학습 모델 훈련에 소요되는 데이터 가공 및 알고리즘 탐색 노력을 최소화하며, 외부 설정 파일(`configs/*.yml`) 및 Streamlit Web UI 연동을 통해 코딩 없이 모델의 세부 하이퍼파라미터 및 구동 방식을 제어합니다.
 - **높은 신뢰성과 결함 감내**: 실행 환경의 차이(특정 라이브러리 누락, C-library / OpenMP 런타임 부재 등)에도 파이프라인이 즉시 크래시되지 않고, 최선의 유효 모델 세트를 활용하여 성공적인 완료를 보장합니다.
-- **세련된 분석 결과 제공**: 의사결정권자 또는 연구원에게 분석 결과를 명확하게 전달할 수 있는 프리미엄 다크 테마 시각화 차트와 기계 가독성이 뛰어난 표준 JSON 리포트를 자동 발행합니다.
+- **세련된 분석 결과 제공**: 의사결정권자 또는 연구원에게 분석 결과를 명확하게 전달할 수 있는 프리미엄 다크 테마 시각화 차트와 기계 가독성이 뛰어난 표준 JSON 리포트, 그리고 반응형 HTML/Markdown 리포트를 자동 발행합니다.
 - **단일 책임 및 디자인 패턴 기반 확장성**: 모델 팩토리(`ModelFactory`), 모델 저장소(`ModelPool`), 학습/평가 실행기(`BenchmarkExecutor`), HPO 튜너(`OptunaHPOTuner`), SHAP 분석기(`SHAPAnalyzer`), 데이터 퍼사드(`DataLoaderHelper`)를 철저히 모듈화하여 새로운 알고리즘과 분석 전략을 손쉽게 추가할 수 있도록 설계합니다.
 
 ---
@@ -84,7 +84,7 @@
 * **REQ-EX-01: 실행기 추상화와 전략 주입 (Strategy Pattern)**
 * **REQ-EX-02: 예외 감내형 일괄 학습 및 스코어링 (Executor Fit & Predict)**
 * **REQ-EX-03: Optuna 기반 자동 하이퍼파라미터 최적화 (Auto HPO)**
-  - `hpo.enabled: true` 시 Optuna TPE 베이지안 최적화를 통해 Validation RMSE를 최소화하는 파라미터 자동 탐색 및 풀 갱신.
+  - `hpo.enabled: true` 시 Optuna TPE 베이지안 최적화를 통해 RMSE/MAE/R2 지표를 최적화하는 파라미터 자동 탐색 및 풀 갱신.
 * **REQ-EX-04: SHAP 기반 모델 해석 및 피처 기여도 분석 (SHAP Interpretability)**
   - 설정 파일의 `shap.enabled: true` 또는 CLI `--enable-shap` 시 `SHAPAnalyzer`를 호출하여 지정된 모델(`shap.model` 또는 `Champion`)에 대한 SHAP 값을 계산하고 피처별 영향도를 도출해야 합니다.
 * **REQ-EX-05: TabICL 전용 In-Context Explainer 파이프라인 (TabICL Dedicated Explainer)**
@@ -99,6 +99,8 @@
 * **REQ-VI-05: 이력 관리용 회차별 구조화 JSON 리포트 생성 (Structured Metadata Reporting)**
 * **REQ-VI-06: SHAP 피처 중요도 시각화 및 독립 JSON 리포트 발행 (SHAP Reporting)**
   - SHAP Feature Importance 수평 막대 차트(`turn_{turn}_{model}_shap_bar.png`), Summary Beeswarm 플롯(`turn_{turn}_{model}_shap_summary.png`), 그리고 피처별 기여도 순위와 사용된 Explainer 엔진명이 명시된 독립 JSON 리포트(`turn_{turn}_{model}_shap_report.json`)를 자동 생성해야 합니다.
+* **REQ-VI-07: 반응형 HTML 및 Markdown 진단 리포트 자동 생성**
+  - 독립 실행 가능한 반응형 인터랙티브 HTML 대시보드(`turn_{turn}_report.html`) 및 공유 가능한 Markdown 요약 리포트(`turn_{turn}_report.md` / `turn_{turn}_summary.md`)를 자동 발행해야 합니다.
 
 ### 3.7 대화형 웹 인터페이스 (Interactive Web UI Studio)
 * **REQ-UI-01: 동적 설정 구성 및 스키마 기반 렌더링**
@@ -127,23 +129,3 @@
 * **REQ-QA-02: 종단간 파이프라인 통합 테스트 (E2E Integration Testing)**
 * **REQ-QA-03: WebUI 헬퍼 기능 테스트 (UI Helper Testing)**
 * **REQ-QA-04: SHAP 해석 및 Explainer 무결성 검증 (SHAP QA Testing)**
-  - `tests/test_shap.py`를 통해 TabICL Dedicated Explainer, TreeExplainer, ModelExplainer의 피처 중요도 산출 및 산출물 파일 무결성을 100% 검증해야 합니다.
-
----
-
-## 5. 데이터 흐름 및 실행 아키텍처 (Data Flow Diagram)
-
-```text
-               ┌───────────────────────────────┐
-               │       configs/*.yml           │ (다양한 설정 프로파일 보관 디렉토리)
-               └───────────────┬───────────────┘
-                               │ 설정 로드 및 인수 오버라이드
-                               ▼
-[1. CLI & AutoMLPipeline] ──> [2. Ingestion/Prep/Split] ──> [3. HPO & Fit & Evaluation] ──> [4. Premium Visuals & Reports]
-     (main.py)              (pipeline.prepare_data())     (pipeline.train_and_evaluate())   (pipeline.generate_reports())
-                                                                       │                                   │
-                                                                       ▼                                   ▼
-                                                              [ModelPool Inventory]             [5. SHAPAnalyzer (Optional)]
-                                                          (XGBoost, CatBoost, MLP, RF,           (TabICL Dedicated / Tree /
-                                                           TabPFN, TabICL, Transformer)           KernelExplainer & Report)
-```

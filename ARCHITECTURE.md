@@ -45,12 +45,14 @@
 │ - download_from_kaggle()     │    │    │ - plot_residuals()           │
 │ - download_from_url()        │    │    │ - plot_model_comparison()    │
 │ - load_dataset()             │    │    │ - save_json_report()         │
-│ - preprocess_data()          │    │    └──────────────────────────────┘
-│ - split_data()               │    │
-│ - prepare_data()             │    │    ┌──────────────────────────────┐
-│  (Delegates to modular       │    │    │         SHAPAnalyzer         │
-│   strategies under-the-hood) │    │    │  (automl_framework/          │
-└──────────────────────────────┘    │    │   util/shap_analyzer.py)     │
+│ - preprocess_data()          │    │    │ - save_html_report()         │
+│ - split_data()               │    │    │ - save_markdown_report()     │
+│ - prepare_data()             │    │    └──────────────────────────────┘
+│  (Delegates to modular       │    │
+│   strategies under-the-hood) │    │    ┌──────────────────────────────┐
+└──────────────────────────────┘    │    │         SHAPAnalyzer         │
+                                    │    │  (automl_framework/          │
+                                    │    │   util/shap_analyzer.py)     │
                                     │    ├──────────────────────────────┤
                                     │    │ - TabICL In-Context Explainer│
                                     │    │ - TreeExplainer (Tree Models)│
@@ -191,52 +193,10 @@ regression-model-revolution-framework/
 
 ### A. CLI 및 파이프라인 오케스트레이션: `main.py`
 - **`AutoMLPipeline` (Class)**: 데이터 수집, 전처리, 모델 초기화, HPO 튜닝, 일괄 학습, 성능 평가, 프리미엄 시각화, SHAP 피처 해석 및 리포트 파일 아카이빙까지의 전체 생명주기를 조율하는 마스터 오케스트레이터입니다.
-  - `run_shap_analysis() -> Optional[dict]`: 지정된 모델(`shap.model` 또는 `Champion`)에 대해 `SHAPAnalyzer`를 호출하여 피처 기여도 차트 및 독립 JSON 리포트를 생성합니다.
-
----
 
 ### B. 프리미엄 시각화 및 SHAP 해석 모듈: `automl_framework/util/`
-- **`Visualizer` (Class, `visualizer.py`)**:
-  - 다크 테마 규격을 적용한 R2/RMSE 비교 바 차트, Actual vs Pred 산점도, 잔차 분포도 렌더링 및 `turn_{turn}_report.json` 저장.
-- **`SHAPAnalyzer` (Class, `shap_analyzer.py`)**:
-  - 모델 알고리즘 특성에 맞춘 Explainer 엔진 자동 매핑:
-    - **`TreeExplainer (Exact Tree SHAP)`**: XGBoost, CatBoost, RandomForest 등 트리 앙상블 모델에 대해 내부 노드 분기 기반의 초고속 정확도 SHAP 값 산출.
-    - **`TabICL Dedicated In-Context Explainer`**: TabICL 모델 전용으로 훈련 데이터셋 배경 샘플링과 In-Context 추론 함수를 정밀하게 바인딩하여 In-Context 파운데이션 모델의 피처 기여도를 산출.
-    - **`KernelExplainer / ModelExplainer`**: MLP, Transformer, TabPFN 등 신경망 및 블랙박스 모델 지원.
-  - **산출물 생성**:
-    - `turn_{turn}_{model}_shap_bar.png`: 피처별 평균 절대 SHAP 기여도 수평 막대 차트.
-    - `turn_{turn}_{model}_shap_summary.png`: Beeswarm 산점도 요약 플롯.
-    - `turn_{turn}_{model}_shap_report.json`: 피처 중요도 순위 딕셔너리, 분석된 샘플 수, 사용된 Explainer 엔진명이 기록된 독립 리포트.
-
----
+- **`Visualizer` (Class, `visualizer.py`)**: 다크 테마 플롯, 반응형 HTML 리포트 및 Markdown 요약본 생성.
+- **`SHAPAnalyzer` (Class, `shap_analyzer.py`)**: `TreeExplainer`, `TabICL Dedicated In-Context Explainer`, `ModelExplainer` 다형성 엔진 지원.
 
 ### C. 대화형 웹 인터페이스 스튜디오: `app.py` (Streamlit WebUI)
-- **사이드바 내비게이션 및 실시간 Explainer 엔진 식별**:
-  - `📁 Dataset & Splitting`: 데이터 소스 및 타겟/피처 컬럼 설정.
-  - `🛠️ Models & Active Pool`: 활성 모델 선택 및 하이퍼파라미터 튜닝.
-  - `🔍 SHAP Interpretability`: SHAP 활성화 토글, 대상 모델 선택 및 최대 분석 샘플 수 지정. TabICL 선택 시 `⚡ Engine: TabICL Dedicated In-Context Explainer` 뱃지가 실시간으로 활성화되어 투명한 분석 방식을 사용자에게 안내.
-  - `⚙️ Runner Console`: 실시간 서브프로세스 콘솔 출력 스트리밍.
-  - `📈 Results & Metrics`: 성능 지표 테이블, 벤치마크 플롯 및 독립적인 SHAP 피처 중요도 섹션(차트 갤러리 및 JSON 다운로드) 렌더링.
-
----
-
-## 4. Design Patterns Applied (적용된 디자인 패턴)
-
-| 디자인 패턴 | 적용 위치 | 설계 목적 및 이점 |
-| :--- | :--- | :--- |
-| **Facade Pattern** | `DataLoaderHelper`, `AutoMLPipeline` | 복잡한 서브시스템 인터페이스를 단순화하여 단일 진입점 제공 |
-| **Factory Method** | `ModelFactory`, `ModelType` | 모델 객체 생성 책임을 캡슐화하여 신규 모델 추가 용이성 확보 |
-| **Adapter Pattern** | `ABCModelWrapper` 및 하위 래퍼들 | 다양한 머신러닝/파운데이션 모델 API를 `fit/predict`로 표준화 |
-| **Strategy Pattern** | `ABCDataLoader`, `ABCDataSplitter`, `ABCModelExecutor` | 알고리즘군과 실행 루프를 런타임에 유연하게 교체할 수 있도록 추상화 |
-| **Explainer Strategy Pattern** | `SHAPAnalyzer` | 알고리즘 특성(Tree, TabICL In-Context, Neural)에 따라 최적의 Explainer 엔진을 동적으로 선택 및 실행 |
-| **Shield / Fallback** | `ModelFactory`, `SHAPAnalyzer`, `AutoMLPipeline` | 라이브러리 미설치나 런타임 에러 시에도 시스템 크래시 없이 안전하게 우회 |
-
----
-
-## 5. Technology Stack & Key Dependencies
-
-- **Language**: Python 3.9+ (Conda `py313` 환경 권장)
-- **Machine Learning & Interpretability**: `scikit-learn`, `xgboost`, `catboost`, `tabpfn`, `tabicl`, `torch`, `optuna`, `shap`
-- **Data Engineering**: `pandas`, `numpy`, `pyyaml`
-- **Visualization & UI**: `matplotlib`, `seaborn`, `streamlit`
-- **Testing**: `pytest`
+- 사이드바 내비게이션 기반 6대 핵심 뷰 및 실시간 Explainer 엔진 뱃지 표시.

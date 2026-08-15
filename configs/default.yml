@@ -23,6 +23,14 @@ framework:
 hpo:
   enabled: false
   n_trials: 10
+  metric: "RMSE"  # Target metric for optimization (Options: "RMSE", "MAE", "R2")
+
+# Explainability (SHAP Analysis) Settings
+explainability:
+  enabled: false
+  target: "champion"  # Options: "champion" (only champion model), "all" (all active models)
+  max_samples: 100    # Downsample background data for performance
+
 
 # SHAP Model Interpretability Settings
 shap:

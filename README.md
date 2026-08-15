@@ -122,15 +122,3 @@ python main.py --dataset-path data/synthetic_regression.csv --enable-shap --shap
 # Run with automated HPO and SHAP analysis on the champion model
 python main.py --config configs/default.yml --enable-shap --shap-model Champion
 ```
-
----
-
-## 📊 Outputs & Reports
-After every execution, the framework saves production-quality assets in `outputs/`:
-- `outputs/turn_1_model_comparison_r2.png` - Horizontal bar chart comparing model R2 scores.
-- `outputs/turn_1_[Model]_actual_vs_pred.png` - Prediction variance scatter plot with identity fit line.
-- `outputs/turn_1_[Model]_residuals.png` - Residual diagnostics plot.
-- `outputs/turn_1_[Model]_shap_bar.png` - SHAP feature importance horizontal bar plot.
-- `outputs/turn_1_[Model]_shap_summary.png` - SHAP Beeswarm summary scatter plot.
-- `outputs/turn_1_report.json` - Complete metadata report highlighting the champion model.
-- `outputs/turn_1_[Model]_shap_report.json` - Standalone SHAP feature attribution report.

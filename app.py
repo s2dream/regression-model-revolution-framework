@@ -473,14 +473,10 @@ elif selected_menu == NAV_MODELS:
     
     updated_models = {}
     for model_name in available_models:
-        model_params = st.session_state.cfg_models_params.get(model_name, base_default.get("models", {}).get(model_name, {}))
-        is_model_active = model_name in st.session_state.cfg_active_models
-        
-        with st.expander(f"{'🟢' if is_model_active else '⚪'} {model_name} Parameters", expanded=is_model_active):
-            if not is_model_active:
-                st.warning(f"'{model_name}' is currently inactive. Activate it above if you want it included in the AutoML pool.")
-            updated_models[model_name] = render_dynamic_params(model_params, f"model_param_{model_name}")
-            
+        with st.expander(f"🔧 {model_name} Parameters", expanded=(model_name in st.session_state.cfg_active_models)):
+            current_model_params = st.session_state.cfg_models_params.get(model_name, {})
+            updated_params = render_dynamic_params(current_model_params, f"model_{model_name}")
+            updated_models[model_name] = updated_params
     st.session_state.cfg_models_params = updated_models
 
 
@@ -489,51 +485,81 @@ elif selected_menu == NAV_MODELS:
 # ==========================================
 elif selected_menu == NAV_SHAP:
     st.markdown('<div class="premium-card">', unsafe_allow_html=True)
-    st.markdown('<div class="card-header">🔍 SHAP Model Explanation & Feature Attribution</div>', unsafe_allow_html=True)
-    st.write("Configure automated SHAP (SHapley Additive exPlanations) feature attribution for a specific model or the champion model. Dedicated In-Context explainer pipeline is applied for TabICL.")
+    st.markdown('<div class="card-header">🔍 SHAP Model Explainability & Feature Attribution</div>', unsafe_allow_html=True)
+    st.write("Enable SHAP analysis to understand how individual features contribute to your model's predictions.")
     st.markdown('</div>', unsafe_allow_html=True)
 
-    c_shap1, c_shap2 = st.columns([1, 2])
-    with c_shap1:
-        st.session_state.cfg_shap_enabled = st.checkbox("Enable SHAP Analysis", value=st.session_state.cfg_shap_enabled)
-    
+    st.session_state.cfg_shap_enabled = st.checkbox(
+        "Enable SHAP Analysis after Training", 
+        value=st.session_state.cfg_shap_enabled,
+        help="When enabled, SHAP feature importance and Beeswarm summary plots are automatically generated."
+    )
+
     available_models = list(base_default.get("models", {}).keys())
-    shap_model_choices = ["Champion"] + available_models
+    shap_model_options = ["Champion"] + available_models
     
-    current_shap_choice = st.session_state.cfg_shap_model if st.session_state.cfg_shap_model in shap_model_choices else "Champion"
-    with c_shap2:
+    curr_idx = 0
+    if st.session_state.cfg_shap_model in shap_model_options:
+        curr_idx = shap_model_options.index(st.session_state.cfg_shap_model)
+
+    col_m, col_s = st.columns(2)
+    with col_m:
         st.session_state.cfg_shap_model = st.selectbox(
-            "Select Target Model for SHAP Explanation",
-            shap_model_choices,
-            index=shap_model_choices.index(current_shap_choice),
-            disabled=not st.session_state.cfg_shap_enabled
+            "Target Model for SHAP Analysis", 
+            shap_model_options, 
+            index=curr_idx,
+            help="Select 'Champion' to automatically explain the best-performing model, or pick a specific model."
+        )
+    with col_s:
+        st.session_state.cfg_shap_max_samples = st.number_input(
+            "Max Test Samples to Analyze", 
+            min_value=10, 
+            max_value=500, 
+            value=st.session_state.cfg_shap_max_samples, 
+            step=10,
+            help="Limits test samples evaluated with SHAP to speed up analysis."
         )
 
-    # Inform user of the explainer engine to be utilized
-    selected_target = st.session_state.cfg_shap_model
-    if selected_target.lower() == "tabicl":
-        st.markdown('<div class="engine-badge">⚡ Engine: TabICL Dedicated In-Context Explainer</div>', unsafe_allow_html=True)
-        st.info("TabICL utilizes a specialized In-Context prediction function bound with background reference sampling for fast and accurate prompt-based feature attributions.")
-    elif any(k in selected_target.lower() for k in ["xgboost", "catboost", "randomforest"]):
-        st.markdown('<div class="engine-badge">🌲 Engine: TreeExplainer (Exact Tree SHAP)</div>', unsafe_allow_html=True)
-        st.info(f"TreeExplainer will compute exact Shapley values directly from the internal decision tree splits of {selected_target}.")
-    elif selected_target.lower() == "champion":
-        st.markdown('<div class="engine-badge">🏆 Engine: Dynamic Engine (Determined by Best Model)</div>', unsafe_allow_html=True)
-        st.info("The best model (Highest R2) will be selected automatically, and its corresponding native explainer engine (TreeExplainer, TabICL Dedicated, or KernelExplainer) will be executed.")
+    # Display indicator badge for explainer engine
+    chosen = st.session_state.cfg_shap_model
+    st.markdown("---")
+    st.markdown("##### ⚡ Explainer Engine Routing Indicator")
+    if chosen == "TabICL":
+        st.markdown("""
+        <div style="background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 12px; padding: 1rem;">
+            <span class="engine-badge">⚡ Engine: TabICL Dedicated In-Context Explainer</span>
+            <p style="margin-top: 0.5rem; font-size: 0.9rem; color: #cbd5e1;">
+                TabICL utilizes its specialized In-Context explainer pipeline, sampling background context from the prompt dataset to compute exact feature attributions.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+    elif chosen in ["XGBoost", "CatBoost", "RandomForest"]:
+        st.markdown(f"""
+        <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 12px; padding: 1rem;">
+            <span class="engine-badge" style="color: #6ee7b7; border-color: #10b981;">🌲 Engine: TreeExplainer</span>
+            <p style="margin-top: 0.5rem; font-size: 0.9rem; color: #cbd5e1;">
+                <b>{chosen}</b> uses fast TreeExplainer for exact and rapid tree traversal feature attributions.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+    elif chosen == "Champion":
+        st.markdown("""
+        <div style="background: rgba(227, 179, 65, 0.1); border: 1px solid rgba(227, 179, 65, 0.3); border-radius: 12px; padding: 1rem;">
+            <span class="engine-badge" style="color: #fde047; border-color: #eab308;">🏆 Engine: Dynamic Champion Explainer</span>
+            <p style="margin-top: 0.5rem; font-size: 0.9rem; color: #cbd5e1;">
+                The framework will automatically inspect the winning Champion model and apply the optimal explainer engine (TreeExplainer, TabICL Dedicated, or KernelExplainer).
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
     else:
-        st.markdown('<div class="engine-badge">🧠 Engine: KernelExplainer / ModelExplainer</div>', unsafe_allow_html=True)
-        st.info(f"ModelExplainer will evaluate background reference samples to compute feature importance for {selected_target}.")
-
-    st.markdown("")
-    st.session_state.cfg_shap_max_samples = st.slider(
-        "Max Evaluation Samples for SHAP",
-        min_value=20,
-        max_value=500,
-        value=st.session_state.cfg_shap_max_samples,
-        step=10,
-        disabled=not st.session_state.cfg_shap_enabled,
-        help="Controls number of test rows evaluated for SHAP values to optimize computation speed."
-    )
+        st.markdown(f"""
+        <div style="background: rgba(148, 163, 184, 0.1); border: 1px solid rgba(148, 163, 184, 0.3); border-radius: 12px; padding: 1rem;">
+            <span class="engine-badge" style="color: #cbd5e1; border-color: #94a3b8;">🧠 Engine: ModelExplainer / KernelExplainer</span>
+            <p style="margin-top: 0.5rem; font-size: 0.9rem; color: #cbd5e1;">
+                <b>{chosen}</b> utilizes model-agnostic kernel explainer sampling.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
 
 
 # ==========================================
@@ -541,21 +567,18 @@ elif selected_menu == NAV_SHAP:
 # ==========================================
 elif selected_menu == NAV_CUSTOM:
     st.markdown('<div class="premium-card">', unsafe_allow_html=True)
-    st.markdown('<div class="card-header">🧩 Custom & Extended Configurations</div>', unsafe_allow_html=True)
-    st.write("Any extra top-level keys defined in `configs/default.yml` (e.g. logging, preprocessing, evaluation metrics) are automatically parsed and rendered below.")
+    st.markdown('<div class="card-header">🧩 Custom Extended Configurations</div>', unsafe_allow_html=True)
+    st.write("Review or inject additional non-standard sections in YAML format.")
     st.markdown('</div>', unsafe_allow_html=True)
 
-    updated_custom = {}
-    if st.session_state.cfg_custom_sections:
-        for section_name, section_val in st.session_state.cfg_custom_sections.items():
-            st.markdown(f"##### Section: `{section_name}`")
-            if isinstance(section_val, dict):
-                updated_custom[section_name] = render_dynamic_params(section_val, f"custom_sec_{section_name}")
-            else:
-                updated_custom[section_name] = st.text_input(section_name, value=str(section_val), key=f"custom_sec_{section_name}")
-        st.session_state.cfg_custom_sections = updated_custom
-    else:
-        st.info("No custom/extra top-level keys found in `configs/default.yml`.")
+    custom_yaml_str = yaml.dump(st.session_state.cfg_custom_sections, default_flow_style=False, allow_unicode=True)
+    edited_custom_yaml = st.text_area("Custom YAML Dictionary", value=custom_yaml_str, height=250)
+    try:
+        parsed_custom = yaml.safe_load(edited_custom_yaml) or {}
+        st.session_state.cfg_custom_sections = parsed_custom
+        st.success("Valid YAML format.")
+    except Exception as e:
+        st.error(f"Invalid YAML format: {e}")
 
 
 # ==========================================
@@ -563,13 +586,13 @@ elif selected_menu == NAV_CUSTOM:
 # ==========================================
 elif selected_menu == NAV_RUNNER:
     st.markdown('<div class="premium-card">', unsafe_allow_html=True)
-    st.markdown('<div class="card-header">⚙️ Experiment Execution Console</div>', unsafe_allow_html=True)
-    st.write("Review the compiled configuration, select your experiment turn index, and launch the AutoML regression training pipeline.")
+    st.markdown('<div class="card-header">⚙️ Launch Pipeline & Stream Logs</div>', unsafe_allow_html=True)
+    st.write("Compile your active configuration, launch the execution subprocess, and inspect live console output.")
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Compile YAML Configuration
-    split_payload = dict(st.session_state.cfg_split_params)
-    split_payload["method"] = st.session_state.cfg_split_method
+    # Assemble complete configuration dictionary
+    split_payload = {"method": st.session_state.cfg_split_method}
+    split_payload.update(st.session_state.cfg_split_params)
 
     compiled_config = {
         "logging": base_default.get("logging", {
@@ -612,77 +635,79 @@ elif selected_menu == NAV_RUNNER:
         st.code(yaml.dump(compiled_config, default_flow_style=False, allow_unicode=True), language="yaml")
     
     with col_status:
-        st.markdown("##### 🎛️ Execution Controls")
+        st.markdown("##### 🚀 Execution Controls")
         
-        # Display current status badge
-        if st.session_state.pipeline_running:
-            st.markdown('Current Status: <span class="status-badge status-running">Running Experiment</span>', unsafe_allow_html=True)
-        else:
-            st.markdown('Current Status: <span class="status-badge status-ready">Ready</span>', unsafe_allow_html=True)
-            
-        st.markdown("")
-        turn_index = st.number_input("Execution Turn Index", value=st.session_state.current_turn, min_value=1, step=1)
-        st.session_state.current_turn = turn_index
+        turn_input = st.number_input("Execution Turn Index", min_value=1, value=st.session_state.current_turn, step=1)
+        st.session_state.current_turn = turn_input
 
-        st.markdown("")
-        run_btn = st.button("🚀 Execute AutoML Pipeline", type="primary", use_container_width=True, disabled=st.session_state.pipeline_running)
+        # Save config button
+        if st.button("💾 Save Config to configs/web_config.yml", use_container_width=True):
+            save_config(compiled_config, "configs/web_config.yml")
+            st.success("Saved configs/web_config.yml successfully!")
 
-    if run_btn:
-        st.session_state.pipeline_running = True
-        st.session_state.run_logs = ""
+        st.markdown("<br>", unsafe_allow_html=True)
         
-        # 1. Save YAML config to web_config.yml
-        save_config(compiled_config, "configs/web_config.yml")
-        
-        st.info("Configuration saved to `configs/web_config.yml`. Initializing subprocess execution...")
-        
-        # 2. Setup running command
-        cmd = [sys.executable, "main.py", "--config", "configs/web_config.yml", "--turn", str(turn_index)]
-        if st.session_state.cfg_data_source == "Local Directory" and st.session_state.cfg_dataset_path:
-            cmd += ["--dataset-path", st.session_state.cfg_dataset_path]
-        elif st.session_state.cfg_data_source == "Kaggle Dataset" and st.session_state.cfg_kaggle_dataset:
-            cmd += ["--kaggle-dataset", st.session_state.cfg_kaggle_dataset]
-        elif st.session_state.cfg_data_source == "UCI URL / Direct Link" and st.session_state.cfg_url:
-            cmd += ["--url", st.session_state.cfg_url]
+        # Start execution button
+        if st.button("🚀 Start AutoML Benchmark Run", type="primary", use_container_width=True, disabled=st.session_state.pipeline_running):
+            save_config(compiled_config, "configs/web_config.yml")
+            st.session_state.pipeline_running = True
+            st.session_state.run_logs = ""
             
-        if st.session_state.cfg_shap_enabled:
-            cmd += ["--enable-shap", "--shap-model", st.session_state.cfg_shap_model]
+            # Construct CLI command arguments
+            cmd = [
+                sys.executable, "main.py",
+                "--config", "configs/web_config.yml",
+                "--turn", str(turn_input)
+            ]
             
-        st.write(f"Executing: `{' '.join(cmd)}`")
-        
-        # Execute subprocess and stream stdout
-        process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1
-        )
-        
-        log_container = st.empty()
-        
-        while True:
-            line = process.stdout.readline()
-            if not line and process.poll() is not None:
-                break
-            if line:
-                st.session_state.run_logs += line
-                lines = st.session_state.run_logs.split("\n")
-                log_container.code("\n".join(lines[-200:]), language="text")
+            if st.session_state.cfg_data_source == "Local Directory" and st.session_state.cfg_dataset_path:
+                cmd.extend(["--dataset-path", st.session_state.cfg_dataset_path])
+            elif st.session_state.cfg_data_source == "Kaggle Dataset" and st.session_state.cfg_kaggle_dataset:
+                cmd.extend(["--kaggle-dataset", st.session_state.cfg_kaggle_dataset])
+            elif st.session_state.cfg_data_source == "UCI URL / Direct Link" and st.session_state.cfg_url:
+                cmd.extend(["--url", st.session_state.cfg_url])
+
+            if st.session_state.cfg_target_col:
+                cmd.extend(["--target", st.session_state.cfg_target_col])
+
+            if st.session_state.cfg_shap_enabled:
+                cmd.append("--enable-shap")
+                cmd.extend(["--shap-model", st.session_state.cfg_shap_model])
+
+            # Stream subprocess execution
+            st.info(f"Executing: `{' '.join(cmd)}`")
+            log_placeholder = st.empty()
+            
+            try:
+                process = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,
+                    universal_newlines=True
+                )
                 
-        rc = process.poll()
-        st.session_state.pipeline_running = False
-        
-        if rc == 0:
-            st.success(f"🎉 Pipeline Execution Turn {turn_index} completed successfully! Check outputs in '{st.session_state.cfg_output_dir}'.")
-            st.rerun()
-        else:
-            st.error(f"Execution failed with return code {rc}. Review the console logs below.")
+                logs_buffer = []
+                for line in process.stdout:
+                    logs_buffer.append(line)
+                    log_placeholder.code("".join(logs_buffer[-25:]), language="bash")
+                
+                process.wait()
+                st.session_state.run_logs = "".join(logs_buffer)
+                
+                if process.returncode == 0:
+                    st.success("🎉 Pipeline executed successfully! Navigate to '📈 Results & Metrics' to explore diagnostic charts and SHAP reports.")
+                else:
+                    st.error(f"❌ Pipeline execution terminated with exit code: {process.returncode}")
+            except Exception as e:
+                st.error(f"Failed to start subprocess: {e}")
+            finally:
+                st.session_state.pipeline_running = False
 
-    if st.session_state.run_logs:
-        st.markdown("---")
-        st.markdown("##### 📜 Live Console Stream Output")
-        st.code(st.session_state.run_logs, language="text")
+    st.markdown("---")
+    st.markdown("##### 📜 Full Process Log Stream")
+    st.code(st.session_state.run_logs if st.session_state.run_logs else "No logs yet. Run an experiment above to view stdout/stderr stream.", language="bash")
 
 
 # ==========================================
@@ -690,89 +715,85 @@ elif selected_menu == NAV_RUNNER:
 # ==========================================
 elif selected_menu == NAV_RESULTS:
     st.markdown('<div class="premium-card">', unsafe_allow_html=True)
-    st.markdown('<div class="card-header">📈 Performance Dashboards & Visual Diagnostics</div>', unsafe_allow_html=True)
-    st.write("Inspect champion model rankings, comparative regression metrics (R2, RMSE, MAE), benchmark charts, and residual diagnostics.")
+    st.markdown('<div class="card-header">📈 Performance Scorecard & Visual Diagnostics</div>', unsafe_allow_html=True)
+    st.write("Inspect evaluated model metrics, champion models, benchmark plots, and SHAP explainability reports.")
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Turn selector
+    # Select execution turn to inspect
+    available_turns = []
+    report_files = glob.glob(os.path.join(st.session_state.cfg_output_dir, "turn_*_report.json"))
+    for rf in report_files:
+        try:
+            base = os.path.basename(rf)
+            parts = base.split("_")
+            if len(parts) >= 3 and parts[0] == "turn" and parts[2] == "report.json":
+                turn_num = int(parts[1])
+                if turn_num not in available_turns:
+                    available_turns.append(turn_num)
+        except Exception:
+            pass
+            
+    available_turns = sorted(available_turns, reverse=True)
+    if not available_turns:
+        available_turns = [st.session_state.current_turn]
+
     col_t1, col_t2 = st.columns([1, 3])
     with col_t1:
-        selected_turn = st.number_input("Inspect Turn", value=st.session_state.current_turn, min_value=1, step=1)
-        st.session_state.current_turn = selected_turn
+        selected_turn = st.selectbox("Select Execution Turn", available_turns, index=0)
 
-    report_filename = f"turn_{selected_turn}_report.json"
-    report_path = os.path.join(st.session_state.cfg_output_dir, report_filename)
+    report_path = os.path.join(st.session_state.cfg_output_dir, f"turn_{selected_turn}_report.json")
     
     if os.path.exists(report_path):
-        # Load Report JSON
         with open(report_path, "r", encoding="utf-8") as f:
             report_data = json.load(f)
             
-        best_model = report_data.get("best_model", "N/A")
         metrics_dict = report_data.get("metrics", {})
+        champion_model = report_data.get("champion_model", report_data.get("best_model", "N/A"))
         
-        # Display summary cards
-        st.markdown('<div class="premium-card">', unsafe_allow_html=True)
-        c1, c2, c3 = st.columns([1.2, 1, 1.8])
-        with c1:
-            st.metric("🏆 Champion Model", best_model)
-        with c2:
-            if best_model in metrics_dict:
-                st.metric("🎯 Best R2 Score", f"{metrics_dict[best_model].get('R2', 0.0):.4f}")
-        with c3:
-            st.markdown("##### 📥 Export Reports")
-            btn_col1, btn_col2 = st.columns(2)
-            html_report_file = os.path.join(st.session_state.cfg_output_dir, f"turn_{selected_turn}_report.html")
-            md_summary_file = os.path.join(st.session_state.cfg_output_dir, f"turn_{selected_turn}_summary.md")
-            
-            with btn_col1:
-                if os.path.exists(html_report_file):
-                    with open(html_report_file, "r", encoding="utf-8") as f_html:
-                        st.download_button(
-                            label="🌐 HTML Report",
-                            data=f_html.read(),
-                            file_name=f"turn_{selected_turn}_report.html",
-                            mime="text/html",
-                            use_container_width=True
-                        )
-            with btn_col2:
-                if os.path.exists(md_summary_file):
-                    with open(md_summary_file, "r", encoding="utf-8") as f_md:
-                        st.download_button(
-                            label="📝 Markdown",
-                            data=f_md.read(),
-                            file_name=f"turn_{selected_turn}_summary.md",
-                            mime="text/markdown",
-                            use_container_width=True
-                        )
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Convert metrics to DataFrame and display
         if metrics_dict:
-            df_metrics = pd.DataFrame(metrics_dict).T
-            st.markdown("##### 📊 Model Metrics Comparison Table")
-            st.dataframe(df_metrics.style.highlight_max(axis=0, subset=['R2'], color='#0f3d24').highlight_min(axis=0, subset=['RMSE', 'MAE'], color='#0f3d24'), use_container_width=True)
+            # 1. Champion Highlight Card
+            champ_r2 = metrics_dict.get(champion_model, {}).get("R2", 0.0)
+            champ_rmse = metrics_dict.get(champion_model, {}).get("RMSE", 0.0)
+            champ_mae = metrics_dict.get(champion_model, {}).get("MAE", 0.0)
             
-            # Model Comparison Charts
+            st.markdown(f"""
+            <div style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%); border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 16px; padding: 1.5rem; margin-bottom: 1.5rem;">
+                <div style="font-size: 0.9rem; text-transform: uppercase; color: #e3b341; font-weight: 700; letter-spacing: 0.08em; margin-bottom: 0.4rem;">🏆 Winning Champion Model (Turn {selected_turn})</div>
+                <div style="font-family: 'Outfit', sans-serif; font-size: 2.2rem; font-weight: 800; color: #ffffff;">{champion_model}</div>
+                <div style="display: flex; gap: 2rem; margin-top: 1rem;">
+                    <div><span style="color: #94a3b8; font-size: 0.85rem;">R² SCORE:</span> <b style="color: #58a6ff; font-size: 1.2rem;">{champ_r2:.4f}</b></div>
+                    <div><span style="color: #94a3b8; font-size: 0.85rem;">RMSE:</span> <b style="color: #cbd5e1; font-size: 1.2rem;">{champ_rmse:.4f}</b></div>
+                    <div><span style="color: #94a3b8; font-size: 0.85rem;">MAE:</span> <b style="color: #aff5b4; font-size: 1.2rem;">{champ_mae:.4f}</b></div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # 2. Performance Summary Table
+            st.markdown("##### 📊 Model Leaderboard")
+            df_metrics = pd.DataFrame(metrics_dict).T.reset_index().rename(columns={"index": "Model Name"})
+            if "R2" in df_metrics.columns:
+                df_metrics = df_metrics.sort_values(by="R2", ascending=False)
+            st.dataframe(df_metrics.style.format({"RMSE": "{:.4f}", "MAE": "{:.4f}", "R2": "{:.4f}"}), use_container_width=True)
+            
+            # 3. Model Comparison Charts
             st.markdown("---")
-            st.markdown("##### 📈 Benchmark Comparison Visualizations")
-            col_chart1, col_chart2 = st.columns(2)
+            st.markdown("##### 📈 Model Comparison Charts")
+            col_c1, col_c2 = st.columns(2)
+            r2_img = os.path.join(st.session_state.cfg_output_dir, f"turn_{selected_turn}_model_comparison_r2.png")
+            rmse_img = os.path.join(st.session_state.cfg_output_dir, f"turn_{selected_turn}_model_comparison_rmse.png")
             
-            comp_r2_img = os.path.join(st.session_state.cfg_output_dir, f"turn_{selected_turn}_model_comparison_r2.png")
-            comp_rmse_img = os.path.join(st.session_state.cfg_output_dir, f"turn_{selected_turn}_model_comparison_rmse.png")
-            
-            with col_chart1:
-                if is_valid_image(comp_r2_img):
-                    st.image(comp_r2_img, caption="R2 Comparison Chart", use_container_width=True)
+            with col_c1:
+                if is_valid_image(r2_img):
+                    st.image(r2_img, caption=f"R2 Comparison (Turn {selected_turn})", use_container_width=True)
                 else:
-                    st.info("R2 Comparison Chart not found or not generated for this turn.")
-            with col_chart2:
-                if is_valid_image(comp_rmse_img):
-                    st.image(comp_rmse_img, caption="RMSE Comparison Chart", use_container_width=True)
+                    st.info("R2 Comparison chart not found.")
+            with col_c2:
+                if is_valid_image(rmse_img):
+                    st.image(rmse_img, caption=f"RMSE Comparison (Turn {selected_turn})", use_container_width=True)
                 else:
-                    st.info("RMSE Comparison Chart not found or not generated for this turn.")
-                    
-            # Individual Model Diagnostic Charts
+                    st.info("RMSE Comparison chart not found.")
+
+            # 4. Diagnostic Plots
             st.markdown("---")
             st.markdown("##### 🔍 Model Diagnostics & Residual Analysis")
             selected_model = st.selectbox("Select Model for Diagnostic Plots", list(metrics_dict.keys()))
@@ -792,6 +813,14 @@ elif selected_menu == NAV_RESULTS:
                         st.image(residuals_img, caption=f"{selected_model}: Residuals Plot", use_container_width=True)
                     else:
                         st.info(f"Residuals plot not found for {selected_model}.")
+
+                # If learning curve exists, render it below
+                learning_curves = report_data.get("learning_curves", {})
+                if selected_model in learning_curves:
+                    curve_img = learning_curves[selected_model]
+                    if is_valid_image(curve_img):
+                        st.markdown("###### 📈 Loss / Learning Curve")
+                        st.image(curve_img, caption=f"{selected_model}: Loss Curve", use_container_width=True)
 
             # ==========================================
             # 🔍 SHAP FEATURE ATTRIBUTION SECTION

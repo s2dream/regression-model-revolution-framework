@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import logging
 import base64
 from datetime import datetime
@@ -107,22 +107,26 @@ class Visualizer:
             str: Path to the saved visualization
         """
         models = list(metrics.keys())
-        values = [m_data[metric_name] for m_data in metrics.values()]
+        values = [m_data.get(metric_name, 0.0) for m_data in metrics.values()]
         
         fig, ax = plt.subplots(figsize=(8, 4.5))
         
         # Sort in ascending/descending depending on the metric
         reverse_sort = True if metric_name in ["R2"] else False
         sorted_pairs = sorted(zip(values, models), reverse=reverse_sort)
-        sorted_values, sorted_models = zip(*sorted_pairs)
+        if sorted_pairs:
+            sorted_values, sorted_models = zip(*sorted_pairs)
+        else:
+            sorted_values, sorted_models = [], []
         
         bars = ax.barh(sorted_models, sorted_values, color=self.palette[3], height=0.5, edgecolor='#30363d')
         
         # Add labels to the ends of the bars
         for bar in bars:
             width = bar.get_width()
+            max_val = max(sorted_values) if sorted_values else 1.0
             ax.text(
-                width + (max(sorted_values) * 0.01), 
+                width + (max_val * 0.01), 
                 bar.get_y() + bar.get_height()/2, 
                 f"{width:.4f}", 
                 va='center', 
@@ -144,9 +148,17 @@ class Visualizer:
         logger.info(f"Saved Model Comparison plot to {filepath}")
         return filepath
 
-    def save_json_report(self, metrics: Dict[str, Dict[str, float]], turn: int = 1, metadata: Optional[Dict[str, Any]] = None) -> str:
+    def save_json_report(
+        self, 
+        metrics: Dict[str, Dict[str, float]], 
+        turn: int = 1, 
+        metadata: Optional[Dict[str, Any]] = None,
+        shap_reports: Optional[Dict[str, Dict[str, str]]] = None, 
+        learning_curves: Optional[Dict[str, str]] = None,
+        markdown_report_path: Optional[str] = None
+    ) -> str:
         """
-        Saves the turn's execution and performance metrics in an structured JSON report.
+        Saves the turn's execution and performance metrics in a structured JSON report.
         
         Returns:
             str: Path to the saved report
@@ -159,7 +171,13 @@ class Visualizer:
             "metrics": metrics,
             "metadata": metadata or {}
         }
-        
+        if shap_reports:
+            report_data["shap_reports"] = shap_reports
+        if learning_curves:
+            report_data["learning_curves"] = learning_curves
+        if markdown_report_path:
+            report_data["markdown_report_path"] = markdown_report_path
+            
         filename = f"turn_{turn}_report.json"
         filepath = os.path.join(self.output_dir, filename)
         
@@ -857,3 +875,243 @@ class Visualizer:
         logger.info(f"Saved Markdown summary to {filepath}")
         return filepath
 
+    def plot_shap_explainability(self, model_wrap, X_train: pd.DataFrame, X_test: pd.DataFrame, model_name: str, turn: int = 1, max_samples: int = 100) -> Dict[str, str]:
+        """
+        Computes SHAP values and saves Beeswarm and Bar Plots for the given model wrapper.
+        Includes safety shielding and fallback strategies.
+        
+        Returns:
+            Dict[str, str]: Dictionary containing file paths to generated plots
+        """
+        try:
+            import shap
+        except ImportError:
+            logger.warning("⚠️ 'shap' library is not installed. Skipping SHAP analysis.")
+            return {}
+
+        logger.info(f"🧠 Computing SHAP values for model: {model_name}...")
+        
+        # Prepare datasets: downsample for performance
+        if len(X_train) > max_samples:
+            X_background = shap.sample(X_train, max_samples, random_state=42)
+        else:
+            X_background = X_train
+
+        X_explain = X_test
+        if len(X_test) > max_samples:
+            X_explain = shap.sample(X_test, max_samples, random_state=42)
+
+        explainer = None
+        shap_values = None
+
+        # Build Explainer based on model class/type
+        try:
+            from automl_framework.model.model_factory import ModelType
+            try:
+                model_type = ModelType.from_str(model_name)
+            except ValueError:
+                model_type = None
+
+            # TreeExplainer is extremely fast and works directly on tree ensembles
+            if model_type in [ModelType.XGBOOST, ModelType.CATBOOST, ModelType.RANDOM_FOREST]:
+                try:
+                    explainer = shap.TreeExplainer(model_wrap.model)
+                    shap_values = explainer(X_explain)
+                except Exception as e:
+                    logger.debug(f"Failed to initialize TreeExplainer for {model_name}: {e}. Falling back to default Explainer.")
+                    explainer = None
+
+            # Fallback model-agnostic Permutation/Kernel Explainer
+            if explainer is None:
+                explainer = shap.Explainer(model_wrap.predict, X_background)
+                shap_values = explainer(X_explain)
+
+        except Exception as e:
+            logger.error(f"Failed to initialize explainer or calculate SHAP values for {model_name}: {e}", exc_info=True)
+            return {}
+
+        paths = {}
+
+        # 1. Beeswarm / Summary Plot
+        try:
+            plt.figure(figsize=(8, 5))
+            
+            try:
+                if hasattr(shap_values, "values"):
+                    shap.plots.beeswarm(shap_values, show=False)
+                else:
+                    shap.summary_plot(shap_values, X_explain, show=False)
+            except Exception:
+                shap.summary_plot(shap_values, X_explain, show=False)
+
+            fig = plt.gcf()
+            fig.patch.set_facecolor('#0d1117')
+            ax = plt.gca()
+            ax.set_facecolor('#161b22')
+            ax.xaxis.label.set_color('#8b949e')
+            ax.yaxis.label.set_color('#8b949e')
+            ax.tick_params(colors='#8b949e')
+            plt.title(f"{model_name}: SHAP Summary (Turn {turn})", color='#ffffff', pad=15)
+            plt.tight_layout()
+
+            summary_filename = f"turn_{turn}_{model_name}_shap_summary.png"
+            summary_path = os.path.join(self.output_dir, summary_filename)
+            plt.savefig(summary_path, facecolor=fig.get_facecolor(), edgecolor='none', dpi=200)
+            plt.close()
+            paths["summary_plot"] = summary_path
+            logger.info(f"Saved SHAP Beeswarm plot to {summary_path}")
+        except Exception as e:
+            logger.error(f"Failed to generate SHAP Beeswarm plot for {model_name}: {e}", exc_info=True)
+            plt.close()
+
+        # 2. Bar Plot (Feature Importance)
+        try:
+            plt.figure(figsize=(8, 5))
+            
+            try:
+                if hasattr(shap_values, "values"):
+                    shap.plots.bar(shap_values, show=False)
+                else:
+                    shap.summary_plot(shap_values, X_explain, plot_type="bar", show=False)
+            except Exception:
+                shap.summary_plot(shap_values, X_explain, plot_type="bar", show=False)
+
+            fig = plt.gcf()
+            fig.patch.set_facecolor('#0d1117')
+            ax = plt.gca()
+            ax.set_facecolor('#161b22')
+            ax.xaxis.label.set_color('#8b949e')
+            ax.yaxis.label.set_color('#8b949e')
+            ax.tick_params(colors='#8b949e')
+            plt.title(f"{model_name}: Feature Importance (Turn {turn})", color='#ffffff', pad=15)
+            plt.tight_layout()
+
+            bar_filename = f"turn_{turn}_{model_name}_shap_bar.png"
+            bar_path = os.path.join(self.output_dir, bar_filename)
+            plt.savefig(bar_path, facecolor=fig.get_facecolor(), edgecolor='none', dpi=200)
+            plt.close()
+            paths["bar_plot"] = bar_path
+            logger.info(f"Saved SHAP Bar plot to {bar_path}")
+        except Exception as e:
+            logger.error(f"Failed to generate SHAP Bar plot for {model_name}: {e}", exc_info=True)
+            plt.close()
+
+        return paths
+
+    def plot_learning_curve(self, loss_history: list, model_name: str, turn: int = 1) -> str:
+        """
+        Plots the training loss curve for iterative models.
+        
+        Returns:
+            str: Path to the saved visualization
+        """
+        if not loss_history:
+            return ""
+            
+        fig, ax = plt.subplots(figsize=(7, 4.5))
+        ax.plot(range(1, len(loss_history) + 1), loss_history, color=self.palette[0], lw=2, label="Train Loss")
+        
+        ax.set_title(f"{model_name}: Learning Curve (Turn {turn})", color='#ffffff', pad=15)
+        ax.set_xlabel("Epoch / Iteration")
+        ax.set_ylabel("Loss / Error")
+        ax.legend(facecolor='#161b22', edgecolor='#30363d', labelcolor='#c9d1d9')
+        
+        plt.tight_layout()
+        
+        filename = f"turn_{turn}_{model_name}_learning_curve.png"
+        filepath = os.path.join(self.output_dir, filename)
+        plt.savefig(filepath, facecolor=fig.get_facecolor(), edgecolor='none', dpi=200)
+        plt.close()
+        logger.info(f"Saved Learning Curve plot to {filepath}")
+        return filepath
+
+    def save_markdown_report(
+        self,
+        metrics: Dict[str, Dict[str, float]],
+        turn: int = 1,
+        dataset_info: Optional[Dict[str, Any]] = None,
+        shap_reports: Optional[Dict[str, Dict[str, str]]] = None,
+        learning_curves: Optional[Dict[str, str]] = None
+    ) -> str:
+        """
+        Generates a professional and comprehensive Markdown report detailing the benchmark execution.
+        
+        Returns:
+            str: Path to the saved report
+        """
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        # Sort models by R2 score
+        sorted_models = sorted(metrics.items(), key=lambda x: x[1].get("R2", -999), reverse=True)
+        best_model = sorted_models[0][0] if sorted_models else None
+        
+        lines = []
+        lines.append(f"# 📊 AutoML Tabular Regression Benchmark Report (Turn {turn})")
+        lines.append(f"**Report Generated At**: `{timestamp}`")
+        
+        if dataset_info:
+            lines.append("\n## 📁 Dataset & Execution Metadata")
+            lines.append(f"- **Target Column**: `{dataset_info.get('target_column')}`")
+            lines.append(f"- **Features Count**: `{dataset_info.get('num_features')}`")
+            lines.append(f"- **Training Set Size**: `{dataset_info.get('train_size')} samples`")
+            lines.append(f"- **Testing Set Size**: `{dataset_info.get('test_size')} samples`")
+            lines.append(f"- **Validation Strategy**: `{dataset_info.get('split_method', 'Holdout')}`")
+            
+        lines.append("\n## 🏆 Model Leaderboard")
+        lines.append("| Rank | Model | RMSE | MAE | R² Score | Status |")
+        lines.append("| :---: | :--- | :---: | :---: | :---: | :---: |")
+        
+        for idx, (model_name, scores) in enumerate(sorted_models):
+            rank = idx + 1
+            rmse = f"{scores.get('RMSE', 0.0):.4f}"
+            mae = f"{scores.get('MAE', 0.0):.4f}"
+            r2 = f"{scores.get('R2', 0.0):.4f}"
+            status = "🥇 Champion" if model_name == best_model else "Active"
+            lines.append(f"| {rank} | **{model_name}** | {rmse} | {mae} | {r2} | {status} |")
+            
+        lines.append("\n## 🔍 Detailed Model Diagnostics & Explainability")
+        
+        for model_name, scores in sorted_models:
+            lines.append(f"\n### 🤖 {model_name}")
+            lines.append(f"- **RMSE**: `{scores.get('RMSE', 0.0):.6f}`")
+            lines.append(f"- **MAE**: `{scores.get('MAE', 0.0):.6f}`")
+            lines.append(f"- **R² Score**: `{scores.get('R2', 0.0):.6f}`")
+            
+            lines.append("- **Diagnostic Plots Available**:")
+            pred_vs_act_img = f"turn_{turn}_{model_name}_actual_vs_pred.png"
+            residuals_img = f"turn_{turn}_{model_name}_residuals.png"
+            lines.append(f"  - Actual vs Predicted: [`{pred_vs_act_img}`](file://{os.path.abspath(os.path.join(self.output_dir, pred_vs_act_img))})")
+            lines.append(f"  - Residuals Plot: [`{residuals_img}`](file://{os.path.abspath(os.path.join(self.output_dir, residuals_img))})")
+            
+            # Add learning curve if available
+            if learning_curves and model_name in learning_curves:
+                curve_filename = os.path.basename(learning_curves[model_name])
+                lines.append(f"  - Learning Curve (Loss History): [`{curve_filename}`](file://{os.path.abspath(learning_curves[model_name])})")
+                
+            # Add SHAP details if available
+            if shap_reports and model_name in shap_reports:
+                lines.append("- **Model Explainability (SHAP)**:")
+                summary_img = os.path.basename(shap_reports[model_name].get("summary_plot", ""))
+                bar_img = os.path.basename(shap_reports[model_name].get("bar_plot", ""))
+                if summary_img:
+                    lines.append(f"  - Beeswarm Summary Plot: [`{summary_img}`](file://{os.path.abspath(shap_reports[model_name]['summary_plot'])})")
+                if bar_img:
+                    lines.append(f"  - Feature Importance (Bar): [`{bar_img}`](file://{os.path.abspath(shap_reports[model_name]['bar_plot'])})")
+                    
+        lines.append("\n## 💡 Analytical Insights & System Recommendations")
+        if best_model:
+            lines.append(f"1. **Champion Selected**: `{best_model}` achieved the highest generalization performance with an R² Score of `{metrics[best_model].get('R2', 0.0):.4f}`.")
+            if "MLP" in metrics and "Transformer" in metrics:
+                lines.append("2. **Model Comparison**: Deep learning models were benchmarked alongside traditional gradient-boosted trees to verify representation capability.")
+            lines.append("3. **Actionable Step**: Deploy the champion model wrapper using serialization tools for inference or API routing.")
+            
+        markdown_content = "\n".join(lines)
+        
+        filename = f"turn_{turn}_report.md"
+        filepath = os.path.join(self.output_dir, filename)
+        
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(markdown_content)
+            
+        logger.info(f"Saved professional Markdown report to {filepath}")
+        return filepath

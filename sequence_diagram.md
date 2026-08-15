@@ -106,7 +106,7 @@ sequenceDiagram
                 activate Factory
                 Factory-->>HPO: Trial용 ModelWrapper 반환
                 deactivate Factory
-                HPO->>Wrapper: fit & validation RMSE 스코어링
+                HPO->>Wrapper: fit & validation RMSE/MAE/R2 스코어링
             end
             HPO->>Factory: create_model(model_type, best_config, random_state)
             activate Factory
@@ -149,6 +149,8 @@ sequenceDiagram
         Main->>Vis: plot_residuals(...)
     end
     Main->>Vis: save_json_report(metrics, turn)
+    Main->>Vis: save_html_report(metrics, turn)
+    Main->>Vis: save_markdown_summary(metrics, turn)
 
     %% ==========================================
     %% 5. SHAP INTERPRETABILITY PHASE

@@ -168,7 +168,21 @@ class AutoMLPipeline:
         for model_name, y_pred in predictions.items():
             self.visualizer.plot_actual_vs_predicted(self.y_test, y_pred, model_name=model_name, turn=self.turn)
             self.visualizer.plot_residuals(self.y_test, y_pred, model_name=model_name, turn=self.turn)
-            
+
+        # Generate learning curves for iterative models
+        learning_curves = {}
+        for model_name in self.metrics.keys():
+            model_wrap = self.pool.get_model(model_name)
+            if model_wrap is not None and hasattr(model_wrap, "get_loss_history"):
+                try:
+                    loss_hist = model_wrap.get_loss_history()
+                    if loss_hist:
+                        path = self.visualizer.plot_learning_curve(loss_hist, model_name, self.turn)
+                        if path:
+                            learning_curves[model_name] = path
+                except Exception as e:
+                    logger.error(f"Error generating learning curve for model {model_name}: {e}", exc_info=True)
+
         # Compile metadata
         split_config = self.config.get("data", {}).get("split", {})
         split_method = split_config.get("method", "train_test_split") if isinstance(split_config, dict) else "train_test_split"
@@ -177,11 +191,17 @@ class AutoMLPipeline:
             "split_method": split_method,
             "train_samples": len(self.X_train) if self.X_train is not None else 0,
             "test_samples": len(self.X_test) if self.X_test is not None else 0,
+            "num_features": self.X_train.shape[1] if self.X_train is not None else 0,
             "random_state": self.random_state
         }
             
         # Save structured JSON, interactive standalone HTML, and shareable Markdown summaries
-        json_report_path = self.visualizer.save_json_report(self.metrics, turn=self.turn, metadata=metadata)
+        json_report_path = self.visualizer.save_json_report(
+            self.metrics, 
+            turn=self.turn, 
+            metadata=metadata,
+            learning_curves=learning_curves
+        )
         html_report_path = self.visualizer.save_html_report(self.metrics, turn=self.turn, metadata=metadata)
         summary_md_path = self.visualizer.save_markdown_summary(self.metrics, turn=self.turn, metadata=metadata)
         
@@ -271,8 +291,12 @@ def main():
     os.chdir(project_root)
 
     args = parse_arguments()
+    logger = setup_logger()
+    logger.info("=" * 60)
+    logger.info(f"🚀 Launching AutoML Regression Framework (Execution Turn: {args.turn})")
+    logger.info("=" * 60)
     
-    # Instantiate the AutoML pipeline class (CLI args prioritize over configs)
+    # Initialize pipeline with CLI overrides
     pipeline = AutoMLPipeline(
         config_path=args.config,
         turn=args.turn,
@@ -282,24 +306,12 @@ def main():
         shap_model=args.shap_model
     )
     
-    # Initialize logger
-    setup_logger(turn=args.turn, config=pipeline.config)
-    logger = logging.getLogger("automl_framework.main")
-    
-    logger.info("=" * 60)
-    logger.info(f"🚀 AutoML Regression Framework - Turn {args.turn}")
-    logger.info("=" * 60)
-    
-    # Execute full pipeline
-    try:
-        pipeline.run(
-            dataset_path=args.dataset_path,
-            kaggle_dataset=args.kaggle_dataset,
-            url=args.url
-        )
-    except Exception as e:
-        logger.critical(f"CRITICAL ERROR running AutoML Pipeline: {e}", exc_info=True)
-        sys.exit(1)
+    # Execute full pipeline orchestration
+    pipeline.run(
+        dataset_path=args.dataset_path,
+        kaggle_dataset=args.kaggle_dataset,
+        url=args.url
+    )
 
 
 if __name__ == "__main__":

@@ -135,3 +135,32 @@ def test_hpo_trial_failure_handling(hpo_dataset, hpo_config, monkeypatch):
 
     # Run HPO - should complete without raising errors (Optuna will get float('inf') for RMSE)
     run_hpo_tuning(pool, X, y)
+
+
+def test_hpo_tuning_with_mae_metric(hpo_dataset, hpo_config):
+    """Verifies that HPO runs successfully when target metric is set to MAE."""
+    X, y = hpo_dataset
+    hpo_config["framework"]["active_models"] = ["XGBoost"]
+    hpo_config["hpo"]["metric"] = "MAE"
+    pool = ModelPool(random_state=42, config=hpo_config)
+    orig_xgb_estimators = pool.config["models"]["XGBoost"]["n_estimators"]
+
+    run_hpo_tuning(pool, X, y)
+
+    # Verify parameters were updated under HPO with MAE
+    assert pool.config["models"]["XGBoost"]["n_estimators"] != orig_xgb_estimators
+
+
+def test_hpo_tuning_with_r2_metric(hpo_dataset, hpo_config):
+    """Verifies that HPO runs successfully when target metric is set to R2 (maximize direction)."""
+    X, y = hpo_dataset
+    hpo_config["framework"]["active_models"] = ["XGBoost"]
+    hpo_config["hpo"]["metric"] = "R2"
+    pool = ModelPool(random_state=42, config=hpo_config)
+    orig_xgb_estimators = pool.config["models"]["XGBoost"]["n_estimators"]
+
+    run_hpo_tuning(pool, X, y)
+
+    # Verify parameters were updated under HPO with R2
+    assert pool.config["models"]["XGBoost"]["n_estimators"] != orig_xgb_estimators
+
