@@ -78,3 +78,55 @@ def test_visualizer_save_json_report(temp_output_dir, dummy_results):
     assert data["turn"] == 1
     assert "MLP" in data["metrics"]
     assert data["best_model"] == "MLP"  # MLP R2 (0.95) > RandomForest R2 (0.90)
+
+
+def test_visualizer_save_html_report(temp_output_dir, dummy_results):
+    """Test save_html_report generates an interactive standalone HTML report."""
+    _, _, metrics = dummy_results
+    visualizer = Visualizer(output_dir=temp_output_dir)
+    
+    filepath = visualizer.save_html_report(
+        metrics, 
+        turn=1, 
+        metadata={"target_column": "Target_Y", "split_method": "train_test_split", "train_samples": 100, "test_samples": 25}
+    )
+    
+    assert os.path.exists(filepath)
+    assert filepath.endswith(".html")
+    assert "turn_1_report.html" in filepath
+    
+    with open(filepath, "r", encoding="utf-8") as f:
+        html_content = f.read()
+        
+    assert "<!DOCTYPE html>" in html_content
+    assert "MLP" in html_content
+    assert "RandomForest" in html_content
+    assert "Champion" in html_content
+    assert "Target_Y" in html_content
+    assert "leaderboardTable" in html_content
+
+
+def test_visualizer_save_markdown_summary(temp_output_dir, dummy_results):
+    """Test save_markdown_summary generates a shareable GFM summary report."""
+    _, _, metrics = dummy_results
+    visualizer = Visualizer(output_dir=temp_output_dir)
+    
+    filepath = visualizer.save_markdown_summary(
+        metrics, 
+        turn=1, 
+        metadata={"target_column": "Target_Y", "split_method": "train_test_split", "train_samples": 100, "test_samples": 25}
+    )
+    
+    assert os.path.exists(filepath)
+    assert filepath.endswith(".md")
+    assert "turn_1_summary.md" in filepath
+    
+    with open(filepath, "r", encoding="utf-8") as f:
+        md_content = f.read()
+        
+    assert "# 🚀 AutoML Regression Benchmark Summary" in md_content
+    assert "🏆 Champion Model" in md_content
+    assert "MLP" in md_content
+    assert "RandomForest" in md_content
+    assert "Target_Y" in md_content
+

@@ -125,7 +125,7 @@ class AutoMLPipeline:
         return self.metrics
 
     def generate_reports(self):
-        """Step 3: Generate horizontal bar comparisons, diagnostic residual plots, and champion report."""
+        """Step 3: Generate horizontal bar comparisons, diagnostic residual plots, interactive HTML report, and champion summary."""
         logger = logging.getLogger("automl_framework.main")
         logger.info("🎨 Generating premium charts & structured reports...")
         
@@ -140,15 +140,30 @@ class AutoMLPipeline:
             self.visualizer.plot_actual_vs_predicted(self.y_test, y_pred, model_name=model_name, turn=self.turn)
             self.visualizer.plot_residuals(self.y_test, y_pred, model_name=model_name, turn=self.turn)
             
-        # Save structured JSON execution report
-        report_path = self.visualizer.save_json_report(self.metrics, turn=self.turn)
+        # Compile metadata
+        split_config = self.config.get("data", {}).get("split", {})
+        split_method = split_config.get("method", "train_test_split") if isinstance(split_config, dict) else "train_test_split"
+        metadata = {
+            "target_column": self.target_column,
+            "split_method": split_method,
+            "train_samples": len(self.X_train) if self.X_train is not None else 0,
+            "test_samples": len(self.X_test) if self.X_test is not None else 0,
+            "random_state": self.random_state
+        }
+            
+        # Save structured JSON, interactive standalone HTML, and shareable Markdown summaries
+        json_report_path = self.visualizer.save_json_report(self.metrics, turn=self.turn, metadata=metadata)
+        html_report_path = self.visualizer.save_html_report(self.metrics, turn=self.turn, metadata=metadata)
+        summary_md_path = self.visualizer.save_markdown_summary(self.metrics, turn=self.turn, metadata=metadata)
         
-        best_model = max(self.metrics.keys(), key=lambda k: self.metrics[k]["R2"])
+        best_model = max(self.metrics.keys(), key=lambda k: self.metrics[k].get("R2", -float('inf')))
         best_r2 = self.metrics[best_model]["R2"]
         
         logger.info("\n🏆 Execution Summary:")
         logger.info(f"  - Best Model: {best_model} with R2 Score of {best_r2:.4f}")
-        logger.info(f"  - Report saved: {report_path}")
+        logger.info(f"  - Interactive HTML Report: {html_report_path}")
+        logger.info(f"  - Markdown Summary: {summary_md_path}")
+        logger.info(f"  - Structured JSON Report: {json_report_path}")
         logger.info(f"  - Visualization outputs saved in: '{self.visualizer.output_dir}'")
         logger.info("=" * 60)
 
