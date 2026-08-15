@@ -8,6 +8,7 @@ import json
 import ast
 import subprocess
 import time
+from PIL import Image
 
 # ==========================================
 # 🎨 PREMIUM AESTHETIC CONFIGURATIONS
@@ -97,50 +98,42 @@ st.markdown("""
         border: 1px solid rgba(245, 158, 11, 0.3);
         animation: pulse 1.5s infinite;
     }
-    
-    @keyframes pulse {
-        0% { opacity: 0.6; }
-        50% { opacity: 1; }
-        100% { opacity: 0.6; }
-    }
-    
-    /* Sidebar Navigation Enhancements */
-    [data-testid="stSidebar"] {
-        background-color: #0f172a;
-        border-right: 1px solid rgba(255, 255, 255, 0.06);
-    }
-    
-    [data-testid="stSidebar"] .stRadio label {
-        padding: 0.6rem 0.8rem;
-        border-radius: 10px;
-        transition: all 0.2s ease;
+
+    .engine-badge {
+        background-color: rgba(99, 102, 241, 0.15);
+        color: #a5b4fc;
+        border: 1px solid rgba(99, 102, 241, 0.4);
+        padding: 0.3rem 0.7rem;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        display: inline-block;
     }
 </style>
 """, unsafe_allow_html=True)
 
 
 # ==========================================
-# ⚙️ HELPER FUNCTIONS
+# 🛠️ HELPER FUNCTIONS
 # ==========================================
 def load_config(path="configs/default.yml"):
     if not os.path.exists(path):
-        st.error(f"Configuration file not found at: {path}")
         return {}
     with open(path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f) or {}
 
-def save_config(config_data, path="configs/web_config.yml"):
+def save_config(config_dict, path="configs/web_config.yml"):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
-        yaml.safe_dump(config_data, f, default_flow_style=False, allow_unicode=True)
+        yaml.dump(config_dict, f, default_flow_style=False, allow_unicode=True)
 
 def is_valid_image(filepath):
+    """Checks if a file exists, has a non-zero size, and is a valid readable image."""
     if not filepath or not os.path.exists(filepath):
         return False
     if os.path.getsize(filepath) == 0:
         return False
     try:
-        from PIL import Image
         with Image.open(filepath) as img:
             img.verify()
         return True
@@ -182,10 +175,7 @@ def preview_dataset_sample(file_path, nrows=5):
     return None
 
 def render_dynamic_params(params_dict, key_prefix):
-    """
-    Dynamically renders widgets based on type of values in dictionary.
-    Ensures easy extensibility when new keys/params are added to default.yml.
-    """
+    """Dynamically renders widgets based on value types in dictionary."""
     updated = {}
     if not params_dict:
         return updated
@@ -209,7 +199,6 @@ def render_dynamic_params(params_dict, key_prefix):
                 except Exception:
                     updated[k] = v
             elif v is None:
-                # Variable toggle for Null values
                 col1, col2 = st.columns([1, 2])
                 with col1:
                     is_null = st.checkbox("Null", value=True, key=f"{widget_key}_null_chk")
@@ -270,12 +259,18 @@ if "cfg_hpo_enabled" not in st.session_state:
     st.session_state.cfg_hpo_enabled = base_default.get("hpo", {}).get("enabled", False)
 if "cfg_hpo_trials" not in st.session_state:
     st.session_state.cfg_hpo_trials = base_default.get("hpo", {}).get("n_trials", 10)
+if "cfg_shap_enabled" not in st.session_state:
+    st.session_state.cfg_shap_enabled = base_default.get("shap", {}).get("enabled", False)
+if "cfg_shap_model" not in st.session_state:
+    st.session_state.cfg_shap_model = base_default.get("shap", {}).get("model", "Champion")
+if "cfg_shap_max_samples" not in st.session_state:
+    st.session_state.cfg_shap_max_samples = base_default.get("shap", {}).get("max_samples", 100)
 if "cfg_active_models" not in st.session_state:
     st.session_state.cfg_active_models = base_default.get("framework", {}).get("active_models", list(base_default.get("models", {}).keys()))
 if "cfg_models_params" not in st.session_state:
     st.session_state.cfg_models_params = base_default.get("models", {})
 if "cfg_custom_sections" not in st.session_state:
-    known_keys = ["logging", "framework", "data", "models", "hpo"]
+    known_keys = ["logging", "framework", "data", "models", "hpo", "shap"]
     st.session_state.cfg_custom_sections = {k: v for k, v in base_default.items() if k not in known_keys}
 
 
@@ -294,6 +289,7 @@ with st.sidebar:
 
     NAV_DATASET = "📁 Dataset & Splitting"
     NAV_MODELS = "🛠️ Models & Active Pool"
+    NAV_SHAP = "🔍 SHAP Interpretability"
     NAV_CUSTOM = "🧩 Custom Configurations"
     NAV_RUNNER = "⚙️ Runner Console"
     NAV_RESULTS = "📈 Results & Metrics"
@@ -301,6 +297,7 @@ with st.sidebar:
     menu_options = [
         NAV_DATASET,
         NAV_MODELS,
+        NAV_SHAP,
         NAV_CUSTOM,
         NAV_RUNNER,
         NAV_RESULTS
@@ -327,10 +324,12 @@ with st.sidebar:
     
     num_active = len(st.session_state.cfg_active_models)
     hpo_str = "Enabled" if st.session_state.cfg_hpo_enabled else "Disabled"
+    shap_str = f"Enabled ({st.session_state.cfg_shap_model})" if st.session_state.cfg_shap_enabled else "Disabled"
     st.markdown(f"""
         <div style="margin-top: 0.8rem; font-size: 0.85rem; color: #cbd5e1;">
             <div>🤖 <b>Active Models:</b> {num_active}</div>
             <div style="margin-top: 0.3rem;">🎯 <b>HPO:</b> {hpo_str}</div>
+            <div style="margin-top: 0.3rem;">🔍 <b>SHAP:</b> {shap_str}</div>
             <div style="margin-top: 0.3rem;">🔄 <b>Turn:</b> {st.session_state.current_turn}</div>
         </div>
     </div>
@@ -486,7 +485,59 @@ elif selected_menu == NAV_MODELS:
 
 
 # ==========================================
-# 🧩 MENU 3: CUSTOM CONFIGURATIONS
+# 🔍 MENU 3: SHAP INTERPRETABILITY
+# ==========================================
+elif selected_menu == NAV_SHAP:
+    st.markdown('<div class="premium-card">', unsafe_allow_html=True)
+    st.markdown('<div class="card-header">🔍 SHAP Model Explanation & Feature Attribution</div>', unsafe_allow_html=True)
+    st.write("Configure automated SHAP (SHapley Additive exPlanations) feature attribution for a specific model or the champion model. Dedicated In-Context explainer pipeline is applied for TabICL.")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    c_shap1, c_shap2 = st.columns([1, 2])
+    with c_shap1:
+        st.session_state.cfg_shap_enabled = st.checkbox("Enable SHAP Analysis", value=st.session_state.cfg_shap_enabled)
+    
+    available_models = list(base_default.get("models", {}).keys())
+    shap_model_choices = ["Champion"] + available_models
+    
+    current_shap_choice = st.session_state.cfg_shap_model if st.session_state.cfg_shap_model in shap_model_choices else "Champion"
+    with c_shap2:
+        st.session_state.cfg_shap_model = st.selectbox(
+            "Select Target Model for SHAP Explanation",
+            shap_model_choices,
+            index=shap_model_choices.index(current_shap_choice),
+            disabled=not st.session_state.cfg_shap_enabled
+        )
+
+    # Inform user of the explainer engine to be utilized
+    selected_target = st.session_state.cfg_shap_model
+    if selected_target.lower() == "tabicl":
+        st.markdown('<div class="engine-badge">⚡ Engine: TabICL Dedicated In-Context Explainer</div>', unsafe_allow_html=True)
+        st.info("TabICL utilizes a specialized In-Context prediction function bound with background reference sampling for fast and accurate prompt-based feature attributions.")
+    elif any(k in selected_target.lower() for k in ["xgboost", "catboost", "randomforest"]):
+        st.markdown('<div class="engine-badge">🌲 Engine: TreeExplainer (Exact Tree SHAP)</div>', unsafe_allow_html=True)
+        st.info(f"TreeExplainer will compute exact Shapley values directly from the internal decision tree splits of {selected_target}.")
+    elif selected_target.lower() == "champion":
+        st.markdown('<div class="engine-badge">🏆 Engine: Dynamic Engine (Determined by Best Model)</div>', unsafe_allow_html=True)
+        st.info("The best model (Highest R2) will be selected automatically, and its corresponding native explainer engine (TreeExplainer, TabICL Dedicated, or KernelExplainer) will be executed.")
+    else:
+        st.markdown('<div class="engine-badge">🧠 Engine: KernelExplainer / ModelExplainer</div>', unsafe_allow_html=True)
+        st.info(f"ModelExplainer will evaluate background reference samples to compute feature importance for {selected_target}.")
+
+    st.markdown("")
+    st.session_state.cfg_shap_max_samples = st.slider(
+        "Max Evaluation Samples for SHAP",
+        min_value=20,
+        max_value=500,
+        value=st.session_state.cfg_shap_max_samples,
+        step=10,
+        disabled=not st.session_state.cfg_shap_enabled,
+        help="Controls number of test rows evaluated for SHAP values to optimize computation speed."
+    )
+
+
+# ==========================================
+# 🧩 MENU 4: CUSTOM CONFIGURATIONS
 # ==========================================
 elif selected_menu == NAV_CUSTOM:
     st.markdown('<div class="premium-card">', unsafe_allow_html=True)
@@ -504,11 +555,11 @@ elif selected_menu == NAV_CUSTOM:
                 updated_custom[section_name] = st.text_input(section_name, value=str(section_val), key=f"custom_sec_{section_name}")
         st.session_state.cfg_custom_sections = updated_custom
     else:
-        st.info("No custom/extra top-level keys found in `configs/default.yml`. You can add sections like `preprocessing:` or `evaluation_metrics:` to your default YAML config file, and they will render here dynamically.")
+        st.info("No custom/extra top-level keys found in `configs/default.yml`.")
 
 
 # ==========================================
-# ⚙️ MENU 4: RUNNER CONSOLE
+# ⚙️ MENU 5: RUNNER CONSOLE
 # ==========================================
 elif selected_menu == NAV_RUNNER:
     st.markdown('<div class="premium-card">', unsafe_allow_html=True)
@@ -541,6 +592,11 @@ elif selected_menu == NAV_RUNNER:
         "hpo": {
             "enabled": st.session_state.cfg_hpo_enabled,
             "n_trials": st.session_state.cfg_hpo_trials
+        },
+        "shap": {
+            "enabled": st.session_state.cfg_shap_enabled,
+            "model": st.session_state.cfg_shap_model,
+            "max_samples": st.session_state.cfg_shap_max_samples
         },
         "models": st.session_state.cfg_models_params
     }
@@ -589,6 +645,9 @@ elif selected_menu == NAV_RUNNER:
         elif st.session_state.cfg_data_source == "UCI URL / Direct Link" and st.session_state.cfg_url:
             cmd += ["--url", st.session_state.cfg_url]
             
+        if st.session_state.cfg_shap_enabled:
+            cmd += ["--enable-shap", "--shap-model", st.session_state.cfg_shap_model]
+            
         st.write(f"Executing: `{' '.join(cmd)}`")
         
         # Execute subprocess and stream stdout
@@ -620,7 +679,6 @@ elif selected_menu == NAV_RUNNER:
         else:
             st.error(f"Execution failed with return code {rc}. Review the console logs below.")
 
-    # Always show logs if they exist
     if st.session_state.run_logs:
         st.markdown("---")
         st.markdown("##### 📜 Live Console Stream Output")
@@ -628,7 +686,7 @@ elif selected_menu == NAV_RUNNER:
 
 
 # ==========================================
-# 📈 MENU 5: RESULTS & METRICS
+# 📈 MENU 6: RESULTS & METRICS
 # ==========================================
 elif selected_menu == NAV_RESULTS:
     st.markdown('<div class="premium-card">', unsafe_allow_html=True)
@@ -734,6 +792,69 @@ elif selected_menu == NAV_RESULTS:
                         st.image(residuals_img, caption=f"{selected_model}: Residuals Plot", use_container_width=True)
                     else:
                         st.info(f"Residuals plot not found for {selected_model}.")
+
+            # ==========================================
+            # 🔍 SHAP FEATURE ATTRIBUTION SECTION
+            # ==========================================
+            st.markdown("---")
+            st.markdown('<div class="card-header">🔍 SHAP Feature Attribution & Model Interpretation</div>', unsafe_allow_html=True)
+            
+            # Find any SHAP report for this turn
+            shap_report_files = glob.glob(os.path.join(st.session_state.cfg_output_dir, f"turn_{selected_turn}_*_shap_report.json"))
+            if shap_report_files:
+                for shap_file in shap_report_files:
+                    try:
+                        with open(shap_file, "r", encoding="utf-8") as f_s:
+                            s_data = json.load(f_s)
+                        
+                        s_model = s_data.get("model_name", "Unknown")
+                        s_engine = s_data.get("explainer_engine", "Default Explainer")
+                        s_samples = s_data.get("num_samples_analyzed", 0)
+                        s_importance = s_data.get("mean_abs_shap", {})
+                        
+                        st.markdown(f"""
+                        <div class="premium-card">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem;">
+                                <h4 style="margin: 0; color: #818cf8;">Model: <b>{s_model}</b></h4>
+                                <span class="engine-badge">⚡ Engine: {s_engine}</span>
+                            </div>
+                            <p style="font-size: 0.9rem; color: #94a3b8; margin: 0;">Evaluated Samples: <b>{s_samples}</b> | Top Features: <b>{', '.join(s_data.get('top_features', []))}</b></p>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                        # Render SHAP bar and summary plots
+                        col_s1, col_s2 = st.columns(2)
+                        s_bar_img = os.path.join(st.session_state.cfg_output_dir, f"turn_{selected_turn}_{s_model}_shap_bar.png")
+                        s_summary_img = os.path.join(st.session_state.cfg_output_dir, f"turn_{selected_turn}_{s_model}_shap_summary.png")
+                        
+                        with col_s1:
+                            if is_valid_image(s_bar_img):
+                                st.image(s_bar_img, caption=f"{s_model}: SHAP Feature Importance", use_container_width=True)
+                            else:
+                                st.info("SHAP Bar plot not available.")
+                        with col_s2:
+                            if is_valid_image(s_summary_img):
+                                st.image(s_summary_img, caption=f"{s_model}: SHAP Beeswarm Summary", use_container_width=True)
+                            else:
+                                st.info("SHAP Summary plot not available.")
+
+                        # Show feature importance table
+                        if s_importance:
+                            with st.expander(f"📋 View Full SHAP Importance Scores ({s_model})", expanded=False):
+                                df_shap = pd.DataFrame(list(s_importance.items()), columns=["Feature", "Mean Absolute SHAP"])
+                                st.dataframe(df_shap, use_container_width=True)
+                                
+                                with open(shap_file, "r", encoding="utf-8") as f_dl:
+                                    st.download_button(
+                                        label=f"📥 Download {s_model} SHAP JSON Report",
+                                        data=f_dl.read(),
+                                        file_name=os.path.basename(shap_file),
+                                        mime="application/json"
+                                    )
+                    except Exception as e:
+                        st.warning(f"Error loading SHAP report file `{shap_file}`: {e}")
+            else:
+                st.info(f"No SHAP explanation report generated for Turn {selected_turn}. Enable SHAP Analysis in '🔍 SHAP Interpretability' and re-run.")
         else:
             st.warning("No metrics data found in report JSON.")
     else:

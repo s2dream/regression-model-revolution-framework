@@ -24,6 +24,12 @@ hpo:
   enabled: false
   n_trials: 10
 
+# SHAP Model Interpretability Settings
+shap:
+  enabled: false
+  model: "Champion"       # Target model for SHAP analysis: "Champion", "TabICL", "XGBoost", "CatBoost", "RandomForest", "MLP", etc.
+  max_samples: 100        # Maximum number of test samples to evaluate
+
 # Data Pipeline Settings
 data:
   data_dir: "data"

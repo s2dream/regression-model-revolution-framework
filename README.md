@@ -1,6 +1,6 @@
 # 🚀 Regression Model Revolution Framework
 
-Welcome to the **Regression Model Revolution Framework**, a premium, production-grade **AutoML Regression pipeline** built in pure Python. It integrates state-of-the-art tabular algorithms (including **TabICL**, **TabPFN**, **XGBoost**, **CatBoost**, and PyTorch **Transformers**) with automated **Optuna HPO** and an ultra-sleek dark-slate visualization suite to make tabular model benchmarking fast, gorgeous, and effortless.
+Welcome to the **Regression Model Revolution Framework**, a premium, production-grade **AutoML Regression pipeline** built in pure Python. It integrates state-of-the-art tabular algorithms (including **TabICL**, **TabPFN**, **XGBoost**, **CatBoost**, and PyTorch **Transformers**) with automated **Optuna HPO**, **SHAP (SHapley Additive exPlanations)** model interpretability (with dedicated In-Context explainer for TabICL), and an ultra-sleek dark-slate visualization suite to make tabular model benchmarking fast, gorgeous, and effortless.
 
 ---
 
@@ -10,11 +10,11 @@ Welcome to the **Regression Model Revolution Framework**, a premium, production-
 
 | 문서명 | 파일 링크 | 설명 |
 | :--- | :--- | :--- |
-| **요구사항 명세서 (SRS)** | [REQ_SPEC.md](file:///home/jeonghoon/github/regression-model-revolution-framework/REQ_SPEC.md) | 시스템 목표, 기능/비기능 요구사항 및 QA 품질 기준 명세 |
-| **아키텍처 정의서 (SAD)** | [ARCHITECTURE.md](file:///home/jeonghoon/github/regression-model-revolution-framework/ARCHITECTURE.md) | 하이레벨 구조, 모듈 및 클래스 구성, 디자인 패턴 설계서 |
-| **동적 시퀀스 다이어그램** | [sequence_diagram.md](file:///home/jeonghoon/github/regression-model-revolution-framework/sequence_diagram.md) | 파이프라인, HPO 루프, WebUI 상호작용 Mermaid 시퀀스 다이어그램 |
-| **테스트 계획 및 명세서 (STP/STD)** | [TEST_SPEC.md](file:///home/jeonghoon/github/regression-model-revolution-framework/TEST_SPEC.md) | 단위, 통합, E2E, UI 헬퍼 세부 테스트 케이스 명세 |
-| **인터페이스 & API 명세서** | [INTERFACE_SPEC.md](file:///home/jeonghoon/github/regression-model-revolution-framework/INTERFACE_SPEC.md) | CLI, YAML 스키마, 파사드 API 및 모델 인터페이스 규격 |
+| **요구사항 명세서 (SRS)** | [REQ_SPEC.md](file:///home/jeonghoon/github/regression-model-revolution-framework/REQ_SPEC.md) | 시스템 목표, 기능/비기능 요구사항, SHAP 해석 및 QA 품질 기준 명세 |
+| **아키텍처 정의서 (SAD)** | [ARCHITECTURE.md](file:///home/jeonghoon/github/regression-model-revolution-framework/ARCHITECTURE.md) | 하이레벨 구조, 모듈 및 클래스 구성, SHAPAnalyzer 및 디자인 패턴 설계서 |
+| **동적 시퀀스 다이어그램** | [sequence_diagram.md](file:///home/jeonghoon/github/regression-model-revolution-framework/sequence_diagram.md) | 파이프라인, HPO 루프, SHAP 분석, WebUI 상호작용 Mermaid 시퀀스 다이어그램 |
+| **테스트 계획 및 명세서 (STP/STD)** | [TEST_SPEC.md](file:///home/jeonghoon/github/regression-model-revolution-framework/TEST_SPEC.md) | 단위, 통합, SHAP, E2E, UI 헬퍼 65개 세부 테스트 케이스 명세 |
+| **인터페이스 & API 명세서** | [INTERFACE_SPEC.md](file:///home/jeonghoon/github/regression-model-revolution-framework/INTERFACE_SPEC.md) | CLI, YAML 스키마, 파사드 API, SHAPAnalyzer API 및 JSON 스키마 규격 |
 
 ---
 
@@ -31,7 +31,7 @@ A clean, modular design separating the orchestration layer from the internal pac
 regression-model-revolution-framework/
 │
 ├── main.py                         # 🌟 Central CLI pipeline orchestrator (Facade imports)
-├── app.py                          # 🖥️ Streamlit WebUI Studio (Overview, Run, Studio, History)
+├── app.py                          # 🖥️ Streamlit WebUI Studio (Data, Models, SHAP, Custom, Run, Results)
 ├── configs/                        # ⚙️ Config profiles (experiment with diverse settings)
 │   ├── default.yml                 # Default AutoML configuration profile
 │   ├── kfold_split.yml             # K-Fold split configuration profile
@@ -45,7 +45,7 @@ regression-model-revolution-framework/
 │   └── run_webui.sh                # Run Streamlit WebUI studio
 ├── REQ_SPEC.md                     # Software Requirements Specification
 ├── ARCHITECTURE.md                 # System Architecture Document
-├── sequence_diagram.md             # Sequence Diagrams for Pipeline & WebUI
+├── sequence_diagram.md             # Sequence Diagrams for Pipeline, SHAP & WebUI
 ├── TEST_SPEC.md                    # Software Test Plan & Specification
 ├── INTERFACE_SPEC.md               # Interface & API Specification
 ├── requirements.txt                # Core packages required
@@ -74,9 +74,10 @@ regression-model-revolution-framework/
 │   └── util/                       # 🛠️ Visualization & Utility subpackage
 │       ├── __init__.py
 │       ├── visualizer.py           # Premium dark-theme visualizer & JSON reporting
+│       ├── shap_analyzer.py        # SHAP feature attribution & TabICL In-Context Explainer
 │       └── logger.py               # Robust console/file logger
 │
-└── tests/                          # 🧪 Comprehensive Test Suite
+└── tests/                          # 🧪 Comprehensive Test Suite (65 Unit & Integration Tests)
     ├── __init__.py
     ├── test_dataloader.py          # Tests for dataloading, preprocessing, and JSONL formats
     ├── test_model.py               # Tests for model initialization & executor
@@ -85,6 +86,7 @@ regression-model-revolution-framework/
     ├── test_tabicl.py              # Tests for TabICL In-Context Learning regressor
     ├── test_transformer_regression.py # Tests for PyTorch Transformer regressor
     ├── test_hpo.py                 # Tests for Optuna HPO tuning
+    ├── test_shap.py                # Tests for SHAP interpretability & TabICL Dedicated Explainer
     ├── test_visualizer.py          # Tests for premium visualizations & JSON reporting
     ├── test_logger.py              # Tests for logging framework
     ├── test_webui_helpers.py       # Tests for WebUI helper and media validation
@@ -104,26 +106,31 @@ pip install -r requirements.txt
 ```bash
 ./scripts/run_webui.sh
 ```
-This starts the local Streamlit studio with 4 sidebar views (`Overview & Dashboard`, `Run Experiment`, `Config Studio`, and `History & Artifacts`).
+This starts the local Streamlit studio with 6 sidebar views:
+- `📁 Dataset & Splitting`: Data source & column mapping
+- `🛠️ Models & Active Pool`: Model selection & hyperparameter configuration
+- `🔍 SHAP Interpretability`: Feature attribution model selection & live Explainer engine indicators
+- `🧩 Custom Configurations`: Extended settings
+- `⚙️ Runner Console`: Real-time streaming subprocess executor
+- `📈 Results & Metrics`: Performance metrics, visual diagnostics & interactive SHAP reports
 
 ### 3. Run via Command Line Interface (CLI)
 ```bash
-# Run with a local CSV dataset
-./scripts/run_local_csv.sh
+# Run with local CSV dataset and enable SHAP analysis on TabICL
+python main.py --dataset-path data/synthetic_regression.csv --enable-shap --shap-model TabICL
 
-# Run with a local JSONL dataset (supports dynamically aligned schemas!)
-./scripts/run_local_jsonl.sh
-
-# Run downloading a dataset from a remote URL
-./scripts/run_url.sh
+# Run with automated HPO and SHAP analysis on the champion model
+python main.py --config configs/default.yml --enable-shap --shap-model Champion
 ```
 
 ---
 
 ## 📊 Outputs & Reports
-After every execution, the framework saves production-quality assets in:
-- `outputs/turn_1_model_comparison_r2.png` - Horizontal bar chart comparing model R2 scores side-by-side.
-- `outputs/turn_1_model_comparison_rmse.png` - Horizontal bar chart comparing model RMSE scores.
-- `outputs/turn_1_[Model]_actual_vs_pred.png` - Visualizing prediction variance scatter plot with identity fit line.
-- `outputs/turn_1_[Model]_residuals.png` - Diagnosing heteroscedasticity residual plot.
-- `outputs/turn_1_report.json` - Complete metadata report highlighting the best-performing algorithm (champion).
+After every execution, the framework saves production-quality assets in `outputs/`:
+- `outputs/turn_1_model_comparison_r2.png` - Horizontal bar chart comparing model R2 scores.
+- `outputs/turn_1_[Model]_actual_vs_pred.png` - Prediction variance scatter plot with identity fit line.
+- `outputs/turn_1_[Model]_residuals.png` - Residual diagnostics plot.
+- `outputs/turn_1_[Model]_shap_bar.png` - SHAP feature importance horizontal bar plot.
+- `outputs/turn_1_[Model]_shap_summary.png` - SHAP Beeswarm summary scatter plot.
+- `outputs/turn_1_report.json` - Complete metadata report highlighting the champion model.
+- `outputs/turn_1_[Model]_shap_report.json` - Standalone SHAP feature attribution report.

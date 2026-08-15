@@ -1,19 +1,19 @@
 # [AutoML Regression Framework] 소프트웨어 테스트 계획 및 명세서 (Software Test Specification)
 
-본 문서는 **AutoML Regression Framework**의 품질 보증(QA) 및 신뢰성을 확보하기 위한 **소프트웨어 테스트 계획서(STP) 및 테스트 명세서(STD)**입니다. 프레임워크의 핵심 모듈별 단위 테스트, 통합 테스트, E2E 파이프라인 테스트 및 WebUI 헬퍼 테스트 케이스와 판정 기준을 체계적으로 정의합니다.
+본 문서는 **AutoML Regression Framework**의 품질 보증(QA) 및 신뢰성을 확보하기 위한 **소프트웨어 테스트 계획서(STP) 및 테스트 명세서(STD)**입니다. 프레임워크의 핵심 모듈별 단위 테스트, 통합 테스트, E2E 파이프라인 테스트, SHAP 모델 해석 테스트 및 WebUI 헬퍼 테스트 케이스와 판정 기준을 체계적으로 정의합니다.
 
 ---
 
 ## 1. 개요 (Overview)
 
 ### 1.1 목적
-- 프레임워크를 구성하는 데이터 로더, 전처리기, 모델 팩토리, 개별 모델 래퍼, Optuna HPO 튜너, 시각화 모듈, 그리고 WebUI 보조 기능의 기능적 무결성을 검증합니다.
+- 프레임워크를 구성하는 데이터 로더, 전처리기, 모델 팩토리, 개별 모델 래퍼, Optuna HPO 튜너, SHAP 해석기, 시각화 모듈, 그리고 WebUI 보조 기능의 기능적 무결성을 검증합니다.
 - 외부 라이브러리 결함이나 런타임 환경 차이(패키지 누락, OpenMP 부재 등)에서도 프레임워크가 크래시 없이 안전하게 예외를 우회(Shielding)하는지 확인합니다.
 - 코드 변경 및 기능 확장 시 발생할 수 있는 잠재적 회귀 버그(Regression Bug)를 사전에 차단합니다.
 
 ### 1.2 테스트 범위 (Scope)
-- **단위 테스트 (Unit Testing)**: 개별 클래스 및 함수 단위의 격리 검증 (`DataLoader`, `Preprocessors`, `Splitters`, `ModelFactory`, `ModelWrappers`, `OptunaHPOTuner`, `Visualizer`, `Logger`)
-- **통합 및 E2E 테스트 (Integration & End-to-End Testing)**: 설정 로드부터 데이터 로딩, HPO 최적화, 모델 훈련, 성능 평가, 차트 및 JSON 리포트 저장까지의 전체 파이프라인 주기 검증
+- **단위 테스트 (Unit Testing)**: `DataLoader`, `Preprocessors`, `Splitters`, `ModelFactory`, `ModelWrappers`, `OptunaHPOTuner`, `SHAPAnalyzer`, `Visualizer`, `Logger`
+- **통합 및 E2E 테스트 (Integration & End-to-End Testing)**: 파이프라인 전체 주기 검증 (데이터 로드 -> HPO -> 모델 훈련 -> 평가 -> SHAP 피처 기여도 분석 -> 리포트 아카이빙)
 - **UI 헬퍼 테스트 (WebUI Helper Testing)**: 설정 파싱, 스키마 변환, 미디어 유효성 검증 로직 검증
 
 ---
@@ -21,19 +21,15 @@
 ## 2. 테스트 환경 및 실행 도구
 
 - **테스트 프레임워크**: `pytest` (>= 7.x)
-- **실행 언어**: Python 3.9+
+- **실행 언어 및 환경**: Python 3.13 (Conda `py313`)
 - **테스트 소스 위치**: `tests/`
 - **테스트 실행 명령**:
   ```bash
   # 전체 테스트 스위트 상세 실행
-  pytest tests/ -v
+  conda run -n py313 pytest tests/ -v
 
-  # 특정 도메인 테스트만 실행
-  pytest tests/test_dataloader.py -v
-  pytest tests/test_model_factory.py -v
-  pytest tests/test_tabicl.py -v
-  pytest tests/test_hpo.py -v
-  pytest tests/test_pipeline_e2e.py -v
+  # SHAP 전용 테스트 실행
+  conda run -n py313 pytest tests/test_shap.py -v
   ```
 
 ---
@@ -88,7 +84,20 @@
 
 ---
 
-### 3.5 시각화 및 리포트 파일 아카이빙 (`tests/test_visualizer.py`)
+### 3.5 SHAP 모델 해석 및 피처 기여도 분석 (`tests/test_shap.py`)
+
+| 테스트 ID | 테스트 명칭 | 테스트 대상 | 입력 / 조건 | 예상 결과 |
+| :--- | :--- | :--- | :--- | :--- |
+| **TC-SHAP-01**| SHAPAnalyzer 초기화 및 디렉토리 생성 | `SHAPAnalyzer.__init__()` | 출력 디렉토리 경로 지정 | 디렉토리가 생성되고 max_samples 파라미터가 정상 바인딩됨 |
+| **TC-SHAP-02**| TabICL 전용 In-Context Explainer 검증 | `SHAPAnalyzer.analyze_model()` | 학습된 `ModelWrapperTabICL` 인스턴스 | `explainer_engine`이 "TabICL Dedicated In-Context Explainer"로 식별되고 피처 중요도 및 JSON 리포트/차트가 생성됨 |
+| **TC-SHAP-03**| TreeExplainer 엔진 검증 | `SHAPAnalyzer.analyze_model()` | 학습된 `ModelWrapperRandomForest` 또는 `XGBoost` | `explainer_engine`이 "TreeExplainer"로 매핑되고 고속 SHAP 값이 정확히 계산됨 |
+| **TC-SHAP-04**| Kernel/ModelExplainer 엔진 검증 | `SHAPAnalyzer.analyze_model()` | 학습된 `ModelWrapperMLP` 인스턴스 | `explainer_engine`이 "ModelExplainer"로 식별되고 정상적인 SHAP 리포트 반환 |
+| **TC-SHAP-05**| 결함 모델 예외 감내 쉴딩 검증 | `SHAPAnalyzer.analyze_model()` | 비정상/결함 커스텀 모델 인스턴스 | 크래시 없이 에러를 로깅하고 안전하게 `None`을 반환 |
+| **TC-SHAP-06**| 파이프라인 SHAP 통합 실행 검증 | `AutoMLPipeline.run()` | `enable_shap=True`, `shap_model='RandomForest'` | 파이프라인 전체 완료 후 `turn_{turn}_{model}_shap_report.json`이 디스크에 정상 생성됨 |
+
+---
+
+### 3.6 시각화 및 리포트 파일 아카이빙 (`tests/test_visualizer.py`)
 
 | 테스트 ID | 테스트 명칭 | 테스트 대상 | 입력 / 조건 | 예상 결과 |
 | :--- | :--- | :--- | :--- | :--- |
@@ -99,7 +108,7 @@
 
 ---
 
-### 3.6 WebUI 헬퍼 및 유틸리티 (`tests/test_webui_helpers.py`, `tests/test_logger.py`)
+### 3.7 WebUI 헬퍼 및 유틸리티 (`tests/test_webui_helpers.py`, `tests/test_logger.py`)
 
 | 테스트 ID | 테스트 명칭 | 테스트 대상 | 입력 / 조건 | 예상 결과 |
 | :--- | :--- | :--- | :--- | :--- |
@@ -109,7 +118,7 @@
 
 ---
 
-### 3.7 End-to-End 파이프라인 통합 테스트 (`tests/test_pipeline_e2e.py`)
+### 3.8 End-to-End 파이프라인 통합 테스트 (`tests/test_pipeline_e2e.py`)
 
 | 테스트 ID | 테스트 명칭 | 테스트 대상 | 입력 / 조건 | 예상 결과 |
 | :--- | :--- | :--- | :--- | :--- |
@@ -120,6 +129,6 @@
 
 ## 4. 품질 판정 기준 (Acceptance Criteria)
 
-1. **테스트 성공률 100%**: 전체 `pytest` 테스트 스위트의 모든 테스트 케이스가 Pass되어야 합니다 (`0 failed`).
-2. **무결점 쉴딩 검증**: 지원 라이브러리가 미설치된 환경에서도 `ModelFactory`와 `ModelPool`이 예외로 비정상 종료되지 않고 정상 구동되어야 합니다.
+1. **테스트 성공률 100%**: 전체 `pytest` 테스트 스위트의 모든 테스트 케이스(총 65개)가 Pass되어야 합니다 (`0 failed`).
+2. **무결점 쉴딩 검증**: 지원 라이브러리가 미설치된 환경에서도 `ModelFactory`, `ModelPool`, `SHAPAnalyzer`가 예외로 비정상 종료되지 않고 정상 구동되어야 합니다.
 3. **아티팩트 무결성**: 생성된 모든 JSON 리포트와 PNG 차트 파일은 파싱 가능하고 0 바이트가 아니어야 합니다.

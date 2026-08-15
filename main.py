@@ -14,20 +14,29 @@ import logging
 from typing import Tuple, Optional, Dict, Any
 
 # Standard absolute imports from the newly package-structured automl_framework
-from automl_framework import DataLoaderHelper, ModelPool, StandardBenchmarkExecutor, Visualizer, setup_logger
+from automl_framework import (
+    DataLoaderHelper, 
+    ModelPool, 
+    StandardBenchmarkExecutor, 
+    Visualizer, 
+    SHAPAnalyzer,
+    setup_logger
+)
 
 class AutoMLPipeline:
     """
     High-level orchestrator for the AutoML tabular regression pipeline.
     Encapsulates all step states and coordinates ingestion, preprocessing, training, 
-    evaluating, and premium chart reporting.
+    evaluating, premium chart reporting, and optional SHAP feature attribution.
     """
     def __init__(
         self, 
         config_path: str = "configs/default.yml", 
         turn: int = 1,
         target: Optional[str] = None, 
-        test_size: Optional[float] = None
+        test_size: Optional[float] = None,
+        enable_shap: Optional[bool] = None,
+        shap_model: Optional[str] = None
     ):
         self.config_path = config_path
         self.turn = turn
@@ -47,11 +56,30 @@ class AutoMLPipeline:
         self.data_dir = self.config.get("data", {}).get("data_dir", "data")
         self.output_dir = self.config.get("data", {}).get("output_dir", "outputs")
 
+        # Resolve SHAP configuration
+        shap_cfg = self.config.get("shap", {})
+        if enable_shap is not None:
+            self.shap_enabled = enable_shap
+        else:
+            self.shap_enabled = shap_cfg.get("enabled", False)
+
+        if shap_model is not None:
+            self.shap_model_name = shap_model
+        else:
+            self.shap_model_name = shap_cfg.get("model", "Champion")
+
+        self.shap_max_samples = shap_cfg.get("max_samples", 100)
+
         # Initialize core components
         self.dataloader_helper = DataLoaderHelper(data_dir=self.data_dir, config=self.config)
         self.pool = ModelPool(random_state=self.random_state, config=self.config)
         self.executor = StandardBenchmarkExecutor(self.pool)
         self.visualizer = Visualizer(output_dir=self.output_dir)
+        self.shap_analyzer = SHAPAnalyzer(
+            output_dir=self.output_dir, 
+            max_samples=self.shap_max_samples, 
+            random_state=self.random_state
+        )
 
         # Pipeline step states
         self.X_train: Optional[pd.DataFrame] = None
@@ -59,6 +87,7 @@ class AutoMLPipeline:
         self.X_test: Optional[pd.DataFrame] = None
         self.y_test: Optional[pd.Series] = None
         self.metrics: Optional[Dict[str, Dict[str, float]]] = None
+        self.shap_report: Optional[Dict[str, Any]] = None
 
     @staticmethod
     def _load_config(config_path: str) -> dict:
@@ -167,6 +196,47 @@ class AutoMLPipeline:
         logger.info(f"  - Visualization outputs saved in: '{self.visualizer.output_dir}'")
         logger.info("=" * 60)
 
+    def run_shap_analysis(self) -> Optional[Dict[str, Any]]:
+        """Step 4: Perform SHAP model interpretability and feature attribution analysis."""
+        logger = logging.getLogger("automl_framework.main")
+        if not self.shap_enabled:
+            return None
+
+        if self.metrics is None or not self.metrics:
+            logger.warning("[SHAP] No trained models available for SHAP analysis.")
+            return None
+
+        # Resolve target model for SHAP
+        chosen_model_name = self.shap_model_name
+        if chosen_model_name.lower() in ["champion", "best", "best_model", "bestmodel"]:
+            chosen_model_name = max(self.metrics.keys(), key=lambda k: self.metrics[k].get("R2", -float('inf')))
+
+        # Retrieve model wrapper from pool
+        model_wrapper = self.pool.get_model(chosen_model_name)
+        if model_wrapper is None:
+            # Fallback: try finding case-insensitive match
+            for m_name in self.pool.list_available_models():
+                if m_name.lower() == chosen_model_name.lower():
+                    chosen_model_name = m_name
+                    model_wrapper = self.pool.get_model(m_name)
+                    break
+
+        if model_wrapper is None:
+            logger.warning(f"[SHAP] Target model '{chosen_model_name}' not found in ModelPool. Skipping SHAP analysis.")
+            return None
+
+        feature_names = list(self.X_train.columns) if isinstance(self.X_train, pd.DataFrame) else None
+        
+        self.shap_report = self.shap_analyzer.analyze_model(
+            model_wrapper=model_wrapper,
+            model_name=chosen_model_name,
+            X_train=self.X_train,
+            X_test=self.X_test,
+            feature_names=feature_names,
+            turn=self.turn
+        )
+        return self.shap_report
+
     def run(
         self, 
         dataset_path: Optional[str] = None, 
@@ -177,6 +247,8 @@ class AutoMLPipeline:
         self.prepare_data(dataset_path, kaggle_dataset, url)
         self.train_and_evaluate()
         self.generate_reports()
+        if self.shap_enabled:
+            self.run_shap_analysis()
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -189,13 +261,12 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--dataset-path", type=str, default=None, help="Path to local dataset CSV. Overrides YAML config.")
     parser.add_argument("--kaggle-dataset", type=str, default=None, help="Optional Kaggle dataset name to download (e.g. 'user/dataset-name')")
     parser.add_argument("--url", type=str, default=None, help="Optional direct download URL (e.g. UCI dataset)")
+    parser.add_argument("--enable-shap", action="store_true", default=None, help="Enable SHAP model feature attribution analysis.")
+    parser.add_argument("--shap-model", type=str, default=None, help="Target model for SHAP analysis ('Champion', 'TabICL', 'XGBoost', etc.)")
     return parser.parse_args()
 
 
 def main():
-    # Set the working directory to the project root (where main.py is located)
-    # so that relative paths (configs, data, outputs, logs) are resolved correctly
-    # no matter where this script is executed from.
     project_root = os.path.dirname(os.path.abspath(__file__))
     os.chdir(project_root)
 
@@ -206,7 +277,9 @@ def main():
         config_path=args.config,
         turn=args.turn,
         target=args.target,
-        test_size=args.test_size
+        test_size=args.test_size,
+        enable_shap=args.enable_shap,
+        shap_model=args.shap_model
     )
     
     # Initialize logger
