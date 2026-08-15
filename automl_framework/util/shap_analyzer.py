@@ -62,8 +62,7 @@ class SHAPAnalyzer:
         model_name: str,
         X_train: Union[pd.DataFrame, np.ndarray],
         X_test: Union[pd.DataFrame, np.ndarray],
-        feature_names: Optional[List[str]] = None,
-        turn: int = 1
+        feature_names: Optional[List[str]] = None
     ) -> Optional[Dict[str, Any]]:
         """
         Execute SHAP feature attribution analysis for a given trained model wrapper.
@@ -74,7 +73,6 @@ class SHAPAnalyzer:
             X_train: Training split features (used as background dataset)
             X_test: Testing split features (used for explanation evaluation)
             feature_names: Optional list of column names
-            turn: Current execution turn index
 
         Returns:
             Dictionary containing SHAP report metadata or None if analysis failed/skipped.
@@ -85,7 +83,7 @@ class SHAPAnalyzer:
             logger.warning("[SHAP] 'shap' package is not installed. Skipping SHAP analysis. (Run: pip install shap)")
             return None
 
-        logger.info(f"🔍 [SHAP] Initiating SHAP analysis for model: '{model_name}' (Turn {turn})...")
+        logger.info(f"🔍 [SHAP] Initiating SHAP analysis for model: '{model_name}'...")
 
         # 1. Resolve feature names and data formats
         if isinstance(X_test, pd.DataFrame):
@@ -198,7 +196,7 @@ class SHAPAnalyzer:
         generated_artifacts = []
 
         # Chart 1: Feature Importance Horizontal Bar Plot
-        bar_plot_path = os.path.join(self.output_dir, f"turn_{turn}_{model_name}_shap_bar.png")
+        bar_plot_path = os.path.join(self.output_dir, f"{model_name}_shap_bar.png")
         try:
             fig, ax = plt.subplots(figsize=(10, max(5, len(resolved_feature_names) * 0.35)), dpi=150)
             y_pos = np.arange(len(sorted_importance))
@@ -209,7 +207,7 @@ class SHAPAnalyzer:
             ax.set_yticks(y_pos)
             ax.set_yticklabels(features_rev, fontsize=10, fontweight='medium')
             ax.set_xlabel("Mean |SHAP Value| (Average Impact on Model Output)", fontsize=11, labelpad=8)
-            ax.set_title(f"SHAP Feature Importance — {model_name} (Turn {turn})\nEngine: {explainer_engine}", 
+            ax.set_title(f"SHAP Feature Importance — {model_name}\nEngine: {explainer_engine}", 
                          fontsize=13, fontweight='bold', pad=12, color='#f0f6fc')
             ax.grid(axis='x', linestyle='--', alpha=0.3, color='#30363d')
             
@@ -229,7 +227,7 @@ class SHAPAnalyzer:
             logger.warning(f"[SHAP] Failed to render SHAP bar plot: {e}")
 
         # Chart 2: SHAP Beeswarm / Summary Scatter Plot
-        summary_plot_path = os.path.join(self.output_dir, f"turn_{turn}_{model_name}_shap_summary.png")
+        summary_plot_path = os.path.join(self.output_dir, f"{model_name}_shap_summary.png")
         try:
             fig, ax = plt.subplots(figsize=(10, max(6, len(resolved_feature_names) * 0.4)), dpi=150)
             shap.summary_plot(
@@ -240,11 +238,11 @@ class SHAPAnalyzer:
                 plot_type="dot",
                 color_bar=True
             )
-            plt.title(f"SHAP Summary (Beeswarm) — {model_name} (Turn {turn})\nEngine: {explainer_engine}", 
+            plt.title(f"SHAP Summary (Beeswarm) — {model_name}\nEngine: {explainer_engine}", 
                       fontsize=12, fontweight='bold', color='#f0f6fc', pad=15)
             plt.tight_layout()
             plt.savefig(summary_plot_path, facecolor='#0d1117', bbox_inches='tight')
-            plt.close()
+            plt.close(fig)
             generated_artifacts.append(summary_plot_path)
             logger.info(f"  - Saved SHAP Summary Plot: {summary_plot_path}")
         except Exception as e:
@@ -252,7 +250,7 @@ class SHAPAnalyzer:
 
         # 6. Build and Save Standalone JSON Report
         report_data = {
-            "turn": turn,
+            "run_id": os.path.basename(self.output_dir),
             "model_name": model_name,
             "explainer_engine": explainer_engine,
             "num_samples_analyzed": len(X_eval),
@@ -263,7 +261,7 @@ class SHAPAnalyzer:
             "timestamp": datetime.datetime.now().isoformat()
         }
 
-        json_report_path = os.path.join(self.output_dir, f"turn_{turn}_{model_name}_shap_report.json")
+        json_report_path = os.path.join(self.output_dir, f"{model_name}_shap_report.json")
         try:
             with open(json_report_path, "w", encoding="utf-8") as f:
                 json.dump(report_data, f, indent=2, ensure_ascii=False)

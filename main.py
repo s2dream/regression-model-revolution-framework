@@ -6,11 +6,17 @@ effortless library imports, and one-click execution orchestration!
 """
 
 import os
+# Cross-platform OpenMP duplicate library protection (Linux, Windows, macOS)
+os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
+
 import sys
 import argparse
 import pandas as pd
 import yaml
 import logging
+from datetime import datetime
 from typing import Tuple, Optional, Dict, Any
 
 # Standard absolute imports from the newly package-structured automl_framework
@@ -32,14 +38,14 @@ class AutoMLPipeline:
     def __init__(
         self, 
         config_path: str = "configs/default.yml", 
-        turn: int = 1,
+        run_id: Optional[str] = None,
+        overwrite_run: bool = False,
         target: Optional[str] = None, 
         test_size: Optional[float] = None,
         enable_shap: Optional[bool] = None,
         shap_model: Optional[str] = None
     ):
         self.config_path = config_path
-        self.turn = turn
         self.config = self._load_config(config_path)
         
         # Resolve random state, test size, target column, data directory, and output directory
@@ -54,7 +60,13 @@ class AutoMLPipeline:
             self.target_column = self.config.get("data", {}).get("target_column", "Target_Y")
 
         self.data_dir = self.config.get("data", {}).get("data_dir", "data")
-        self.output_dir = self.config.get("data", {}).get("output_dir", "outputs")
+        base_output_dir = self.config.get("data", {}).get("output_dir", "outputs")
+
+        # Resolve Run ID and output directory with collision handling
+        self.overwrite_run = overwrite_run
+        self.run_id = self._resolve_run_id(run_id, base_output_dir, overwrite_run)
+        self.output_dir = os.path.join(base_output_dir, self.run_id)
+        os.makedirs(self.output_dir, exist_ok=True)
 
         # Resolve SHAP configuration
         shap_cfg = self.config.get("shap", {})
@@ -88,6 +100,32 @@ class AutoMLPipeline:
         self.y_test: Optional[pd.Series] = None
         self.metrics: Optional[Dict[str, Dict[str, float]]] = None
         self.shap_report: Optional[Dict[str, Any]] = None
+
+    @staticmethod
+    def _resolve_run_id(run_id: Optional[str], base_output_dir: str, overwrite_run: bool) -> str:
+        """
+        Resolves or generates a unique run ID based on timestamp.
+        If a custom run_id is supplied and already exists:
+          - If overwrite_run is False: Raises FileExistsError (Fail-Fast).
+          - If overwrite_run is True: Reuses the run_id directory.
+        If run_id is None:
+          - Generates 'run_YYYYMMDD_HHMMSS'. If collision occurs, appends microseconds to guarantee uniqueness.
+        """
+        if run_id:
+            target_path = os.path.join(base_output_dir, run_id)
+            if os.path.exists(target_path) and not overwrite_run:
+                raise FileExistsError(
+                    f"Run ID directory '{target_path}' already exists. "
+                    "Please choose a different --run-id, or specify --overwrite-run to reuse this directory."
+                )
+            return run_id
+        
+        now = datetime.now()
+        candidate = f"run_{now.strftime('%Y%m%d_%H%M%S')}"
+        target_path = os.path.join(base_output_dir, candidate)
+        if os.path.exists(target_path):
+            candidate = f"run_{now.strftime('%Y%m%d_%H%M%S_%f')}"
+        return candidate
 
     @staticmethod
     def _load_config(config_path: str) -> dict:
@@ -159,15 +197,15 @@ class AutoMLPipeline:
         logger.info("🎨 Generating premium charts & structured reports...")
         
         # Plot comparisons of R2 & RMSE score
-        self.visualizer.plot_model_comparison(self.metrics, metric_name="R2", turn=self.turn)
-        self.visualizer.plot_model_comparison(self.metrics, metric_name="RMSE", turn=self.turn)
+        self.visualizer.plot_model_comparison(self.metrics, metric_name="R2")
+        self.visualizer.plot_model_comparison(self.metrics, metric_name="RMSE")
         
         predictions = self.executor.get_predictions(self.X_test)
         
         # Generate specific plots for each model
         for model_name, y_pred in predictions.items():
-            self.visualizer.plot_actual_vs_predicted(self.y_test, y_pred, model_name=model_name, turn=self.turn)
-            self.visualizer.plot_residuals(self.y_test, y_pred, model_name=model_name, turn=self.turn)
+            self.visualizer.plot_actual_vs_predicted(self.y_test, y_pred, model_name=model_name)
+            self.visualizer.plot_residuals(self.y_test, y_pred, model_name=model_name)
 
         # Generate learning curves for iterative models
         learning_curves = {}
@@ -177,7 +215,7 @@ class AutoMLPipeline:
                 try:
                     loss_hist = model_wrap.get_loss_history()
                     if loss_hist:
-                        path = self.visualizer.plot_learning_curve(loss_hist, model_name, self.turn)
+                        path = self.visualizer.plot_learning_curve(loss_hist, model_name)
                         if path:
                             learning_curves[model_name] = path
                 except Exception as e:
@@ -198,17 +236,18 @@ class AutoMLPipeline:
         # Save structured JSON, interactive standalone HTML, and shareable Markdown summaries
         json_report_path = self.visualizer.save_json_report(
             self.metrics, 
-            turn=self.turn, 
+            run_id=self.run_id, 
             metadata=metadata,
             learning_curves=learning_curves
         )
-        html_report_path = self.visualizer.save_html_report(self.metrics, turn=self.turn, metadata=metadata)
-        summary_md_path = self.visualizer.save_markdown_summary(self.metrics, turn=self.turn, metadata=metadata)
+        html_report_path = self.visualizer.save_html_report(self.metrics, run_id=self.run_id, metadata=metadata)
+        summary_md_path = self.visualizer.save_markdown_summary(self.metrics, run_id=self.run_id, metadata=metadata)
         
         best_model = max(self.metrics.keys(), key=lambda k: self.metrics[k].get("R2", -float('inf')))
         best_r2 = self.metrics[best_model]["R2"]
         
         logger.info("\n🏆 Execution Summary:")
+        logger.info(f"  - Run ID: {self.run_id}")
         logger.info(f"  - Best Model: {best_model} with R2 Score of {best_r2:.4f}")
         logger.info(f"  - Interactive HTML Report: {html_report_path}")
         logger.info(f"  - Markdown Summary: {summary_md_path}")
@@ -252,8 +291,7 @@ class AutoMLPipeline:
             model_name=chosen_model_name,
             X_train=self.X_train,
             X_test=self.X_test,
-            feature_names=feature_names,
-            turn=self.turn
+            feature_names=feature_names
         )
         return self.shap_report
 
@@ -275,9 +313,10 @@ def parse_arguments() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description="AutoML Framework for Advanced Tabular Regression")
     parser.add_argument("--config", type=str, default="configs/default.yml", help="Path to config profile YAML.")    
+    parser.add_argument("--run-id", type=str, default=None, help="Unique execution Run ID (e.g. 'run_20260816_120000'). Defaults to timestamp-based auto-generation.")
+    parser.add_argument("--overwrite-run", action="store_true", default=False, help="Allow overwriting outputs/<run-id> if it already exists.")
     parser.add_argument("--target", type=str, default=None, help="Name of the target variable/column. Overrides YAML config.")
     parser.add_argument("--test-size", type=float, default=None, help="Proportion of the dataset to use for testing. Overrides YAML config.")
-    parser.add_argument("--turn", type=int, default=1, help="Current execution turn index (used for naming reports and outputs).")
     parser.add_argument("--dataset-path", type=str, default=None, help="Path to local dataset CSV. Overrides YAML config.")
     parser.add_argument("--kaggle-dataset", type=str, default=None, help="Optional Kaggle dataset name to download (e.g. 'user/dataset-name')")
     parser.add_argument("--url", type=str, default=None, help="Optional direct download URL (e.g. UCI dataset)")
@@ -291,15 +330,16 @@ def main():
     os.chdir(project_root)
 
     args = parse_arguments()
-    logger = setup_logger()
+    logger = setup_logger(run_id=args.run_id)
     logger.info("=" * 60)
-    logger.info(f"🚀 Launching AutoML Regression Framework (Execution Turn: {args.turn})")
+    logger.info(f"🚀 Launching AutoML Regression Framework (Run ID: {args.run_id or 'Auto-Generating'})")
     logger.info("=" * 60)
     
     # Initialize pipeline with CLI overrides
     pipeline = AutoMLPipeline(
         config_path=args.config,
-        turn=args.turn,
+        run_id=args.run_id,
+        overwrite_run=args.overwrite_run,
         target=args.target,
         test_size=args.test_size,
         enable_shap=args.enable_shap,

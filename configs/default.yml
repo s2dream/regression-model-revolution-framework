@@ -13,11 +13,13 @@ framework:
   test_size: 0.2
   active_models:
     - XGBoost
-    - MLP
-    - TabPFN
-    - TabICL
-    - RandomForest
     - CatBoost
+    - RandomForest
+    - MLP
+    # Additional deep tabular / in-context learning models (uncomment to activate):
+    # - TabPFN
+    # - TabICL
+    # - Transformer
 
 # Hyperparameter Optimization Settings
 hpo:

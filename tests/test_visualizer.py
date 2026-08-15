@@ -29,12 +29,12 @@ def test_visualizer_plot_actual_vs_predicted(temp_output_dir, dummy_results):
     y_true, y_pred, _ = dummy_results
     visualizer = Visualizer(output_dir=temp_output_dir)
     
-    filepath = visualizer.plot_actual_vs_predicted(y_true, y_pred, model_name="MLP", turn=1)
+    filepath = visualizer.plot_actual_vs_predicted(y_true, y_pred, model_name="MLP")
     
     assert os.path.exists(filepath)
     assert filepath.endswith(".png")
     assert "MLP" in filepath
-    assert "turn_1" in filepath
+    assert "actual_vs_pred" in filepath
 
 
 def test_visualizer_plot_residuals(temp_output_dir, dummy_results):
@@ -42,7 +42,7 @@ def test_visualizer_plot_residuals(temp_output_dir, dummy_results):
     y_true, y_pred, _ = dummy_results
     visualizer = Visualizer(output_dir=temp_output_dir)
     
-    filepath = visualizer.plot_residuals(y_true, y_pred, model_name="MLP", turn=1)
+    filepath = visualizer.plot_residuals(y_true, y_pred, model_name="MLP")
     
     assert os.path.exists(filepath)
     assert filepath.endswith(".png")
@@ -55,7 +55,7 @@ def test_visualizer_plot_model_comparison(temp_output_dir, dummy_results):
     _, _, metrics = dummy_results
     visualizer = Visualizer(output_dir=temp_output_dir)
     
-    filepath = visualizer.plot_model_comparison(metrics, metric_name="R2", turn=1)
+    filepath = visualizer.plot_model_comparison(metrics, metric_name="R2")
     
     assert os.path.exists(filepath)
     assert filepath.endswith(".png")
@@ -67,16 +67,16 @@ def test_visualizer_save_json_report(temp_output_dir, dummy_results):
     _, _, metrics = dummy_results
     visualizer = Visualizer(output_dir=temp_output_dir)
     
-    filepath = visualizer.save_json_report(metrics, turn=1)
+    filepath = visualizer.save_json_report(metrics, run_id="run_test_123")
     
     assert os.path.exists(filepath)
-    assert filepath.endswith(".json")
+    assert filepath.endswith("report.json")
     
     # Read the JSON structure and assert values
     with open(filepath, "r", encoding="utf-8") as f:
         data = json.load(f)
         
-    assert data["turn"] == 1
+    assert data["run_id"] == "run_test_123"
     assert "MLP" in data["metrics"]
     assert data["best_model"] == "MLP"  # MLP R2 (0.95) > RandomForest R2 (0.90)
 
@@ -88,13 +88,12 @@ def test_visualizer_save_html_report(temp_output_dir, dummy_results):
     
     filepath = visualizer.save_html_report(
         metrics, 
-        turn=1, 
+        run_id="run_test_123", 
         metadata={"target_column": "Target_Y", "split_method": "train_test_split", "train_samples": 100, "test_samples": 25}
     )
     
     assert os.path.exists(filepath)
-    assert filepath.endswith(".html")
-    assert "turn_1_report.html" in filepath
+    assert filepath.endswith("report.html")
     
     with open(filepath, "r", encoding="utf-8") as f:
         html_content = f.read()
@@ -114,13 +113,12 @@ def test_visualizer_save_markdown_summary(temp_output_dir, dummy_results):
     
     filepath = visualizer.save_markdown_summary(
         metrics, 
-        turn=1, 
+        run_id="run_test_123", 
         metadata={"target_column": "Target_Y", "split_method": "train_test_split", "train_samples": 100, "test_samples": 25}
     )
     
     assert os.path.exists(filepath)
-    assert filepath.endswith(".md")
-    assert "turn_1_summary.md" in filepath
+    assert filepath.endswith("summary.md")
     
     with open(filepath, "r", encoding="utf-8") as f:
         md_content = f.read()
@@ -149,7 +147,6 @@ def test_visualizer_shap_explainability(temp_output_dir):
         X_train=X_train,
         X_test=X_test,
         model_name="CustomEstimator",
-        turn=1,
         max_samples=3
     )
     
@@ -164,7 +161,7 @@ def test_visualizer_plot_learning_curve(temp_output_dir):
     visualizer = Visualizer(output_dir=temp_output_dir)
     loss_history = [10.0, 8.5, 6.2, 4.1, 2.5, 1.2]
     
-    filepath = visualizer.plot_learning_curve(loss_history, model_name="MLP", turn=1)
+    filepath = visualizer.plot_learning_curve(loss_history, model_name="MLP")
     
     assert filepath != ""
     assert os.path.exists(filepath)
@@ -191,7 +188,7 @@ def test_visualizer_save_markdown_report(temp_output_dir):
     
     filepath = visualizer.save_markdown_report(
         metrics=metrics,
-        turn=1,
+        run_id="run_test_123",
         dataset_info=dataset_info,
         shap_reports={"MLP": {"summary_plot": "mlp_summary.png", "bar_plot": "mlp_bar.png"}},
         learning_curves={"MLP": "mlp_loss.png"}

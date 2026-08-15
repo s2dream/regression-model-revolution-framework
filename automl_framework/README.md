@@ -58,13 +58,14 @@ automl_framework/
 
 ### 3. 고품질 분석, 설명력 및 상세 리포팅 (`util/visualizer.py`)
 전문가 분석 수준의 다크 슬레이트 테마의 그래픽 차트와 문헌 형태의 리포트를 자동 발행합니다:
-- **실제치 vs 예측치 산포도**: 실제값과 예측치 간의 오차 분포를 파스텔톤 플롯으로 매핑하고 이상적인 1:1 완벽 가이드 선(y=x)을 함께 렌더링합니다 (`turn_{turn}_{model_name}_actual_vs_pred.png`).
-- **잔차 오차 분석 플롯**: 예측 오차의 분산 경향성과 등분산성을 한눈에 진단할 수 있는 잔차 분석 scatter plot을 그립니다 (`turn_{turn}_{model_name}_residuals.png`).
-- **모델 간 비교 바 차트**: 성능비교 목적으로 모델별 $R^2$, $RMSE$, $MAE$ 성능 지표를 가로 막대 형태로 시각화하여 순위와 차이를 시각적 표현합니다 (`turn_{turn}_model_comparison_{metric}.png`).
-- **SHAP 설명력 플롯**: 피처 기여도 해석을 위한 Beeswarm Plot 및 중요도 Bar Plot 차트를 저장합니다 (`turn_{turn}_{model_name}_shap_summary.png`, `turn_{turn}_{model_name}_shap_bar.png`).
-- **학습 곡선 (Loss Curve)**: 반복 모델들의 에포크별 손실 감소 양상을 그려 오버피팅을 사전에 진단합니다 (`turn_{turn}_{model_name}_learning_curve.png`).
-- **Markdown 상세 보고서 (Executive Report)**: 데이터 형상 분석 정보, 모델 성능 Leaderboard 테이블, 개별 차트 경로 하이퍼링크, 추천 액션 등이 총합된 마크다운 보고서를 출력합니다 (`turn_{turn}_report.md`).
-- **JSON 실행 보고서**: 1위에 해당하는 Champion 모델명 및 로컬 플롯 파일 경로들을 보관하여 대시보드 데이터 바인딩을 지원합니다 (`turn_{turn}_report.json`).
+- **실제치 vs 예측치 산포도**: 실제값과 예측치 간의 오차 분포를 파스텔톤 플롯으로 매핑하고 이상적인 1:1 완벽 가이드 선(y=x)을 함께 렌더링합니다 (`outputs/<run_id>/{model_name}_actual_vs_pred.png`).
+- **잔차 오차 분석 플롯**: 예측 오차의 분산 경향성과 등분산성을 한눈에 진단할 수 있는 잔차 분석 scatter plot을 그립니다 (`outputs/<run_id>/{model_name}_residuals.png`).
+- **모델 간 비교 바 차트**: 성능비교 목적으로 모델별 $R^2$, $RMSE$, $MAE$ 성능 지표를 가로 막대 형태로 시각화하여 순위와 차이를 시각적 표현합니다 (`outputs/<run_id>/model_comparison_{metric}.png`).
+- **SHAP 설명력 플롯**: 피처 기여도 해석을 위한 Beeswarm Plot 및 중요도 Bar Plot 차트를 저장합니다 (`outputs/<run_id>/{model_name}_shap_summary.png`, `outputs/<run_id>/{model_name}_shap_bar.png`).
+- **학습 곡선 (Loss Curve)**: 반복 모델들의 에포크별 손실 감소 양상을 그려 오버피팅을 사전에 진단합니다 (`outputs/<run_id>/{model_name}_learning_curve.png`).
+- **Markdown 상세 보고서 (Executive Report)**: 데이터 형상 분석 정보, 모델 성능 Leaderboard 테이블, 개별 차트 경로 하이퍼링크, 추천 액션 등이 총합된 마크다운 보고서를 출력합니다 (`outputs/<run_id>/report.md` 및 `summary.md`).
+- **HTML 인터랙티브 보고서**: 인터랙티브 자바스크립트 테이블과 차트가 포함된 대시보드를 제공합니다 (`outputs/<run_id>/report.html`).
+- **JSON 실행 보고서**: 1위에 해당하는 Champion 모델명 및 성능 지표 메타데이터를 저장합니다 (`outputs/<run_id>/report.json`).
 
 ---
 

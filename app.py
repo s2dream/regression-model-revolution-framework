@@ -2,6 +2,11 @@ import streamlit as st
 import yaml
 import os
 import sys
+# Cross-platform OpenMP duplicate library protection (Linux, Windows, macOS)
+os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
+
 import glob
 import pandas as pd
 import json
@@ -229,8 +234,8 @@ if "pipeline_running" not in st.session_state:
     st.session_state.pipeline_running = False
 if "run_logs" not in st.session_state:
     st.session_state.run_logs = ""
-if "current_turn" not in st.session_state:
-    st.session_state.current_turn = 1
+if "custom_run_id" not in st.session_state:
+    st.session_state.custom_run_id = ""
 
 # Persistent app config states across navigation switches
 if "cfg_data_dir" not in st.session_state:
@@ -334,7 +339,7 @@ with st.sidebar:
             <div style="margin-top: 0.3rem;">🤖 <b>Active Models:</b> {num_active}</div>
             <div style="margin-top: 0.3rem;">🎯 <b>HPO:</b> {hpo_str}</div>
             <div style="margin-top: 0.3rem;">🔍 <b>SHAP:</b> {shap_str}</div>
-            <div style="margin-top: 0.3rem;">🔄 <b>Turn:</b> {st.session_state.current_turn}</div>
+            <div style="margin-top: 0.3rem;">📂 <b>Outputs Dir:</b> {st.session_state.cfg_output_dir}/&lt;run_id&gt;</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -665,8 +670,9 @@ elif selected_menu == NAV_RUNNER:
     with col_status:
         st.markdown("##### 🚀 Execution Controls")
         
-        turn_input = st.number_input("Execution Turn Index", min_value=1, value=st.session_state.current_turn, step=1)
-        st.session_state.current_turn = turn_input
+        custom_run_id = st.text_input("Custom Run ID (Optional)", value=st.session_state.custom_run_id, placeholder="e.g. experiment_v1 (Leave blank for auto-timestamp)")
+        st.session_state.custom_run_id = custom_run_id
+        overwrite_choice = st.checkbox("Overwrite existing output directory if Run ID already exists (--overwrite-run)", value=False)
 
         # Save config button
         if st.button("💾 Save Config to configs/web_config.yml", use_container_width=True):
@@ -684,9 +690,12 @@ elif selected_menu == NAV_RUNNER:
             # Construct CLI command arguments
             cmd = [
                 sys.executable, "main.py",
-                "--config", "configs/web_config.yml",
-                "--turn", str(turn_input)
+                "--config", "configs/web_config.yml"
             ]
+            if custom_run_id.strip():
+                cmd.extend(["--run-id", custom_run_id.strip()])
+            if overwrite_choice:
+                cmd.append("--overwrite-run")
             
             if st.session_state.cfg_data_source == "Local Directory" and st.session_state.cfg_dataset_path:
                 cmd.extend(["--dataset-path", st.session_state.cfg_dataset_path])
@@ -747,172 +756,173 @@ elif selected_menu == NAV_RESULTS:
     st.write("Inspect evaluated model metrics, champion models, benchmark plots, and SHAP explainability reports.")
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Select execution turn to inspect
-    available_turns = []
-    report_files = glob.glob(os.path.join(st.session_state.cfg_output_dir, "turn_*_report.json"))
-    for rf in report_files:
-        try:
-            base = os.path.basename(rf)
-            parts = base.split("_")
-            if len(parts) >= 3 and parts[0] == "turn" and parts[2] == "report.json":
-                turn_num = int(parts[1])
-                if turn_num not in available_turns:
-                    available_turns.append(turn_num)
-        except Exception:
-            pass
-            
-    available_turns = sorted(available_turns, reverse=True)
-    if not available_turns:
-        available_turns = [st.session_state.current_turn]
-
-    col_t1, col_t2 = st.columns([1, 3])
-    with col_t1:
-        selected_turn = st.selectbox("Select Execution Turn", available_turns, index=0)
-
-    report_path = os.path.join(st.session_state.cfg_output_dir, f"turn_{selected_turn}_report.json")
-    
-    if os.path.exists(report_path):
-        with open(report_path, "r", encoding="utf-8") as f:
-            report_data = json.load(f)
-            
-        metrics_dict = report_data.get("metrics", {})
-        champion_model = report_data.get("champion_model", report_data.get("best_model", "N/A"))
-        
-        if metrics_dict:
-            # 1. Champion Highlight Card
-            champ_r2 = metrics_dict.get(champion_model, {}).get("R2", 0.0)
-            champ_rmse = metrics_dict.get(champion_model, {}).get("RMSE", 0.0)
-            champ_mae = metrics_dict.get(champion_model, {}).get("MAE", 0.0)
-            
-            st.markdown(f"""
-            <div style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%); border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 16px; padding: 1.5rem; margin-bottom: 1.5rem;">
-                <div style="font-size: 0.9rem; text-transform: uppercase; color: #e3b341; font-weight: 700; letter-spacing: 0.08em; margin-bottom: 0.4rem;">🏆 Winning Champion Model (Turn {selected_turn})</div>
-                <div style="font-family: 'Outfit', sans-serif; font-size: 2.2rem; font-weight: 800; color: #ffffff;">{champion_model}</div>
-                <div style="display: flex; gap: 2rem; margin-top: 1rem;">
-                    <div><span style="color: #94a3b8; font-size: 0.85rem;">R² SCORE:</span> <b style="color: #58a6ff; font-size: 1.2rem;">{champ_r2:.4f}</b></div>
-                    <div><span style="color: #94a3b8; font-size: 0.85rem;">RMSE:</span> <b style="color: #cbd5e1; font-size: 1.2rem;">{champ_rmse:.4f}</b></div>
-                    <div><span style="color: #94a3b8; font-size: 0.85rem;">MAE:</span> <b style="color: #aff5b4; font-size: 1.2rem;">{champ_mae:.4f}</b></div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # 2. Performance Summary Table
-            st.markdown("##### 📊 Model Leaderboard")
-            df_metrics = pd.DataFrame(metrics_dict).T.reset_index().rename(columns={"index": "Model Name"})
-            if "R2" in df_metrics.columns:
-                df_metrics = df_metrics.sort_values(by="R2", ascending=False)
-            st.dataframe(df_metrics.style.format({"RMSE": "{:.4f}", "MAE": "{:.4f}", "R2": "{:.4f}"}), use_container_width=True)
-            
-            # 3. Model Comparison Charts
-            st.markdown("---")
-            st.markdown("##### 📈 Model Comparison Charts")
-            col_c1, col_c2 = st.columns(2)
-            r2_img = os.path.join(st.session_state.cfg_output_dir, f"turn_{selected_turn}_model_comparison_r2.png")
-            rmse_img = os.path.join(st.session_state.cfg_output_dir, f"turn_{selected_turn}_model_comparison_rmse.png")
-            
-            with col_c1:
-                if is_valid_image(r2_img):
-                    st.image(r2_img, caption=f"R2 Comparison (Turn {selected_turn})", use_container_width=True)
-                else:
-                    st.info("R2 Comparison chart not found.")
-            with col_c2:
-                if is_valid_image(rmse_img):
-                    st.image(rmse_img, caption=f"RMSE Comparison (Turn {selected_turn})", use_container_width=True)
-                else:
-                    st.info("RMSE Comparison chart not found.")
-
-            # 4. Diagnostic Plots
-            st.markdown("---")
-            st.markdown("##### 🔍 Model Diagnostics & Residual Analysis")
-            selected_model = st.selectbox("Select Model for Diagnostic Plots", list(metrics_dict.keys()))
-            
-            if selected_model:
-                col_diag1, col_diag2 = st.columns(2)
-                pred_vs_act_img = os.path.join(st.session_state.cfg_output_dir, f"turn_{selected_turn}_{selected_model}_actual_vs_pred.png")
-                residuals_img = os.path.join(st.session_state.cfg_output_dir, f"turn_{selected_turn}_{selected_model}_residuals.png")
+    # Scan available run directories inside outputs/
+    available_runs = []
+    output_base = st.session_state.cfg_output_dir
+    if os.path.exists(output_base):
+        for entry in os.listdir(output_base):
+            entry_path = os.path.join(output_base, entry)
+            if os.path.isdir(entry_path) and os.path.exists(os.path.join(entry_path, "report.json")):
+                available_runs.append(entry)
                 
-                with col_diag1:
-                    if is_valid_image(pred_vs_act_img):
-                        st.image(pred_vs_act_img, caption=f"{selected_model}: Actual vs Predicted", use_container_width=True)
-                    else:
-                        st.info(f"Actual vs Predicted plot not found for {selected_model}.")
-                with col_diag2:
-                    if is_valid_image(residuals_img):
-                        st.image(residuals_img, caption=f"{selected_model}: Residuals Plot", use_container_width=True)
-                    else:
-                        st.info(f"Residuals plot not found for {selected_model}.")
+    # Sort runs newest first by folder creation/modification time
+    available_runs.sort(
+        key=lambda r: os.path.getmtime(os.path.join(output_base, r)) if os.path.exists(os.path.join(output_base, r)) else 0,
+        reverse=True
+    )
 
-                # If learning curve exists, render it below
-                learning_curves = report_data.get("learning_curves", {})
-                if selected_model in learning_curves:
-                    curve_img = learning_curves[selected_model]
-                    if is_valid_image(curve_img):
-                        st.markdown("###### 📈 Loss / Learning Curve")
-                        st.image(curve_img, caption=f"{selected_model}: Loss Curve", use_container_width=True)
-
-            # ==========================================
-            # 🔍 SHAP FEATURE ATTRIBUTION SECTION
-            # ==========================================
-            st.markdown("---")
-            st.markdown('<div class="card-header">🔍 SHAP Feature Attribution & Model Interpretation</div>', unsafe_allow_html=True)
-            
-            # Find any SHAP report for this turn
-            shap_report_files = glob.glob(os.path.join(st.session_state.cfg_output_dir, f"turn_{selected_turn}_*_shap_report.json"))
-            if shap_report_files:
-                for shap_file in shap_report_files:
-                    try:
-                        with open(shap_file, "r", encoding="utf-8") as f_s:
-                            s_data = json.load(f_s)
-                        
-                        s_model = s_data.get("model_name", "Unknown")
-                        s_engine = s_data.get("explainer_engine", "Default Explainer")
-                        s_samples = s_data.get("num_samples_analyzed", 0)
-                        s_importance = s_data.get("mean_abs_shap", {})
-                        
-                        st.markdown(f"""
-                        <div class="premium-card">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem;">
-                                <h4 style="margin: 0; color: #818cf8;">Model: <b>{s_model}</b></h4>
-                                <span class="engine-badge">⚡ Engine: {s_engine}</span>
-                            </div>
-                            <p style="font-size: 0.9rem; color: #94a3b8; margin: 0;">Evaluated Samples: <b>{s_samples}</b> | Top Features: <b>{', '.join(s_data.get('top_features', []))}</b></p>
-                        </div>
-                        """, unsafe_allow_html=True)
-
-                        # Render SHAP bar and summary plots
-                        col_s1, col_s2 = st.columns(2)
-                        s_bar_img = os.path.join(st.session_state.cfg_output_dir, f"turn_{selected_turn}_{s_model}_shap_bar.png")
-                        s_summary_img = os.path.join(st.session_state.cfg_output_dir, f"turn_{selected_turn}_{s_model}_shap_summary.png")
-                        
-                        with col_s1:
-                            if is_valid_image(s_bar_img):
-                                st.image(s_bar_img, caption=f"{s_model}: SHAP Feature Importance", use_container_width=True)
-                            else:
-                                st.info("SHAP Bar plot not available.")
-                        with col_s2:
-                            if is_valid_image(s_summary_img):
-                                st.image(s_summary_img, caption=f"{s_model}: SHAP Beeswarm Summary", use_container_width=True)
-                            else:
-                                st.info("SHAP Summary plot not available.")
-
-                        # Show feature importance table
-                        if s_importance:
-                            with st.expander(f"📋 View Full SHAP Importance Scores ({s_model})", expanded=False):
-                                df_shap = pd.DataFrame(list(s_importance.items()), columns=["Feature", "Mean Absolute SHAP"])
-                                st.dataframe(df_shap, use_container_width=True)
-                                
-                                with open(shap_file, "r", encoding="utf-8") as f_dl:
-                                    st.download_button(
-                                        label=f"📥 Download {s_model} SHAP JSON Report",
-                                        data=f_dl.read(),
-                                        file_name=os.path.basename(shap_file),
-                                        mime="application/json"
-                                    )
-                    except Exception as e:
-                        st.warning(f"Error loading SHAP report file `{shap_file}`: {e}")
-            else:
-                st.info(f"No SHAP explanation report generated for Turn {selected_turn}. Enable SHAP Analysis in '🔍 SHAP Interpretability' and re-run.")
-        else:
-            st.warning("No metrics data found in report JSON.")
+    if not available_runs:
+        st.info(f"No execution runs found under `{output_base}/`. Run an experiment in the '⚙️ Runner Console' menu first to generate results!")
     else:
-        st.info(f"No execution report found for Turn {selected_turn} at `{report_path}`. Run an experiment in the '⚙️ Runner Console' menu first to generate results!")
+        col_t1, col_t2 = st.columns([1, 3])
+        with col_t1:
+            selected_run = st.selectbox("Select Execution Run", available_runs, index=0)
+
+        run_dir = os.path.join(output_base, selected_run)
+        report_path = os.path.join(run_dir, "report.json")
+        
+        if os.path.exists(report_path):
+            with open(report_path, "r", encoding="utf-8") as f:
+                report_data = json.load(f)
+                
+            metrics_dict = report_data.get("metrics", {})
+            champion_model = report_data.get("champion_model", report_data.get("best_model", "N/A"))
+            
+            if metrics_dict:
+                # 1. Champion Highlight Card
+                champ_r2 = metrics_dict.get(champion_model, {}).get("R2", 0.0)
+                champ_rmse = metrics_dict.get(champion_model, {}).get("RMSE", 0.0)
+                champ_mae = metrics_dict.get(champion_model, {}).get("MAE", 0.0)
+                
+                st.markdown(f"""
+                <div style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%); border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 16px; padding: 1.5rem; margin-bottom: 1.5rem;">
+                    <div style="font-size: 0.9rem; text-transform: uppercase; color: #e3b341; font-weight: 700; letter-spacing: 0.08em; margin-bottom: 0.4rem;">🏆 Winning Champion Model (Run: {selected_run})</div>
+                    <div style="font-family: 'Outfit', sans-serif; font-size: 2.2rem; font-weight: 800; color: #ffffff;">{champion_model}</div>
+                    <div style="display: flex; gap: 2rem; margin-top: 1rem;">
+                        <div><span style="color: #94a3b8; font-size: 0.85rem;">R² SCORE:</span> <b style="color: #58a6ff; font-size: 1.2rem;">{champ_r2:.4f}</b></div>
+                        <div><span style="color: #94a3b8; font-size: 0.85rem;">RMSE:</span> <b style="color: #cbd5e1; font-size: 1.2rem;">{champ_rmse:.4f}</b></div>
+                        <div><span style="color: #94a3b8; font-size: 0.85rem;">MAE:</span> <b style="color: #aff5b4; font-size: 1.2rem;">{champ_mae:.4f}</b></div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # 2. Performance Summary Table
+                st.markdown("##### 📊 Model Leaderboard")
+                df_metrics = pd.DataFrame(metrics_dict).T.reset_index().rename(columns={"index": "Model Name"})
+                if "R2" in df_metrics.columns:
+                    df_metrics = df_metrics.sort_values(by="R2", ascending=False)
+                st.dataframe(df_metrics.style.format({"RMSE": "{:.4f}", "MAE": "{:.4f}", "R2": "{:.4f}"}), use_container_width=True)
+                
+                # 3. Model Comparison Charts
+                st.markdown("---")
+                st.markdown("##### 📈 Model Comparison Charts")
+                col_c1, col_c2 = st.columns(2)
+                r2_img = os.path.join(run_dir, "model_comparison_r2.png")
+                rmse_img = os.path.join(run_dir, "model_comparison_rmse.png")
+                
+                with col_c1:
+                    if is_valid_image(r2_img):
+                        st.image(r2_img, caption=f"R2 Comparison ({selected_run})", use_container_width=True)
+                    else:
+                        st.info("R2 Comparison chart not found.")
+                with col_c2:
+                    if is_valid_image(rmse_img):
+                        st.image(rmse_img, caption=f"RMSE Comparison ({selected_run})", use_container_width=True)
+                    else:
+                        st.info("RMSE Comparison chart not found.")
+
+                # 4. Diagnostic Plots
+                st.markdown("---")
+                st.markdown("##### 🔍 Model Diagnostics & Residual Analysis")
+                selected_model = st.selectbox("Select Model for Diagnostic Plots", list(metrics_dict.keys()))
+                
+                if selected_model:
+                    col_diag1, col_diag2 = st.columns(2)
+                    pred_vs_act_img = os.path.join(run_dir, f"{selected_model}_actual_vs_pred.png")
+                    residuals_img = os.path.join(run_dir, f"{selected_model}_residuals.png")
+                    
+                    with col_diag1:
+                        if is_valid_image(pred_vs_act_img):
+                            st.image(pred_vs_act_img, caption=f"{selected_model}: Actual vs Predicted", use_container_width=True)
+                        else:
+                            st.info(f"Actual vs Predicted plot not found for {selected_model}.")
+                    with col_diag2:
+                        if is_valid_image(residuals_img):
+                            st.image(residuals_img, caption=f"{selected_model}: Residuals Plot", use_container_width=True)
+                        else:
+                            st.info(f"Residuals plot not found for {selected_model}.")
+
+                    # If learning curve exists, render it below
+                    learning_curves = report_data.get("learning_curves", {})
+                    if selected_model in learning_curves:
+                        curve_img = learning_curves[selected_model]
+                        if is_valid_image(curve_img):
+                            st.markdown("###### 📈 Loss / Learning Curve")
+                            st.image(curve_img, caption=f"{selected_model}: Loss Curve", use_container_width=True)
+
+                # ==========================================
+                # 🔍 SHAP FEATURE ATTRIBUTION SECTION
+                # ==========================================
+                st.markdown("---")
+                st.markdown('<div class="card-header">🔍 SHAP Feature Attribution & Model Interpretation</div>', unsafe_allow_html=True)
+                
+                # Find any SHAP report for this run
+                shap_report_files = glob.glob(os.path.join(run_dir, "*_shap_report.json"))
+                if shap_report_files:
+                    for shap_file in shap_report_files:
+                        try:
+                            with open(shap_file, "r", encoding="utf-8") as f_s:
+                                s_data = json.load(f_s)
+                            
+                            s_model = s_data.get("model_name", "Unknown")
+                            s_engine = s_data.get("explainer_engine", "Default Explainer")
+                            s_samples = s_data.get("num_samples_analyzed", 0)
+                            s_importance = s_data.get("mean_abs_shap", {})
+                            
+                            st.markdown(f"""
+                            <div class="premium-card">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem;">
+                                    <h4 style="margin: 0; color: #818cf8;">Model: <b>{s_model}</b></h4>
+                                    <span class="engine-badge">⚡ Engine: {s_engine}</span>
+                                </div>
+                                <p style="font-size: 0.9rem; color: #94a3b8; margin: 0;">Evaluated Samples: <b>{s_samples}</b> | Top Features: <b>{', '.join(s_data.get('top_features', []))}</b></p>
+                            </div>
+                            """, unsafe_allow_html=True)
+
+                            # Render SHAP bar and summary plots
+                            col_s1, col_s2 = st.columns(2)
+                            s_bar_img = os.path.join(run_dir, f"{s_model}_shap_bar.png")
+                            s_summary_img = os.path.join(run_dir, f"{s_model}_shap_summary.png")
+                            
+                            with col_s1:
+                                if is_valid_image(s_bar_img):
+                                    st.image(s_bar_img, caption=f"{s_model}: SHAP Feature Importance", use_container_width=True)
+                                else:
+                                    st.info("SHAP Bar plot not available.")
+                            with col_s2:
+                                if is_valid_image(s_summary_img):
+                                    st.image(s_summary_img, caption=f"{s_model}: SHAP Beeswarm Summary", use_container_width=True)
+                                else:
+                                    st.info("SHAP Summary plot not available.")
+
+                            # Show feature importance table
+                            if s_importance:
+                                with st.expander(f"📋 View Full SHAP Importance Scores ({s_model})", expanded=False):
+                                    df_shap = pd.DataFrame(list(s_importance.items()), columns=["Feature", "Mean Absolute SHAP"])
+                                    st.dataframe(df_shap, use_container_width=True)
+                                    
+                                    with open(shap_file, "r", encoding="utf-8") as f_dl:
+                                        st.download_button(
+                                            label=f"📥 Download {s_model} SHAP JSON Report",
+                                            data=f_dl.read(),
+                                            file_name=os.path.basename(shap_file),
+                                            mime="application/json"
+                                        )
+                        except Exception as e:
+                            st.warning(f"Error loading SHAP report file `{shap_file}`: {e}")
+                else:
+                    st.info(f"No SHAP explanation report generated for Run `{selected_run}`. Enable SHAP Analysis in '🔍 SHAP Interpretability' and re-run.")
+            else:
+                st.warning("No metrics data found in report JSON.")
+        else:
+            st.info(f"No report found at `{report_path}`.")

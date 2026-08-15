@@ -20,8 +20,9 @@ def test_logger_setup(temp_log_dir):
         }
     }
     
-    # Call logging configuration setup
-    logger = setup_logger(turn=3, config=config)
+    # Call logging configuration setup with custom run_id
+    test_run_id = "run_20260816_123456"
+    logger = setup_logger(run_id=test_run_id, config=config)
     
     # Issue test messages
     logger.info("Test INFO message")
@@ -34,17 +35,18 @@ def test_logger_setup(temp_log_dir):
     latest_path = os.path.join(temp_log_dir, "latest.log")
     assert os.path.exists(latest_path)
     
-    # Verify the dynamic turn specific log file was created
+    # Verify the dynamic run_id specific log file was created
     files = os.listdir(temp_log_dir)
-    turn_files = [f for f in files if "turn_3" in f]
-    assert len(turn_files) == 1
-    turn_file_path = os.path.join(temp_log_dir, turn_files[0])
+    run_files = [f for f in files if test_run_id in f]
+    assert len(run_files) == 1
+    run_file_path = os.path.join(temp_log_dir, run_files[0])
     
     # Check correct logging header, yaml configuration output, and logging content
-    with open(turn_file_path, "r", encoding="utf-8") as f:
+    with open(run_file_path, "r", encoding="utf-8") as f:
         content = f.read()
         
     assert "🚀 AutoML Regression Framework Run Configuration" in content
+    assert f"Run: {test_run_id}" in content
     assert "random_state: 42" in content
     assert "Test INFO message" in content
     assert "Test DEBUG message" in content

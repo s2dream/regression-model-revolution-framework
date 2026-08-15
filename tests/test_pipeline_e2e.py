@@ -68,13 +68,13 @@ def e2e_environment(tmp_path):
 
 
 def test_automl_pipeline_e2e_execution(e2e_environment):
-    """Verifies that AutoMLPipeline executes end-to-end and creates all expected output artifacts."""
+    """Verifies that AutoMLPipeline executes end-to-end and creates all expected output artifacts in outputs/<run_id>/."""
     env = e2e_environment
-    turn_idx = 1
+    test_run_id = "run_20260816_test_e2e"
     
     pipeline = AutoMLPipeline(
         config_path=env["config_path"],
-        turn=turn_idx
+        run_id=test_run_id
     )
     
     # Run full pipeline
@@ -97,14 +97,15 @@ def test_automl_pipeline_e2e_execution(e2e_environment):
         assert "RMSE" in pipeline.metrics[model_name]
         assert "MAE" in pipeline.metrics[model_name]
         
-    # Verify all generated file artifacts in output_dir
-    out_dir = env["output_dir"]
+    # Verify all generated file artifacts in output_dir (outputs/<run_id>/)
+    out_dir = os.path.join(env["output_dir"], test_run_id)
+    assert os.path.exists(out_dir), f"Run ID directory '{out_dir}' was not created"
     
-    json_report = os.path.join(out_dir, f"turn_{turn_idx}_report.json")
-    html_report = os.path.join(out_dir, f"turn_{turn_idx}_report.html")
-    md_summary = os.path.join(out_dir, f"turn_{turn_idx}_summary.md")
-    r2_chart = os.path.join(out_dir, f"turn_{turn_idx}_model_comparison_r2.png")
-    rmse_chart = os.path.join(out_dir, f"turn_{turn_idx}_model_comparison_rmse.png")
+    json_report = os.path.join(out_dir, "report.json")
+    html_report = os.path.join(out_dir, "report.html")
+    md_summary = os.path.join(out_dir, "summary.md")
+    r2_chart = os.path.join(out_dir, "model_comparison_r2.png")
+    rmse_chart = os.path.join(out_dir, "model_comparison_rmse.png")
     
     assert os.path.exists(json_report), "JSON report was not generated"
     assert os.path.exists(html_report), "HTML report was not generated"
@@ -115,7 +116,7 @@ def test_automl_pipeline_e2e_execution(e2e_environment):
     # Check JSON report contents
     with open(json_report, "r", encoding="utf-8") as f:
         report_data = json.load(f)
-        assert report_data["turn"] == turn_idx
+        assert report_data["run_id"] == test_run_id
         assert "best_model" in report_data
         assert report_data["best_model"] in ["RandomForest", "XGBoost"]
 
@@ -123,14 +124,45 @@ def test_automl_pipeline_e2e_execution(e2e_environment):
 def test_automl_pipeline_parameter_overrides(e2e_environment):
     """Verifies that CLI / init parameter overrides take precedence over YAML config."""
     env = e2e_environment
+    test_run_id = "run_custom_override"
     
     pipeline = AutoMLPipeline(
         config_path=env["config_path"],
-        turn=2,
+        run_id=test_run_id,
         target="Target_Price",
         test_size=0.4
     )
     
     assert pipeline.test_size == 0.4
-    assert pipeline.turn == 2
+    assert pipeline.run_id == test_run_id
     assert pipeline.target_column == "Target_Price"
+
+
+def test_automl_pipeline_run_id_collision_handling(e2e_environment):
+    """Verifies that duplicate run_id raises FileExistsError unless overwrite_run is True."""
+    env = e2e_environment
+    test_run_id = "run_collision_check"
+    
+    # First execution creates the directory
+    pipeline1 = AutoMLPipeline(
+        config_path=env["config_path"],
+        run_id=test_run_id
+    )
+    assert os.path.exists(pipeline1.output_dir)
+    
+    # Second execution with same run_id without overwrite_run should raise FileExistsError
+    with pytest.raises(FileExistsError) as exc_info:
+        AutoMLPipeline(
+            config_path=env["config_path"],
+            run_id=test_run_id,
+            overwrite_run=False
+        )
+    assert "already exists" in str(exc_info.value)
+    
+    # Third execution with overwrite_run=True should succeed
+    pipeline3 = AutoMLPipeline(
+        config_path=env["config_path"],
+        run_id=test_run_id,
+        overwrite_run=True
+    )
+    assert pipeline3.run_id == test_run_id

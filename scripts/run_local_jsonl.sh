@@ -13,8 +13,7 @@ echo "========================================================"
 python "$PROJECT_ROOT/main.py" \
   --config configs/default.yml \
   --dataset-path data/synthetic_regression.jsonl \
-  --target Target_Y \
-  --turn 1
+  --target Target_Y
 
 echo "========================================================"
 echo "✅ Pipeline run completed!"

@@ -42,7 +42,7 @@ class Visualizer:
         # Harmonious modern color palette
         self.palette = ["#58a6ff", "#ff7b72", "#aff5b4", "#d2a8ff", "#e3b341"]
 
-    def plot_actual_vs_predicted(self, y_true: np.ndarray, y_pred: np.ndarray, model_name: str, turn: int = 1) -> str:
+    def plot_actual_vs_predicted(self, y_true: np.ndarray, y_pred: np.ndarray, model_name: str) -> str:
         """
         Creates an elegant Scatter Plot of Actual vs. Predicted values with an identity line.
         
@@ -59,21 +59,21 @@ class Visualizer:
         max_val = max(y_true.max(), y_pred.max())
         ax.plot([min_val, max_val], [min_val, max_val], color=self.palette[1], linestyle='--', lw=2, label='Perfect Fit')
         
-        ax.set_title(f"{model_name}: Actual vs Predicted (Turn {turn})", color='#ffffff', pad=15)
+        ax.set_title(f"{model_name}: Actual vs Predicted", color='#ffffff', pad=15)
         ax.set_xlabel("Actual Values")
         ax.set_ylabel("Predicted Values")
         ax.legend(facecolor='#161b22', edgecolor='#30363d', labelcolor='#c9d1d9')
         
         plt.tight_layout()
         
-        filename = f"turn_{turn}_{model_name}_actual_vs_pred.png"
+        filename = f"{model_name}_actual_vs_pred.png"
         filepath = os.path.join(self.output_dir, filename)
         plt.savefig(filepath, facecolor=fig.get_facecolor(), edgecolor='none', dpi=200)
         plt.close()
         logger.info(f"Saved Actual vs Pred plot to {filepath}")
         return filepath
 
-    def plot_residuals(self, y_true: np.ndarray, y_pred: np.ndarray, model_name: str, turn: int = 1) -> str:
+    def plot_residuals(self, y_true: np.ndarray, y_pred: np.ndarray, model_name: str) -> str:
         """
         Plots Residuals vs Predicted values to diagnose variance behavior (heteroscedasticity).
         
@@ -86,20 +86,20 @@ class Visualizer:
         ax.scatter(y_pred, residuals, alpha=0.6, color=self.palette[2], edgecolors='none', s=25)
         ax.axhline(0, color=self.palette[1], linestyle='--', lw=2)
         
-        ax.set_title(f"{model_name}: Residual Plot (Turn {turn})", color='#ffffff', pad=15)
+        ax.set_title(f"{model_name}: Residual Plot", color='#ffffff', pad=15)
         ax.set_xlabel("Predicted Values")
         ax.set_ylabel("Residuals (Actual - Predicted)")
         
         plt.tight_layout()
         
-        filename = f"turn_{turn}_{model_name}_residuals.png"
+        filename = f"{model_name}_residuals.png"
         filepath = os.path.join(self.output_dir, filename)
         plt.savefig(filepath, facecolor=fig.get_facecolor(), edgecolor='none', dpi=200)
         plt.close()
         logger.info(f"Saved Residual plot to {filepath}")
         return filepath
 
-    def plot_model_comparison(self, metrics: Dict[str, Dict[str, float]], metric_name: str = "RMSE", turn: int = 1) -> str:
+    def plot_model_comparison(self, metrics: Dict[str, Dict[str, float]], metric_name: str = "RMSE") -> str:
         """
         Compares multiple models in a neat horizontal bar chart for a specified metric (e.g. RMSE, R2).
         
@@ -135,13 +135,13 @@ class Visualizer:
                 fontsize=9
             )
             
-        ax.set_title(f"Model Comparison: {metric_name} (Turn {turn})", color='#ffffff', pad=15)
+        ax.set_title(f"Model Comparison: {metric_name}", color='#ffffff', pad=15)
         ax.set_xlabel(metric_name)
         ax.set_ylabel("Models")
         
         plt.tight_layout()
         
-        filename = f"turn_{turn}_model_comparison_{metric_name.lower()}.png"
+        filename = f"model_comparison_{metric_name.lower()}.png"
         filepath = os.path.join(self.output_dir, filename)
         plt.savefig(filepath, facecolor=fig.get_facecolor(), edgecolor='none', dpi=200)
         plt.close()
@@ -151,21 +151,21 @@ class Visualizer:
     def save_json_report(
         self, 
         metrics: Dict[str, Dict[str, float]], 
-        turn: int = 1, 
+        run_id: Optional[str] = None, 
         metadata: Optional[Dict[str, Any]] = None,
         shap_reports: Optional[Dict[str, Dict[str, str]]] = None, 
         learning_curves: Optional[Dict[str, str]] = None,
         markdown_report_path: Optional[str] = None
     ) -> str:
         """
-        Saves the turn's execution and performance metrics in a structured JSON report.
+        Saves the execution and performance metrics in a structured JSON report.
         
         Returns:
             str: Path to the saved report
         """
         best_model = max(metrics.keys(), key=lambda k: metrics[k].get("R2", -float('inf'))) if metrics else None
         report_data = {
-            "turn": turn,
+            "run_id": run_id or os.path.basename(self.output_dir),
             "timestamp": datetime.now().isoformat(),
             "best_model": best_model,
             "metrics": metrics,
@@ -178,7 +178,7 @@ class Visualizer:
         if markdown_report_path:
             report_data["markdown_report_path"] = markdown_report_path
             
-        filename = f"turn_{turn}_report.json"
+        filename = "report.json"
         filepath = os.path.join(self.output_dir, filename)
         
         with open(filepath, 'w', encoding='utf-8') as f:
@@ -201,7 +201,7 @@ class Visualizer:
     def save_html_report(
         self, 
         metrics: Dict[str, Dict[str, float]], 
-        turn: int = 1, 
+        run_id: Optional[str] = None, 
         metadata: Optional[Dict[str, Any]] = None
     ) -> str:
         """
@@ -213,6 +213,7 @@ class Visualizer:
         """
         metadata = metadata or {}
         timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        run_name = run_id or os.path.basename(self.output_dir)
         
         sorted_models = sorted(
             metrics.keys(), 
@@ -227,8 +228,8 @@ class Visualizer:
         best_mae = best_metrics.get("MAE", 0.0)
         
         # Gather base64 images for comparison charts
-        r2_img_path = os.path.join(self.output_dir, f"turn_{turn}_model_comparison_r2.png")
-        rmse_img_path = os.path.join(self.output_dir, f"turn_{turn}_model_comparison_rmse.png")
+        r2_img_path = os.path.join(self.output_dir, "model_comparison_r2.png")
+        rmse_img_path = os.path.join(self.output_dir, "model_comparison_rmse.png")
         r2_b64 = self._encode_image_to_base64(r2_img_path)
         rmse_b64 = self._encode_image_to_base64(rmse_img_path)
         
@@ -259,8 +260,8 @@ class Visualizer:
             tab_id = f"diag-tab-{idx}"
             tab_buttons_html.append(f'<button class="tab-btn {active_class}" onclick="switchTab(\'{tab_id}\', this)">{m_name}</button>')
             
-            act_pred_img = os.path.join(self.output_dir, f"turn_{turn}_{m_name}_actual_vs_pred.png")
-            res_img = os.path.join(self.output_dir, f"turn_{turn}_{m_name}_residuals.png")
+            act_pred_img = os.path.join(self.output_dir, f"{m_name}_actual_vs_pred.png")
+            res_img = os.path.join(self.output_dir, f"{m_name}_residuals.png")
             act_pred_b64 = self._encode_image_to_base64(act_pred_img)
             res_b64 = self._encode_image_to_base64(res_img)
             
@@ -290,7 +291,7 @@ class Visualizer:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AutoML Benchmark Report - Turn {turn}</title>
+    <title>AutoML Benchmark Report - {run_name}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
@@ -654,7 +655,7 @@ class Visualizer:
                 <p>Automated Tabular Model Evaluation & Diagnostic Report</p>
             </div>
             <div class="header-badge">
-                Execution Turn {turn} • {timestamp_str}
+                Run: {run_name} • {timestamp_str}
             </div>
         </header>
 
@@ -732,7 +733,7 @@ class Visualizer:
 
         <!-- Footer -->
         <footer class="report-footer">
-            Generated automatically by <strong>Regression Model Revolution Framework</strong> • Turn {turn}
+            Generated automatically by <strong>Regression Model Revolution Framework</strong> • Run {run_name}
         </footer>
     </div>
 
@@ -788,7 +789,7 @@ class Visualizer:
 </body>
 </html>
 """
-        filename = f"turn_{turn}_report.html"
+        filename = "report.html"
         filepath = os.path.join(self.output_dir, filename)
         with open(filepath, 'w', encoding='utf-8') as f:
             f.write(html_content)
@@ -799,7 +800,7 @@ class Visualizer:
     def save_markdown_summary(
         self, 
         metrics: Dict[str, Dict[str, float]], 
-        turn: int = 1, 
+        run_id: Optional[str] = None, 
         metadata: Optional[Dict[str, Any]] = None
     ) -> str:
         """
@@ -811,6 +812,7 @@ class Visualizer:
         """
         metadata = metadata or {}
         timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        run_name = run_id or os.path.basename(self.output_dir)
         
         sorted_models = sorted(
             metrics.keys(), 
@@ -830,7 +832,7 @@ class Visualizer:
         test_samples = metadata.get("test_samples", "N/A")
 
         lines = [
-            f"# 🚀 AutoML Regression Benchmark Summary (Turn {turn})",
+            f"# 🚀 AutoML Regression Benchmark Summary ({run_name})",
             "",
             f"> **Generated at**: `{timestamp_str}`  ",
             f"> **🏆 Champion Model**: **{best_model}** ($R^2$: `{best_r2:.4f}`, RMSE: `{best_rmse:.4f}`, MAE: `{best_mae:.4f}`)",
@@ -857,17 +859,17 @@ class Visualizer:
         lines.extend([
             "",
             "## 📁 Generated Output Artifacts",
-            f"- **Interactive HTML Dashboard**: [`turn_{turn}_report.html`](turn_{turn}_report.html)",
-            f"- **Structured JSON Report**: [`turn_{turn}_report.json`](turn_{turn}_report.json)",
-            f"- **Model Comparison Chart (R²)**: [`turn_{turn}_model_comparison_r2.png`](turn_{turn}_model_comparison_r2.png)",
-            f"- **Model Comparison Chart (RMSE)**: [`turn_{turn}_model_comparison_rmse.png`](turn_{turn}_model_comparison_rmse.png)",
+            "- **Interactive HTML Dashboard**: [`report.html`](report.html)",
+            "- **Structured JSON Report**: [`report.json`](report.json)",
+            "- **Model Comparison Chart (R²)**: [`model_comparison_r2.png`](model_comparison_r2.png)",
+            "- **Model Comparison Chart (RMSE)**: [`model_comparison_rmse.png`](model_comparison_rmse.png)",
             "",
             "---",
             "*Report auto-generated by Regression Model Revolution Framework.*"
         ])
 
         md_content = "\n".join(lines)
-        filename = f"turn_{turn}_summary.md"
+        filename = "summary.md"
         filepath = os.path.join(self.output_dir, filename)
         with open(filepath, 'w', encoding='utf-8') as f:
             f.write(md_content)
@@ -875,7 +877,7 @@ class Visualizer:
         logger.info(f"Saved Markdown summary to {filepath}")
         return filepath
 
-    def plot_shap_explainability(self, model_wrap, X_train: pd.DataFrame, X_test: pd.DataFrame, model_name: str, turn: int = 1, max_samples: int = 100) -> Dict[str, str]:
+    def plot_shap_explainability(self, model_wrap, X_train: pd.DataFrame, X_test: pd.DataFrame, model_name: str, max_samples: int = 100) -> Dict[str, str]:
         """
         Computes SHAP values and saves Beeswarm and Bar Plots for the given model wrapper.
         Includes safety shielding and fallback strategies.
@@ -951,10 +953,10 @@ class Visualizer:
             ax.xaxis.label.set_color('#8b949e')
             ax.yaxis.label.set_color('#8b949e')
             ax.tick_params(colors='#8b949e')
-            plt.title(f"{model_name}: SHAP Summary (Turn {turn})", color='#ffffff', pad=15)
+            plt.title(f"{model_name}: SHAP Summary", color='#ffffff', pad=15)
             plt.tight_layout()
 
-            summary_filename = f"turn_{turn}_{model_name}_shap_summary.png"
+            summary_filename = f"{model_name}_shap_summary.png"
             summary_path = os.path.join(self.output_dir, summary_filename)
             plt.savefig(summary_path, facecolor=fig.get_facecolor(), edgecolor='none', dpi=200)
             plt.close()
@@ -983,10 +985,10 @@ class Visualizer:
             ax.xaxis.label.set_color('#8b949e')
             ax.yaxis.label.set_color('#8b949e')
             ax.tick_params(colors='#8b949e')
-            plt.title(f"{model_name}: Feature Importance (Turn {turn})", color='#ffffff', pad=15)
+            plt.title(f"{model_name}: Feature Importance", color='#ffffff', pad=15)
             plt.tight_layout()
 
-            bar_filename = f"turn_{turn}_{model_name}_shap_bar.png"
+            bar_filename = f"{model_name}_shap_bar.png"
             bar_path = os.path.join(self.output_dir, bar_filename)
             plt.savefig(bar_path, facecolor=fig.get_facecolor(), edgecolor='none', dpi=200)
             plt.close()
@@ -998,7 +1000,7 @@ class Visualizer:
 
         return paths
 
-    def plot_learning_curve(self, loss_history: list, model_name: str, turn: int = 1) -> str:
+    def plot_learning_curve(self, loss_history: list, model_name: str) -> str:
         """
         Plots the training loss curve for iterative models.
         
@@ -1011,14 +1013,14 @@ class Visualizer:
         fig, ax = plt.subplots(figsize=(7, 4.5))
         ax.plot(range(1, len(loss_history) + 1), loss_history, color=self.palette[0], lw=2, label="Train Loss")
         
-        ax.set_title(f"{model_name}: Learning Curve (Turn {turn})", color='#ffffff', pad=15)
+        ax.set_title(f"{model_name}: Learning Curve", color='#ffffff', pad=15)
         ax.set_xlabel("Epoch / Iteration")
         ax.set_ylabel("Loss / Error")
         ax.legend(facecolor='#161b22', edgecolor='#30363d', labelcolor='#c9d1d9')
         
         plt.tight_layout()
         
-        filename = f"turn_{turn}_{model_name}_learning_curve.png"
+        filename = f"{model_name}_learning_curve.png"
         filepath = os.path.join(self.output_dir, filename)
         plt.savefig(filepath, facecolor=fig.get_facecolor(), edgecolor='none', dpi=200)
         plt.close()
@@ -1028,7 +1030,7 @@ class Visualizer:
     def save_markdown_report(
         self,
         metrics: Dict[str, Dict[str, float]],
-        turn: int = 1,
+        run_id: Optional[str] = None,
         dataset_info: Optional[Dict[str, Any]] = None,
         shap_reports: Optional[Dict[str, Dict[str, str]]] = None,
         learning_curves: Optional[Dict[str, str]] = None
@@ -1040,13 +1042,14 @@ class Visualizer:
             str: Path to the saved report
         """
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        run_name = run_id or os.path.basename(self.output_dir)
         
         # Sort models by R2 score
         sorted_models = sorted(metrics.items(), key=lambda x: x[1].get("R2", -999), reverse=True)
         best_model = sorted_models[0][0] if sorted_models else None
         
         lines = []
-        lines.append(f"# 📊 AutoML Tabular Regression Benchmark Report (Turn {turn})")
+        lines.append(f"# 📊 AutoML Tabular Regression Benchmark Report ({run_name})")
         lines.append(f"**Report Generated At**: `{timestamp}`")
         
         if dataset_info:
@@ -1078,8 +1081,8 @@ class Visualizer:
             lines.append(f"- **R² Score**: `{scores.get('R2', 0.0):.6f}`")
             
             lines.append("- **Diagnostic Plots Available**:")
-            pred_vs_act_img = f"turn_{turn}_{model_name}_actual_vs_pred.png"
-            residuals_img = f"turn_{turn}_{model_name}_residuals.png"
+            pred_vs_act_img = f"{model_name}_actual_vs_pred.png"
+            residuals_img = f"{model_name}_residuals.png"
             lines.append(f"  - Actual vs Predicted: [`{pred_vs_act_img}`](file://{os.path.abspath(os.path.join(self.output_dir, pred_vs_act_img))})")
             lines.append(f"  - Residuals Plot: [`{residuals_img}`](file://{os.path.abspath(os.path.join(self.output_dir, residuals_img))})")
             
@@ -1107,7 +1110,7 @@ class Visualizer:
             
         markdown_content = "\n".join(lines)
         
-        filename = f"turn_{turn}_report.md"
+        filename = "report.md"
         filepath = os.path.join(self.output_dir, filename)
         
         with open(filepath, 'w', encoding='utf-8') as f:

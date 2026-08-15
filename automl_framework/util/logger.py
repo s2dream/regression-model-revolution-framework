@@ -3,10 +3,12 @@ import yaml
 import logging
 from datetime import datetime
 
-def setup_logger(turn: int = 1, config: dict = None) -> logging.Logger:
+from typing import Optional
+
+def setup_logger(run_id: Optional[str] = None, config: dict = None) -> logging.Logger:
     """
     Sets up a centralized logger that writes to both console and a dynamic log file.
-    Logs are stored in a 'logs' directory, named with the turn and timestamp.
+    Logs are stored in a 'logs' directory, named with the run_id.
     Prints the loaded config at the start of the log file for easy reference.
     """
     # 1. Determine log directory
@@ -15,9 +17,11 @@ def setup_logger(turn: int = 1, config: dict = None) -> logging.Logger:
         log_dir = config.get("logging", {}).get("log_dir", "logs")
     os.makedirs(log_dir, exist_ok=True)
 
-    # 2. Unique log filename based on turn and current timestamp
+    # 2. Unique log filename based on run_id or timestamp
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_filename = f"automl_turn_{turn}_{timestamp}.log"
+    if not run_id:
+        run_id = f"run_{timestamp}"
+    log_filename = f"automl_{run_id}.log"
     log_path = os.path.join(log_dir, log_filename)
     latest_log_path = os.path.join(log_dir, "latest.log")
 
@@ -28,7 +32,7 @@ def setup_logger(turn: int = 1, config: dict = None) -> logging.Logger:
             config_str = yaml.dump(config, default_flow_style=False)
             config_header = (
                 "====================================================================\n"
-                f"🚀 AutoML Regression Framework Run Configuration (Turn {turn} - {timestamp})\n"
+                f"🚀 AutoML Regression Framework Run Configuration (Run: {run_id} - {timestamp})\n"
                 "====================================================================\n"
                 f"{config_str}"
                 "====================================================================\n\n"

@@ -15,17 +15,18 @@
 루트의 `main.py`는 명령줄 인수를 통해 파이프라인의 핵심 동작 파라미터를 제어합니다.
 
 ### 2.1 CLI 인수 정의
-| 옵션 명칭 | 단축키 | 타입 | 기본값 | 설명 |
-| :--- | :--- | :--- | :--- | :--- |
-| `--config` | `-c` | `str` | `configs/default.yml` | 파이프라인 구동용 YAML 설정 프로파일 경로 |
-| `--turn` | `-t` | `int` | `1` | 실험 실행 회차 번호 (출력 파일명 접미사로 사용) |
-| `--dataset-path` | `-d` | `str` | `data/synthetic_regression.csv` | 로컬 입력 데이터셋 파일 경로 (CSV, TSV, JSONL 등) |
-| `--kaggle-dataset`| `-k` | `str` | `None` | Kaggle 데이터셋 식별자 (예: `user/dataset-name`) |
-| `--url` | `-u` | `str` | `None` | 원격 HTTP 다운로드 데이터 파일 URL |
-| `--target` | - | `str` | `None` | 타겟 컬럼명 (설정 파일의 `target_column`을 오버라이드) |
-| `--test-size` | - | `float`| `None` | 테스트 데이터 분할 비율 (예: `0.2`) |
-| `--enable-shap` | - | `flag` | `False` | SHAP 모델 해석 및 피처 기여도 분석 활성화 |
-| `--shap-model` | - | `str` | `Champion` | SHAP 분석 대상 모델명 (`Champion`, `TabICL`, `XGBoost` 등) |
+| 옵션 명칭 | 타입 | 기본값 | 설명 |
+| :--- | :--- | :--- | :--- |
+| `--config` | `str` | `configs/default.yml` | 파이프라인 구동용 YAML 설정 프로파일 경로 |
+| `--run-id` | `str` | `None` (자동 생성) | 고유 실행 아이디 (예: `run_20260816_120000`). 미지정 시 날짜시간 기반 자동 생성 |
+| `--overwrite-run` | `flag` | `False` | 동일한 `--run-id` 디렉토리가 이미 존재할 때 덮어쓰기 허용 (미지정 시 중복 시 `FileExistsError` 발생 후 안전 종료) |
+| `--dataset-path` | `str` | `data/synthetic_regression.csv` | 로컬 입력 데이터셋 파일 경로 (CSV, TSV, JSONL 등) |
+| `--kaggle-dataset`| `str` | `None` | Kaggle 데이터셋 식별자 (예: `user/dataset-name`) |
+| `--url` | `str` | `None` | 원격 HTTP 다운로드 데이터 파일 URL |
+| `--target` | `str` | `None` | 타겟 컬럼명 (설정 파일의 `target_column`을 오버라이드) |
+| `--test-size` | `float`| `None` | 테스트 데이터 분할 비율 (예: `0.2`) |
+| `--enable-shap` | `flag` | `False` | SHAP 모델 해석 및 피처 기여도 분석 활성화 |
+| `--shap-model` | `str` | `Champion` | SHAP 분석 대상 모델명 (`Champion`, `TabICL`, `XGBoost` 등) |
 
 ---
 
@@ -196,35 +197,36 @@ class SHAPAnalyzer:
 
 ## 5. 결과 산출물 스키마
 
-### 5.1 표준 실행 리포트 (`outputs/turn_{turn}_report.json`)
+### 5.1 표준 실행 리포트 (`outputs/<run_id>/report.json`)
 ```json
 {
-  "turn": 1,
+  "run_id": "run_20260816_120000",
   "champion_model": "CatBoost",
   "champion_r2": 0.9412,
   "metrics": {
     "XGBoost": { "RMSE": 1.2345, "MAE": 0.9876, "R2": 0.9321 },
     "CatBoost": { "RMSE": 1.1201, "MAE": 0.8912, "R2": 0.9412 },
-    "TabICL": { "RMSE": 1.1504, "MAE": 0.9102, "R2": 0.9380 }
+    "RandomForest": { "RMSE": 1.3412, "MAE": 1.0123, "R2": 0.9123 },
+    "MLP": { "RMSE": 1.1504, "MAE": 0.9102, "R2": 0.9380 }
   },
   "metadata": {
     "target_column": "Target_Y",
     "split_method": "train_test_split",
-    "train_samples": 80,
-    "test_samples": 20,
+    "train_samples": 400,
+    "test_samples": 100,
     "num_features": 4,
     "random_state": 42
   },
-  "timestamp": "2026-08-15T12:00:00"
+  "timestamp": "2026-08-16T12:00:00"
 }
 ```
 
-### 5.2 SHAP 해석 리포트 (`outputs/turn_{turn}_{model}_shap_report.json`)
+### 5.2 SHAP 해석 리포트 (`outputs/<run_id>/{model}_shap_report.json`)
 ```json
 {
-  "turn": 1,
-  "model_name": "TabICL",
-  "explainer_engine": "TabICL Dedicated In-Context Explainer",
+  "run_id": "run_20260816_120000",
+  "model_name": "RandomForest",
+  "explainer_engine": "TreeExplainer",
   "num_samples_analyzed": 20,
   "num_features": 4,
   "top_features": [
@@ -240,9 +242,9 @@ class SHAPAnalyzer:
     "Category_X3_medium": 1.2719
   },
   "artifacts": [
-    "turn_1_TabICL_shap_bar.png",
-    "turn_1_TabICL_shap_summary.png"
+    "RandomForest_shap_bar.png",
+    "RandomForest_shap_summary.png"
   ],
-  "timestamp": "2026-08-15T12:00:00"
+  "timestamp": "2026-08-16T12:00:00"
 }
 ```

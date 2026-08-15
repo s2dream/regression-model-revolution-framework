@@ -125,22 +125,28 @@ This starts the local Streamlit studio with 7 sidebar views:
 
 ### 3. Run via Command Line Interface (CLI)
 ```bash
-# Run with local CSV dataset and enable SHAP analysis on TabICL
-python main.py --dataset-path data/synthetic_regression.csv --enable-shap --shap-model TabICL
+# Basic run with auto-generated Run ID (e.g. outputs/run_20260816_085144/)
+python main.py --dataset-path data/synthetic_regression.csv
 
-# Run with automated HPO and SHAP analysis on the champion model
-python main.py --config configs/default.yml --enable-shap --shap-model Champion
+# Run with custom Run ID and enable SHAP feature attribution
+python main.py --dataset-path data/synthetic_regression.csv --run-id experiment_v1 --enable-shap --shap-model Champion
+
+# Overwrite existing Run ID directory if needed
+python main.py --dataset-path data/synthetic_regression.csv --run-id experiment_v1 --overwrite-run
 ```
 
 ---
 
 ## 📊 Outputs & Reports
-After every execution, the framework saves production-quality assets in `outputs/`:
-- `outputs/turn_1_model_comparison_r2.png` - Horizontal bar chart comparing model R2 scores.
-- `outputs/turn_1_[Model]_actual_vs_pred.png` - Prediction variance scatter plot with identity fit line.
-- `outputs/turn_1_[Model]_residuals.png` - Residual diagnostics plot.
-- `outputs/turn_1_[Model]_shap_bar.png` - SHAP feature importance horizontal bar plot.
-- `outputs/turn_1_[Model]_shap_summary.png` - SHAP Beeswarm summary scatter plot.
-- `outputs/turn_1_report.html` - Interactive standalone HTML dashboard.
-- `outputs/turn_1_report.json` - Complete metadata report highlighting the champion model.
-- `outputs/turn_1_[Model]_shap_report.json` - Standalone SHAP feature attribution report.
+After every execution, the framework saves production-quality assets isolated inside `outputs/<run_id>/`:
+- `outputs/<run_id>/model_comparison_r2.png` - Horizontal bar chart comparing model R2 scores.
+- `outputs/<run_id>/model_comparison_rmse.png` - Horizontal bar chart comparing model RMSE scores.
+- `outputs/<run_id>/[Model]_actual_vs_pred.png` - Prediction variance scatter plot with identity fit line.
+- `outputs/<run_id>/[Model]_residuals.png` - Residual diagnostics plot.
+- `outputs/<run_id>/[Model]_learning_curve.png` - Loss / convergence learning curve.
+- `outputs/<run_id>/[Model]_shap_bar.png` - SHAP feature importance horizontal bar plot.
+- `outputs/<run_id>/[Model]_shap_summary.png` - SHAP Beeswarm summary scatter plot.
+- `outputs/<run_id>/report.html` - Interactive standalone HTML dashboard.
+- `outputs/<run_id>/report.json` - Complete metadata report highlighting the champion model.
+- `outputs/<run_id>/summary.md` - Executive Markdown summary report.
+- `outputs/<run_id>/[Model]_shap_report.json` - Standalone SHAP feature attribution report.
