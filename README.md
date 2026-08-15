@@ -1,6 +1,20 @@
 # 🚀 Regression Model Revolution Framework
 
-Welcome to the **Regression Model Revolution Framework**, a premium, production-grade **AutoML Regression pipeline** built in pure Python. It integrates state-of-the-art tabular algorithms (including **TabPFN** and **XGBoost**) with an automated, ultra-sleek dark-slate visualization suite to make tabular model benchmarking fast, gorgeous, and effortless.
+Welcome to the **Regression Model Revolution Framework**, a premium, production-grade **AutoML Regression pipeline** built in pure Python. It integrates state-of-the-art tabular algorithms (including **TabICL**, **TabPFN**, **XGBoost**, **CatBoost**, and PyTorch **Transformers**) with automated **Optuna HPO** and an ultra-sleek dark-slate visualization suite to make tabular model benchmarking fast, gorgeous, and effortless.
+
+---
+
+## 📚 S/W Development Process Documentation (프로젝트 산출물 문서)
+
+본 프로젝트는 표준 소프트웨어 개발 생명주기(SDLC)에 따른 체계적인 기술 문서 세트를 제공합니다.
+
+| 문서명 | 파일 링크 | 설명 |
+| :--- | :--- | :--- |
+| **요구사항 명세서 (SRS)** | [REQ_SPEC.md](file:///home/jeonghoon/github/regression-model-revolution-framework/REQ_SPEC.md) | 시스템 목표, 기능/비기능 요구사항 및 QA 품질 기준 명세 |
+| **아키텍처 정의서 (SAD)** | [ARCHITECTURE.md](file:///home/jeonghoon/github/regression-model-revolution-framework/ARCHITECTURE.md) | 하이레벨 구조, 모듈 및 클래스 구성, 디자인 패턴 설계서 |
+| **동적 시퀀스 다이어그램** | [sequence_diagram.md](file:///home/jeonghoon/github/regression-model-revolution-framework/sequence_diagram.md) | 파이프라인, HPO 루프, WebUI 상호작용 Mermaid 시퀀스 다이어그램 |
+| **테스트 계획 및 명세서 (STP/STD)** | [TEST_SPEC.md](file:///home/jeonghoon/github/regression-model-revolution-framework/TEST_SPEC.md) | 단위, 통합, E2E, UI 헬퍼 세부 테스트 케이스 명세 |
+| **인터페이스 & API 명세서** | [INTERFACE_SPEC.md](file:///home/jeonghoon/github/regression-model-revolution-framework/INTERFACE_SPEC.md) | CLI, YAML 스키마, 파사드 API 및 모델 인터페이스 규격 |
 
 ---
 
@@ -13,11 +27,11 @@ This framework is built with a **Premium Dark Slate** aesthetic. Every generated
 
 A clean, modular design separating the orchestration layer from the internal package domains:
 
-```
+```text
 regression-model-revolution-framework/
 │
 ├── main.py                         # 🌟 Central CLI pipeline orchestrator (Facade imports)
-├── app.py                          # 🖥️ Streamlit WebUI dashboard application
+├── app.py                          # 🖥️ Streamlit WebUI Studio (Overview, Run, Studio, History)
 ├── configs/                        # ⚙️ Config profiles (experiment with diverse settings)
 │   ├── default.yml                 # Default AutoML configuration profile
 │   ├── kfold_split.yml             # K-Fold split configuration profile
@@ -29,8 +43,11 @@ regression-model-revolution-framework/
 │   ├── run_local_jsonl.sh          # Run AutoML benchmark pipeline with local JSONL (dynamic columns)
 │   ├── run_url.sh                  # Download dataset from direct URL and run benchmark
 │   └── run_webui.sh                # Run Streamlit WebUI studio
-├── ARCHITECTURE.md                 # System modules & execution flow specs
-├── REQ_SPEC.md                     # Requirements and functional specifications
+├── REQ_SPEC.md                     # Software Requirements Specification
+├── ARCHITECTURE.md                 # System Architecture Document
+├── sequence_diagram.md             # Sequence Diagrams for Pipeline & WebUI
+├── TEST_SPEC.md                    # Software Test Plan & Specification
+├── INTERFACE_SPEC.md               # Interface & API Specification
 ├── requirements.txt                # Core packages required
 │
 ├── automl_framework/               # 📦 The AutoML engine core package
@@ -49,19 +66,29 @@ regression-model-revolution-framework/
 │   │   ├── model_pool.py           # ModelPool inventory repository
 │   │   ├── model_factory.py        # ModelFactory & ModelType Enum (Factory Method pattern)
 │   │   ├── model_executor.py       # Benchmark executors (StandardBenchmarkExecutor)
-│   │   ├── wrappers.py             # Exception-shielded model wrappers (XGBoost, MLP, TabPFN, RF, CatBoost, Transformer)
+│   │   ├── wrappers.py             # Model wrappers (XGBoost, CatBoost, RF, MLP, TabPFN, TabICL, NN)
+│   │   ├── hpo.py                  # Optuna Automated Hyperparameter Optimization Tuner
 │   │   └── architecture/           # Neural network model architectures
-│   │       └── transformer_encoder.py # PyTorch Transformer-based sequence regression (TransformerBasedRegression)
+│   │       └── transformer_encoder.py # PyTorch Transformer-based sequence regression
 │   │
 │   └── util/                       # 🛠️ Visualization & Utility subpackage
 │       ├── __init__.py
-│       └── visualizer.py           # Premium dark-theme visualizer & JSON reporting
+│       ├── visualizer.py           # Premium dark-theme visualizer & JSON reporting
+│       └── logger.py               # Robust console/file logger
 │
 └── tests/                          # 🧪 Comprehensive Test Suite
     ├── __init__.py
     ├── test_dataloader.py          # Tests for dataloading, preprocessing, and JSONL formats
     ├── test_model.py               # Tests for model initialization & executor
-    └── test_visualizer.py          # Tests for premium visualizations & JSON reporting
+    ├── test_model_factory.py       # Tests for ModelFactory and ModelType enum
+    ├── test_all_models.py          # Tests for all regressor wrappers
+    ├── test_tabicl.py              # Tests for TabICL In-Context Learning regressor
+    ├── test_transformer_regression.py # Tests for PyTorch Transformer regressor
+    ├── test_hpo.py                 # Tests for Optuna HPO tuning
+    ├── test_visualizer.py          # Tests for premium visualizations & JSON reporting
+    ├── test_logger.py              # Tests for logging framework
+    ├── test_webui_helpers.py       # Tests for WebUI helper and media validation
+    └── test_pipeline_e2e.py        # End-to-end full pipeline integration test
 ```
 
 ---
@@ -69,28 +96,17 @@ regression-model-revolution-framework/
 ## 🛠️ Quick Start
 
 ### 1. Install Dependencies
-You can install all necessary dependencies using the provided `requirements.txt`:
 ```bash
 pip install -r requirements.txt
 ```
 
-*(Optional) If you want to use the TabPFN and Kaggle API integrations:*
-```bash
-pip install tabpfn kaggle
-```
-
-### 2. Run with Streamlit WebUI (Recommended)
-
-You can launch the dynamic WebUI Studio to visually configure, run, and evaluate experiments:
+### 2. Run with Streamlit WebUI Studio (Recommended)
 ```bash
 ./scripts/run_webui.sh
 ```
-This starts a local Streamlit server (usually at `http://localhost:8501`) that dynamically parses configs, handles real-time execution log streaming, and visualizes results.
+This starts the local Streamlit studio with 4 sidebar views (`Overview & Dashboard`, `Run Experiment`, `Config Studio`, and `History & Artifacts`).
 
 ### 3. Run via Command Line Interface (CLI)
-
-The easiest way to run the pipeline with pre-configured settings is using the provided executable bash scripts under the `scripts/` directory:
-
 ```bash
 # Run with a local CSV dataset
 ./scripts/run_local_csv.sh
@@ -101,91 +117,6 @@ The easiest way to run the pipeline with pre-configured settings is using the pr
 # Run downloading a dataset from a remote URL
 ./scripts/run_url.sh
 ```
-
-Alternatively, you can call `main.py` directly with custom command line arguments:
-
-To run with a custom local CSV dataset:
-```bash
-python main.py --dataset-path path/to/dataset.csv --target name_of_target_column
-```
-
-To run with a local JSON Lines (`.jsonl`) dataset where some rows have missing keys:
-```bash
-python main.py --dataset-path data/synthetic_regression.jsonl --target Target_Y
-```
-
-To automatically pull a dataset from Kaggle and execute the benchmark:
-```bash
-python main.py --kaggle-dataset "sobhanmoosavi/us-accidents" --target "Severity"
-```
-
-To download from a URL (e.g. UCI ML Database or GitHub dataset) and run:
-```bash
-python main.py --url "https://raw.githubusercontent.com/selva86/datasets/master/BostonHousing.csv" --target "medv"
-```
-
----
-
-## ⚙️ Configuration Profile Directory (`configs/`)
-
-The framework supports dynamic, profile-driven configurations located inside the `configs/` directory. You can tune active models, custom feature subsets, data splitting strategies (`train_test_split`, `kfold`, `timeseries`), and model-specific hyperparameters **without modifying a single line of Python code**!
-
-To execute using a specific profile, pass the `--config` parameter:
-```bash
-# Run with default settings (train_test_split)
-python main.py --config configs/default.yml --dataset-path data/synthetic_regression.csv
-
-# Run with K-Fold cross validation split strategy
-python main.py --config configs/kfold_split.yml --dataset-path data/synthetic_regression.csv
-
-# Run with sequential Time-Series split strategy
-python main.py --config configs/timeseries_split.yml --dataset-path data/synthetic_regression.csv
-
-# Run extracting only a designated custom features subset
-python main.py --config configs/custom_features.yml --dataset-path data/synthetic_regression.csv
-```
-
-### Example Settings (`configs/default.yml`)
-
-```yaml
-# Global Framework Settings
-framework:
-  random_state: 42
-  active_models:
-    - XGBoost
-    - MLP
-    - TabPFN
-    - RandomForest
-    - CatBoost
-
-# Data Pipeline Settings (Target/Features & Split selection)
-data:
-  data_dir: "data"
-  output_dir: "outputs"
-  target_column: "Target_Y"
-  feature_columns: null   # e.g., ["Feature_Num", "Feature_Cat"]
-  ignored_columns: null   # e.g., ["Unwanted_Col1", "Unwanted_Col2"]
-  split:
-    method: "train_test_split"  # Options: "train_test_split", "kfold", "timeseries"
-    test_size: 0.2
-    n_splits: 5
-    shuffle: true
-
-# Model Hyperparameters
-models:
-  XGBoost:
-    n_estimators: 100
-    learning_rate: 0.1
-    max_depth: 6
-  MLP:
-    hidden_layer_sizes: [128, 64]
-    activation: "relu"
-    max_iter: 500
-```
-
-### Command Precedence & Fallbacks:
-- Arguments specified directly on the command line (like `--test-size 0.3` or `--target target_col`) will seamlessly **override** their counterpart values inside configuration files.
-- A resilient fallback is programmed: if a configuration file is missing or corrupted, the system continues running automatically using robust default configurations.
 
 ---
 

@@ -1,22 +1,23 @@
 # AutoML Regression Framework Architecture
 
-본 문서는 **AutoML Regression Framework**의 모듈 및 클래스 구조, 데이터 흐름, 그리고 이들 간의 상호작용 관계를 텍스트 기반 다이어그램과 함께 상세히 설명합니다.
+본 문서는 **AutoML Regression Framework**의 시스템 아키텍처, 소프트웨어 모듈 및 클래스 구조, 데이터 흐름, 디자인 패턴, 그리고 이들 간의 상호작용 관계를 상세히 정의한 **소프트웨어 아키텍처 설계서 (SAD)**입니다.
 
 ---
 
 ## 1. High-Level Architecture Diagram (아키텍처 다이어그램)
 
-아래 다이어그램은 프레임워크의 핵심 실행 제어 흐름과 데이터의 파이프라인 처리 과정을 텍스트(ASCII/Unicode Art)로 시각화한 것입니다.
+프레임워크의 핵심 실행 제어 흐름과 데이터 파이프라인 처리 과정은 아래와 같습니다.
 
 ```text
                      ┌───────────────────────────────┐
-                     │      configs/default.yml      │ (Central Schema & Default Config)
+                     │      configs/default.yml      │ (Central Schema & Config Profiles)
                      └───────┬───────────────┬───────┘
                              │               │
             ┌────────────────▼───────────────▼───────────────┐
-            │            app.py (Streamlit WebUI)            │ (Interactive Web Dashboard)
-            │  - Dynamic Parameter / Model Form Rendering     │
-            │  - Real-time Log Stream / Subprocess Runner    │
+            │            app.py (Streamlit WebUI)            │ (Interactive Web Studio)
+            │  - 4-View Sidebar (Overview, Run, Studio, Hist)│
+            │  - Dynamic Parameter Rendering / Schema Sync   │
+            │  - Subprocess Real-time Log Streamer           │
             └────────────────┬───────────────────────────────┘
                              │ Generates configs/web_config.yml & Executes
                              ▼
@@ -58,236 +59,67 @@
 │ - fit_all(X_train, y_train)                                               │
 │ - evaluate_all(X_test, y_test) -> metrics (RMSE, MAE, R2)                 │
 │ - get_predictions(X) -> dict of predictions                               │
-└──────────────────────────────────────┬────────────────────────────────────┘
-                                       │
-                                       │ Operates on Dynamically Configured Inventory
-                                       ▼
-┌───────────────────────────────────────────────────────────────────────────┐
-│                                 ModelPool                                 │
-│                   (automl_framework/model/model_pool.py)                  │
-├───────────────────────────────────────────────────────────────────────────┤
-│ - models: Dict[str, ABCModelWrapper]                                      │
-│ - _initialize_default_models() -> Delegates creation to ModelFactory      │
-│ - add_custom_model(name, model_instance)                                  │
-│ - list_available_models()                                                 │
-└──────────────────────────────────────┬────────────────────────────────────┘
-                                       │ Uses Factory Method
-                                       ▼
-┌───────────────────────────────────────────────────────────────────────────┐
-│                               ModelFactory                                │
-│                  (automl_framework/model/model_factory.py)                │
-├───────────────────────────────────────────────────────────────────────────┤
-│ + create_model(model_type, config, random_state) -> ABCModelWrapper       │
-│ - ModelType (Enum): XGBoost, MLP, TabPFN, RandomForest, CatBoost, etc.     │
-└──────────────────────────────────────┬────────────────────────────────────┘
-                                       │
-                                       │ Stores & Standardizes
-                                       ▼
-                    ┌──────────────────────────────────────┐
-                    │             ModelWrapper             │
-                    │   (automl_framework/model/wrappers.py)   │
-                    ├──────────────────────────────────────┤
-                    │ - fit(X, y)                          │
-                    │ - predict(X)                         │
-                    └──────────────────┬───────────────────┘
-                                       │
-               ┌───────────────┬───────┴───────┬───────────────┐ Instantiates & Adapts
-               ▼               ▼               ▼               ▼
-      ┌─────────────────┐┌───────────────┐┌─────────────────┐┌─────────────────┐
-      │   XGBoost / RF  ││   MLP (NN)    ││     TabPFN      ││   Transformer   │
-      │ (xgboost/sklearn││(scikit-learn) ││    (tabpfn)     ││ (PyTorch Model) │
-      ```
-
-### 1.2. 세부 호출 흐름도 (Detailed Call Sequence Diagram)
-
-아래의 시퀀스 다이어그램은 CLI 오케스트레이터(`main.py` -> `AutoMLPipeline`)의 시작부터 데이터 ingestion, 전처리, 스플릿, 그리고 동적 `ModelPool`의 일괄 학습 및 시각화/최종 레포트 저장까지의 상세 실행/호출 관계를 보여줍니다.
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User as User/CLI
-    participant Main as main.py (AutoMLPipeline)
-    participant Pool as ModelPool
-    participant Type as ModelType (Enum)
-    participant Factory as ModelFactory
-    participant Helper as DataLoaderHelper
-    participant Loader as LocalFileDataLoader
-    participant Prep as StandardDataPreprocessor
-    participant Split as TrainTestSplitter
-    participant Exec as StandardBenchmarkExecutor
-    participant Wrapper as ModelWrapper
-    participant Vis as Visualizer
-
-    %% ==========================================
-    %% 1. 초기화 단계 (Initialization Phase)
-    %% ==========================================
-    Note over User, Main: [1. 초기화 단계]
-    User->>Main: AutoMLPipeline 객체 생성 (config_path, turn, target, test_size)
-    activate Main
-    Main->>Helper: DataLoaderHelper 인스턴스 생성
-    
-    Main->>Pool: ModelPool 인스턴스 생성 (random_state, config)
-    activate Pool
-    Pool->>Pool: _initialize_default_models() 호출
-    
-    loop YAML 설정 내 활성 모델 목록 순회 (active_models)
-        Pool->>Type: ModelType.from_str(model_name) 호출
-        activate Type
-        Type-->>Pool: ModelType Enum 상수 반환
-        deactivate Type
-        
-        Pool->>Factory: create_model(model_type, config, random_state) 호출
-        activate Factory
-        Note over Factory: 관련 패키지 동적 임포트 및<br/>개별 Regressor 생성
-        Factory-->>Pool: concrete ModelWrapper 객체 반환
-        deactivate Factory
-        
-        Pool->>Pool: self.models[model_type.value]에 래퍼 보관
-    end
-    Pool-->>Main: ModelPool 객체 반환
-    deactivate Pool
-    
-    Main->>Exec: StandardBenchmarkExecutor 인스턴스 생성 (pool 주입)
-    Main->>Vis: Visualizer 인스턴스 생성 (output_dir 설정)
-    Main-->>User: 초기화 완료
-    deactivate Main
-
-    %% ==========================================
-    %% 2. 데이터 준비 단계 (Data Preparation Phase)
-    %% ==========================================
-    Note over User, Main: [2. 데이터 수집 및 전처리 단계]
-    User->>Main: pipeline.run(dataset_path, kaggle_dataset, url) 실행
-    activate Main
-    Main->>Main: prepare_data(dataset_path, kaggle_dataset, url)
-    Main->>Helper: fetch_dataset(...) 호출
-    Helper-->>Main: 로컬에 캐싱/다운로드된 데이터셋 경로 반환
-    
-    Main->>Helper: load_and_preprocess_data(...) 호출
-    activate Helper
-    
-    Helper->>Loader: load_data() 호출
-    activate Loader
-    Note over Loader: CSV/TSV/Parquet/JSONL 파싱<br/>JSONL의 경우 동적 컬럼 자동 생성
-    Loader-->>Helper: raw DataFrame X, Series y 반환
-    deactivate Loader
-
-    Helper->>Prep: preprocess(X) 호출
-    activate Prep
-    Note over Prep: 결측치 임퓨테이션 (Median/Mode)<br/>범주형 변수 더미(원-핫) 인코딩
-    Prep-->>Helper: 전처리 완료된 X_processed 반환
-    deactivate Prep
-
-    Helper->>Split: split(X_processed, y) 호출
-    activate Split
-    Note over Split: random_state 기준 Train/Test 데이터 분할
-    Split-->>Helper: 분할된 X_train, y_train, X_test, y_test 반환
-    deactivate Split
-
-    Helper-->>Main: X_train, y_train, X_test, y_test 반환
-    deactivate Helper
-
-    %% ==========================================
-    %% 3. 모델 학습 및 평가 단계 (Model Training & Evaluation Phase)
-    %% ==========================================
-    Note over Main, Exec: [3. 모델 학습 및 스코어링 단계]
-    Main->>Main: train_and_evaluate() 실행
-    Main->>Exec: fit_all(X_train, y_train) 호출
-    activate Exec
-
-    opt HPO (Optuna) 활성화 시
-        Exec->>Pool: run_hpo_tuning(pool, X_train, y_train) 호출
-        activate Pool
-        loop TabPFN을 제외한 각 활성 모델 순회
-            loop 1..n_trials 횟수만큼 반복
-                Pool->>Factory: create_model(model_type, trial_config, random_state) 호출
-                activate Factory
-                Factory-->>Pool: 임시 trial 래퍼 반환
-                deactivate Factory
-                Pool->>Pool: train split 학습 및 validation RMSE 계산
-            end
-            Pool->>Factory: create_model(model_type, best_config, random_state) 호출
-            activate Factory
-            Factory-->>Pool: 최적의 파라미터가 적용된 래퍼 반환
-            deactivate Factory
-            Pool->>Pool: self.models[name]을 최적 래퍼로 교체
-        end
-        Pool-->>Exec: HPO 튜닝 완료
-        deactivate Pool
-    end
-
-    loop ModelPool 내 활성 모델 순회
-        Exec->>Pool: Get wrapped model instance
-        Exec->>Wrapper: fit(X_train, y_train) 호출
-        activate Wrapper
-        Note over Wrapper: 모델별 학습 수행 (예외 감내 쉴딩 적용)
-        Wrapper-->>Exec: 완료
-        deactivate Wrapper
-    end
-    Exec-->>Main: 학습 완료
-    deactivate Exec
-
-    Main->>Exec: evaluate_all(X_test, y_test) 호출
-    activate Exec
-    loop 학습 완료된 각 모델 순회
-        Exec->>Wrapper: predict(X_test) 호출
-        activate Wrapper
-        Wrapper-->>Exec: 예측값 y_pred 반환
-        deactivate Wrapper
-        Exec->>Exec: 회귀 평가 지표(RMSE, MAE, R2) 계산
-    end
-    Exec-->>Main: 모델별 metrics 결과 딕셔너리 반환
-    deactivate Exec
-
-    %% ==========================================
-    %% 4. 시각화 및 리포팅 단계 (Visualization & Reporting Phase)
-    %% ==========================================
-    Note over Main, Vis: [4. 시각화 및 리포트 파일 저장 단계]
-    Main->>Main: generate_reports() 실행
-    Main->>Vis: plot_model_comparison(metrics, metric_name, turn) 호출
-    Note over Vis: 모델간 R2 및 RMSE 비교 바 차트 저장
-    
-    Main->>Exec: get_predictions(X_test) 호출
-    activate Exec
-    loop ModelPool 내 활성 모델 순회
-        Exec->>Wrapper: predict(X_test) 호출
-        activate Wrapper
-        Wrapper-->>Exec: y_pred 반환
-        deactivate Wrapper
-    end
-    Exec-->>Main: 전체 모델의 y_pred 딕셔너리 반환
-    deactivate Exec
-
-    loop 각 모델의 y_pred 순회
-        Main->>Vis: plot_actual_vs_predicted(y_test, y_pred, model_name, turn) 호출
-        Note over Vis: 실제값 vs 예측값 산포도 및 y=x 가이드선 저장
-        Main->>Vis: plot_residuals(y_test, y_pred, model_name, turn) 호출
-        Note over Vis: 잔차 분포 산포도 그래프 저장
-    end
-
-    Main->>Vis: save_json_report(metrics, turn) 호출
-    Vis-->>Main: 저장된 turn_{turn}_report.json 경로 반환
-    
-    Main-->>User: 최적 우승(Champion) 모델 출력하며 파이프라인 최종 완료
-    deactivate Main
+└───────────────────┬───────────────────────────────────┬───────────────────┘
+                    │                                   │
+                    │ Optional HPO Optimization         │ Operates on Inventory
+                    ▼                                   ▼
+┌───────────────────────────────────────┐   ┌───────────────────────────────┐
+│            OptunaHPOTuner             │   │           ModelPool           │
+│ (automl_framework/model/hpo.py)       │   │(automl_framework/model/       │
+├───────────────────────────────────────┤   │ model_pool.py)                │
+│ - tune_model(model_type, pool, ...)   │   ├───────────────────────────────┤
+│ - run_hpo_tuning(pool, X_tr, y_tr)    │   │ - models: Dict[str, Wrapper]  │
+│ - objective(trial, model_type, ...)   │   │ - _initialize_default_models()│
+└───────────────────┬───────────────────┘   │ - add_custom_model()          │
+                    │ Rebuilds Best Models  │ - list_available_models()     │
+                    └───────────────────►   └───────────────┬───────────────┘
+                                                            │ Uses Factory
+                                                            ▼
+                    ┌───────────────────────────────────────────────────────┐
+                    │                     ModelFactory                      │
+                    │       (automl_framework/model/model_factory.py)       │
+                    ├───────────────────────────────────────────────────────┤
+                    │ + create_model(model_type, config, random_state)      │
+                    │ - ModelType (Enum): XGBoost, MLP, TabPFN, TabICL,     │
+                    │                     RandomForest, CatBoost, etc.      │
+                    └───────────────────────────────┬───────────────────────┘
+                                                    │
+                                                    │ Adapts via Standard Wrapper
+                                                    ▼
+                                ┌───────────────────────────────────────┐
+                                │             ModelWrapper              │
+                                │   (automl_framework/model/wrappers.py)│
+                                ├───────────────────────────────────────┤
+                                │ - fit(X, y)                           │
+                                │ - predict(X)                          │
+                                └───────────────────┬───────────────────┘
+                                                    │
+        ┌───────────────┬───────────────┬───────────┴───┬───────────────┬───────────────┐
+        ▼               ▼               ▼               ▼               ▼               ▼
+┌───────────────┐┌───────────────┐┌───────────┐┌─────────────────┐┌───────────┐┌─────────────────┐
+│ XGBoost / RF  ││   CatBoost    ││  MLP (NN) ││     TabPFN      ││  TabICL   ││   Transformer   │
+│(sklearn/xgbr) ││  (catboost)   ││(sklearn)  ││    (tabpfn)     ││ (tabicl)  ││ (PyTorch Model) │
+└───────────────┘└───────────────┘└───────────┘└─────────────────┘└───────────┘└─────────────────┘
 ```
 
 ---
 
 ## 2. Directory Structure (디렉토리 구조)
 
-프로젝트 루트 디렉토리의 전체 레이아웃과 핵심 소스 파일 위치는 다음과 같습니다.
+프로젝트 루트 디렉토리의 레이아웃과 소스 파일 위치는 다음과 같습니다.
 
 ```text
 regression-model-revolution-framework/
 │
-├── main.py                         # 프로젝트 전체 실행 진입점 (CLI Orchestrator)
-├── app.py                          # Streamlit 기반 대화형 웹 인터페이스 스튜디오 (WebUI)
-├── configs/                        # 📂 설정 프로파일 보관소 (다양한 실험을 위한 YAML 구성 파일들)
-│   ├── default.yml                 # 기본 설정 프로파일 (기존 config.yml 이관)
+├── main.py                         # 프로젝트 전체 실행 진입점 (CLI Orchestrator & AutoMLPipeline)
+├── app.py                          # Streamlit 기반 대화형 웹 인터페이스 스튜디오 (WebUI Studio)
+│
+├── configs/                        # 📂 설정 프로파일 보관소 (실험 목적별 YAML 설정 파일)
+│   ├── default.yml                 # 기본 통합 설정 프로파일 (모델별 파라미터, HPO, 프레임워크 설정)
 │   ├── kfold_split.yml             # 교차 검증(K-Fold Split) 실험 설정 프로파일
 │   ├── timeseries_split.yml        # 시계열 분할(TimeSeries Split) 실험 설정 프로파일
 │   ├── custom_features.yml         # 커스텀 피처 변수 지정 실험 설정 프로파일
-│   └── web_config.yml              # Web UI 실행에 의해 생성되는 자동 구성 프로파일
+│   └── web_config.yml              # Web UI 실행에 의해 자동 컴파일되는 런타임 프로파일
 │
 ├── scripts/                        # 🏃 시나리오별 파이프라인 일괄 실행 스크립트 디렉토리
 │   ├── run_local_csv.sh            # 로컬 CSV 데이터셋 학습 실행기
@@ -295,181 +127,137 @@ regression-model-revolution-framework/
 │   ├── run_url.sh                  # 원격 HTTP URL 파일 다운로드 후 학습 실행기
 │   └── run_webui.sh                # Streamlit Web UI 기동 실행기
 │
-├── automl_framework/               # 프레임워크 메인 패키지
-│   ├── __init__.py                 # 패키지 파사드 진입점 (DataLoaderHelper, ModelPool, Visualizer, Executor 외부 노출)
+├── automl_framework/               # 📦 프레임워크 메인 패키지
+│   ├── __init__.py                 # 패키지 파사드 진입점 (핵심 모듈 클래스 외부 노출)
 │   │
-│   ├── dataloader/                 # 데이터 처리 서브패키지 (Data Domain)
+│   ├── dataloader/                 # 📂 데이터 처리 서브패키지 (Data Domain)
 │   │   ├── __init__.py
-│   │   ├── loaders.py              # 데이터 로더 추상 베이스 클래스 및 로컬/원격 로더 구현체
-│   │   ├── preprocessors.py        # 전처리기 추상 베이스 클래스 및 결측치/인코딩 구현체
-│   │   ├── splitters.py            # 데이터셋 분할기 추상 베이스 클래스 및 구현체
-│   │   └── data_loader_helper.py   # 기존 규격을 호환하는 퍼사드(Facade) DataLoaderHelper 및 파이프라인 일괄 준비
+│   │   ├── loaders.py              # 데이터 로더 추상 베이스 클래스 및 로컬/Kaggle/URL 로더 구현체
+│   │   ├── preprocessors.py        # 전처리기 추상 베이스 클래스 및 결측치/원-핫 인코딩 구현체
+│   │   ├── splitters.py            # 데이터셋 분할기 추상 베이스 클래스 (TrainTest, KFold, TimeSeries)
+│   │   └── data_loader_helper.py   # 퍼사드(Facade) DataLoaderHelper 클래스
 │   │
-│   ├── model/                      # 머신러닝 학습 서브패키지 (Model Domain)
+│   ├── model/                      # 📂 머신러닝 학습 서브패키지 (Model Domain)
 │   │   ├── __init__.py
-│   │   ├── model_pool.py           # 모델 저장소(ModelPool)
-│   │   ├── model_factory.py        # 모델 팩토리(ModelFactory) 및 상수 정의(ModelType)
-│   │   ├── model_executor.py       # 추상 실행기(ABCModelExecutor) 및 일괄 벤치마크 실행기(StandardBenchmarkExecutor)
-│   │   ├── wrappers.py             # 개별 모델 규격 어댑터 (Wrapper)
-│   │   └── architecture/           # 딥러닝/신경망 모델 아키텍처 정의
-│   │       └── transformer_encoder.py # 시퀀스 기반 트랜스포머 회귀 모델 (TransformerBasedRegression)
+│   │   ├── model_pool.py           # 모델 인벤토리 저장소 (ModelPool)
+│   │   ├── model_factory.py        # 모델 팩토리 (ModelFactory) 및 상수 정의 (ModelType)
+│   │   ├── model_executor.py       # 추상 실행기(ABCModelExecutor) 및 표준 벤치마커(StandardBenchmarkExecutor)
+│   │   ├── wrappers.py             # 모델 어댑터 Wrapper 구현체들 (XGB, RF, CatBoost, MLP, TabPFN, TabICL, NN)
+│   │   ├── hpo.py                  # Optuna 기반 하이퍼파라미터 자동 최적화 튜너 (OptunaHPOTuner)
+│   │   └── architecture/           # 딥러닝/신경망 모델 커스텀 아키텍처
+│   │       └── transformer_encoder.py # 시퀀스 기반 트랜스포머 회귀 신경망 (TransformerBasedRegression)
 │   │
-│   └── util/                       # 분석/유틸리티 서브패키지 (Utility Domain)
+│   ├── util/                       # 📂 분석/유틸리티 서브패키지 (Utility Domain)
 │   │   ├── __init__.py
-│   │   └── visualizer.py           # 프리미엄 차트 생성 및 JSON 실행 보고서 작성
+│   │   ├── visualizer.py           # 프리미엄 다크 테마 차트 생성 및 JSON 리포트 작성
+│   │   └── logger.py               # 콘솔/파일 로깅 설정 모듈
 │   │
 │   └── README.md                   # 패키지 명세서
 │
-├── tests/                          # 🧪 종합 테스트 스위트
+├── tests/                          # 🧪 종합 테스트 스위트 (Unit & Integration Tests)
 │   ├── __init__.py
-│   ├── test_dataloader.py          # 데이터 처리, JSONL 동적 스키마 로딩 및 분할 기능 테스트
-│   ├── test_model.py               # 모델 초기화, 수동 등록 및 실행기 테스트
-│   └── test_visualizer.py          # 시각화 및 리포트 작성 테스트
+│   ├── test_dataloader.py          # 데이터 로더, JSONL 동적 스키마 로딩 및 분할 기능 테스트
+│   ├── test_model.py               # 모델 초기화, 수동 등록 및 실행기 기본 테스트
+│   ├── test_model_factory.py       # ModelFactory 인스턴스화 및 ModelType 파싱 테스트
+│   ├── test_all_models.py          # 전체 활성 회귀 모델 Wrapper 학습/추론 단위 테스트
+│   ├── test_tabicl.py              # TabICL In-Context Learning 회귀 모델 테스트
+│   ├── test_transformer_regression.py # PyTorch 트랜스포머 회귀 모델 및 확률 모드 테스트
+│   ├── test_hpo.py                 # Optuna HPO 튜닝 및 파라미터 업데이트 테스트
+│   ├── test_visualizer.py          # 시각화 플롯 생성 및 JSON 리포트 작성 테스트
+│   ├── test_logger.py              # 로거 구성 및 로그 파일 기록 테스트
+│   ├── test_webui_helpers.py       # WebUI 헬퍼 함수, 스키마 플래트닝 및 미디어 검증 테스트
+│   └── test_pipeline_e2e.py        # 모의 데이터셋 기반 End-to-End 전체 파이프라인 통합 테스트
 │
-├── data/                           # 📂 (자동 생성) 다운로드되거나 생성된 데이터셋 저장소
-│   ├── synthetic_regression.csv    # 시각화 검증용 모의 회귀 데이터셋 (CSV)
-│   ├── synthetic_regression.jsonl   # 새로 추가된 정형 JSON Lines 데이터셋 (JSONL)
-│   └── SECOM_Full_Dataset.csv      # SECOM 가설 검증용 원본 데이터셋
-│
-├── outputs/                        # (자동 생성) 시각화 이미지(.png) 및 JSON 실행 보고서 저장소
-│
-├── .gitignore                      # Git 제외 목록 설정 파일
-├── LICENSE                         # Apache 라이선스 파일
-├── README.md                       # 프로젝트 기본 설명서
-└── ARCHITECTURE.md                 # [본 파일] 시스템 아키텍처 명세서
+├── data/                           # 📂 (데이터 저장소) 모의 데이터셋 및 벤치마크 데이터
+├── outputs/                        # 📂 (결과 저장소) 시각화 이미지(.png) 및 JSON 실행 리포트
+├── ARCHITECTURE.md                 # [본 문서] 시스템 아키텍처 설계서
+├── REQ_SPEC.md                     # 소프트웨어 요구사항 명세서
+├── sequence_diagram.md             # 세부 상호작용 시퀀스 다이어그램 문서
+├── TEST_SPEC.md                    # 소프트웨어 테스트 계획 및 명세서
+├── INTERFACE_SPEC.md               # 프레임워크 API 및 인터페이스 정의서
+└── README.md                       # 프로젝트 개요 및 빠른 시작 가이드
 ```
 
 ---
 
 ## 3. Core Modules & Classes (핵심 모듈 및 클래스 구성)
 
-프레임워크는 각 역할에 따라 단일 책임 원칙(Single Responsibility Principle)을 준수하는 모듈들로 설계되었습니다.
-
-### A. CLI 및 전체 설정 제어: 루트 `main.py` 및 `configs/`
-* **역할**: CLI 명령줄 인수를 안전하게 처리하고, 전체 AutoML 프로세스를 단일 클래스로 캡슐화하여 일괄 제어하는 오케스트레이션 엔진입니다.
-* **`AutoMLPipeline` 클래스 핵심 메서드**:
-  - **`__init__(config_path, turn, target, test_size)`**: 셸 및 CLI 오버라이드 인수(target, test_size)와 YAML 프로파일 설정을 조율하여 `DataLoaderHelper`, `ModelPool`, `StandardBenchmarkExecutor`, `Visualizer` 컴포넌트들을 통일화되어 초기화하고 실행 상태들을 멤버 변수로 관리합니다.
-  - **`_load_config(config_path) -> dict` [Static]**: 지정된 YAML 파일을 로드하며, 부재 시 빈 딕셔너리로 안전 우회하는 예외 안전망을 가집니다.
-  - **`prepare_data(dataset_path, kaggle_dataset, url)`**: Ingestion 모듈을 제어해 로컬/원격 파일을 준비하고 전처리 및 스플리팅을 거쳐 학습/테스트 변수 상태를 갱신합니다.
-  - **`train_and_evaluate() -> dict`**: 활성 모델 전체에 대한 훈련을 일괄 위임하고 테스트 평가 메트릭(RMSE, MAE, R2)을 사전 형태로 저장합니다.
-  - **`generate_reports()`**: 프리미엄 시각화 플롯 차트 생성, 잔차 오차 산포도 렌더링, 성능비교 바 플롯 작성 및 최적 챔피언 결과 JSON 레포트 아카이빙을 총괄 실행합니다.
-  - **`run(...)`**: 위의 데이터 로딩, 학습, 레포팅을 단 한 줄로 순차 오케스트레이션하여 일괄 처리하는 마스터 인터페이스입니다.
-* **독립 도우미 및 진입 함수**:
-  - **`parse_arguments() -> argparse.Namespace`**: CLI 명령줄 전용 인수를 안전하게 파싱합니다.
-  - **`main()`**: CLI 사용 목적의 셸 진입 래퍼로, `AutoMLPipeline`을 생성한 뒤 `pipeline.run(...)`을 안전 예외 블록 내에서 1회 호출해 구동시킵니다.
-* **동작 분기 및 이점**:
-  - 설정 파일들이 `configs/` 디렉토리에 실험 목적에 따라 보관되어 있으며, `--config configs/kfold_split.yml` 등의 지정만으로 코딩 없이 파이프라인 제어 정책이 적용됩니다.
-  - 객체화로 인해 다른 파이선 모듈이나 대시보드 애플리케이션에서도 `from main import AutoMLPipeline`을 통해 손쉽게 라이브러리로써 호출해 구동할 수 있습니다.
+### A. CLI 및 파이프라인 오케스트레이션: `main.py`
+- **`AutoMLPipeline` (Class)**: 데이터 수집, 전처리, 모델 초기화, HPO 튜닝, 일괄 학습, 성능 평가, 프리미엄 시각화 및 리포트 파일 아카이빙까지의 전체 생명주기를 조율하는 마스터 오케스트레이터입니다.
+  - `__init__(config_path, turn, target, test_size)`: 설정 파일을 로드하고 CLI 인수를 오버라이드하여 각 도메인 컴포넌트들을 바인딩합니다.
+  - `prepare_data(dataset_path, kaggle_dataset, url)`: 데이터 로딩, 전처리, 분할을 수행합니다.
+  - `train_and_evaluate() -> dict`: 모델 풀에 대해 HPO 튜닝 및 학습/평가를 수행하고 지표를 수집합니다.
+  - `generate_reports()`: Visualizer를 통해 산포도, 잔차도, 바 차트 및 최종 성적 JSON 리포트를 생성합니다.
+  - `run(...)`: 파이프라인 전체를 원클릭으로 순차 실행합니다.
 
 ---
 
-### B. 데이터 로더 및 전처리 모듈: `automl_framework/dataloader/`
-#### `DataLoaderHelper` (Facade Class) 및 전략 클래스들
-* **책임**: 데이터 획득(Kaggle, HTTP URL)부터 학습 전 단계까지의 모든 데이터 처리를 담당합니다. `DataLoaderHelper` 클래스는 파사드(Facade) 역할을 하며 하위의 모듈화된 전략(Strategy) 클래스들에게 실제 처리를 위임합니다.
-* **핵심 메서드**:
-  * `fetch_dataset(dataset_path, kaggle_dataset, url)`: 로컬 파일 경로, Kaggle 데이터셋 명칭, 혹은 UCI HTTP URL을 인자로 주입받아, Ingestion 모듈을 제어하여 원격/로컬 파일을 안전하게 다운로드하고, 유효성이 검증된 로컬 절대 경로를 반환합니다.
-  * `prepare_data(dataset_file, target_column, test_size, random_state)`: 데이터 로딩, 결측치 임퓨테이션 및 원-핫 인코딩 전처리, train/test 스플릿 분할 프로세스를 내부적으로 통합 오케스트레이션하여 피팅 및 평가에 최적화된 학습/테스트 분할 데이터셋을 직접 생산해 반환하는 메인 퍼사드 메소드입니다.
-* **하위 전략 클래스 구성**:
-  * **데이터 로더 (`loaders.ABCDataLoader`, `loaders.py`)**:
-    * `LocalFileDataLoader`: 로컬 CSV, TSV, Parquet, 그리고 JSONL 포맷 데이터를 판다스 데이터프레임으로 자동 읽어 들이고 독립 변수(X)와 종속 변수(y)로 분리합니다. 특히 JSON Lines(`.jsonl`) 포맷의 경우, 행마다 누락된 값이 있어 키 분포가 다른 특성을 극복하기 위해 라인 단위 파싱 중 새로운 키(컬럼)가 발견될 때마다 동적으로 컬럼을 추가/확장 및 정렬하여 판다스 데이터프레임으로 안전하게 통합 로드(결손 부위는 `NaN` 매핑)하는 지능형 스키마 로딩을 제공합니다.
-    * `KaggleDataLoader`: Kaggle API를 사용하여 원격 데이터셋을 다운로드하고 압축을 해제합니다.
-    * `URLDataLoader`: 외부 웹 서버(예: UCI 머신러닝 리포지토리)에서 직접 데이터셋 파일을 가져옵니다.
-  * **전처리기 (`preprocessors.ABCDataPreprocessor`, `preprocessors.py`)**:
-    * `StandardDataPreprocessor`: 결측치 보정(수치형은 중앙값, 범주형은 최빈값 임퓨테이션) 및 범주형 변수의 원-핫 인코딩(Dummy Encoding)을 자동으로 수행합니다.
-  * **분할기 (`splitters.ABCDataSplitter`, `splitters.py`)**:
-    * `TrainTestSplitter`: 학습, 검증, 테스트 셋으로 데이터를 안정적으로 분할합니다.
-    * `KFoldSplitter`: K-Fold 교차 검증을 지원하며, AutoML 벤치마크 규격에 맞게 분할 데이터를 안정적으로 반환합니다.
-    * `TimeSeriesSplitter`: 시간 순서에 근거한 시계열 데이터셋 분할(TimeSeriesSplit)을 지원합니다.
+### B. 데이터 로더 및 전처리: `automl_framework/dataloader/`
+- **`DataLoaderHelper` (Facade Class)**: `loaders.py`, `preprocessors.py`, `splitters.py`의 구현체들을 조합하여 클라이언트에게 단순화된 단일 인터페이스(`fetch_dataset`, `prepare_data`)를 제공합니다.
+- **`LocalFileDataLoader`**: CSV, TSV, Parquet, JSONL 파일을 로드합니다. JSON Lines(`.jsonl`) 포맷에 대해 누락된 키를 자동 정렬/확장하고 `NaN`을 매핑하는 동적 스키마 로딩 기능을 내장합니다.
+- **`StandardDataPreprocessor`**: 수치형 결측치는 Median, 범주형 결측치는 Mode로 임퓨팅한 뒤, `drop_first=True` 옵션으로 One-Hot Dummy 인코딩을 수행합니다.
+- **`TrainTestSplitter`, `KFoldSplitter`, `TimeSeriesSplitter`**: 전략 패턴을 적용하여 재현 가능한 난수 시드 기반 데이터 분할을 수행합니다.
 
 ---
 
-### C. 모델 관리 및 실행 전략 모듈: `automl_framework/model/`
-#### `ModelPool` (Class, `automl_framework/model/model_pool.py`)
-* **책임**: 알고리즘군(Tree 기반, 신경망 기반, 사전 학습 기반 등)의 모델 객체를 보유하는 데이터 저장소(Inventory Container)입니다.
-* **핵심 메서드**:
-  * `_initialize_default_models()`: 설정 파일의 `active_models` 목록에 정의된 모델들을 `ModelFactory.create_model(...)`을 호출하여 위임 초기화하고 적재합니다.
-  * `add_custom_model(name, model_instance)`: 외부 커스텀 모델 인스턴스(또는 `ABCModelWrapper`)를 풀에 추가합니다. `ModelType` Enum과 일반 `str` 모두 키 값으로 안전하게 허용합니다.
-  * `get_model(name)`: 지정된 모델을 반환합니다. `ModelType` Enum과 일반 `str` 키를 모두 수용합니다.
-
-#### `ModelFactory` & `ModelType` (Class/Enum, `automl_framework/model/model_factory.py`)
-* **책임**: Factory Method 디자인 패턴을 기반으로 개별 모델 Wrapper의 인스턴스 생성 책임을 전담합니다.
-* **핵심 구성요소**:
-  * `ModelType` (Enum): 지원되는 기본 모델명(`XGBoost`, `MLP`, `TabPFN`, `RandomForest`, `CatBoost`, `Transformer`)의 상수 표현입니다. 대소문자 및 기호 무관하게 유연하게 변환을 지원하는 `from_str()` 유틸리티를 제공합니다.
-  * `ModelFactory.create_model(model_type, config, random_state)`: 입력받은 `model_type`에 해당되는 개별 전용 모델 Wrapper(`ModelWrapperXGBoost`, `ModelWrapperMLP` 등)를 빌드하여 반환합니다.
-
-#### `TransformerBasedRegression` (PyTorch Module, `automl_framework/model/architecture/transformer_encoder.py`)
-* **책임**: 시퀀스 데이터를 처리하여 회귀 예측을 수행하는 PyTorch 기반 모델입니다.
-* **핵심 기능**:
-  - **시퀀스 부호화**: 내부 `TransformerBasedEncoder`와 learnable positional embedding을 활용한 sequence 데이터 인코딩.
-  - **풀링 레이어**: 시퀀스 길이를 변환하기 위한 `mean`, `max`, `last` 풀링 옵션 제공 및 패딩 토큰을 제외하기 위한 boolean mask 연동 지원.
-  - **다목적 회귀 헤드**: 
-    - 기본 예측 모드: 단일 scalar 예측 (`predict_distribution=False`).
-    - 확률 분포 모드: 평균(mean)과 strictly positive 분산(variance) 예측 (`predict_distribution=True`).
-
-#### `ModelWrapperTransformer` (Class, `automl_framework/model/wrappers.py`)
-* **책임**: `TransformerBasedRegression` PyTorch 모델을 Scikit-Learn과 호환되는 일관된 `fit(X, y)` 및 `predict(X)` 형태로 감싸주는 **어댑터(Adapter) 모델 Wrapper**입니다.
-* **핵심 기능**:
-  - **입력 전처리 및 3D 형상 복원**: 2D pandas DataFrame이나 numpy array가 입력될 때, 이를 트랜스포머 시퀀스 형태인 3D Tensor `(batch_size, num_features, 1)` 또는 `(batch_size, 1, num_features)` 형태로 자동 복원하여 전달합니다.
-  - **신경망 학습 루프 (AdamW)**: 설정된 `epochs`, `learning_rate`, `batch_size`를 기반으로 미니배치를 수행하며 PyTorch의 순방향/역방향 전파를 수행합니다.
-  - **확률 모델 지원 (Gaussian NLL Loss)**: `predict_distribution=True` 일 때 가우시안 음의 로그 우도(Negative Log-Likelihood) 손실 함수를 동적으로 연동하여 평균과 분산을 학습시킵니다. `predict()` 호출 시에는 자동으로 평균(mean) 값을 스퀴즈하여 scikit-learn regressor 형태의 1D numpy array를 출력합니다.
-
-#### `ABCModelExecutor` (Abstract Class) & `StandardBenchmarkExecutor` (Class, `automl_framework/model/model_executor.py`)
-* **책임**: `ModelPool`을 주입받아, 그 내부 모델들을 어떻게 훈련하고 예측하고 평가할지 제어하는 **실행 전략(Execution Strategy)**입니다.
-* **핵심 메서드**:
-  * `fit_all(X_train, y_train)`: 풀 내부의 각 모델에 대해 학습 루프를 안전하게 돌립니다.
-  * `evaluate_all(X_val, y_val)`: 검증 데이터에 대한 각 모델의 예측을 수행하고 RMSE, MAE, R² score 성능 평가 지표를 산출합니다.
-  * `get_predictions(X)`: 활성 모델 전체의 개별 예측값을 딕셔너리로 반환합니다.
+### C. 모델 관리, 팩토리 및 실행기: `automl_framework/model/`
+- **`ModelType` (Enum, `model_factory.py`)**: 지원되는 모든 모델의 표준 식별자(`XGBOOST`, `CATBOOST`, `RANDOM_FOREST`, `MLP`, `TABPFN`, `TABICL`, `TRANSFORMER`)를 정의하며, `from_str()`을 통해 문자열을 안전하게 Enum으로 변환합니다.
+- **`ModelFactory` (Class, `model_factory.py`)**: Factory Method 패턴을 구현하여 `create_model(model_type, config, random_state)` 호출 시 해당 알고리즘의 원본 모델을 생성하고 공통 인터페이스인 `ABCModelWrapper`로 감싸 반환합니다.
+- **`ModelPool` (Class, `model_pool.py`)**: 초기화된 활성 모델 래퍼 인스턴스들을 보관하는 순수 인벤토리 컨테이너입니다.
+- **`ABCModelWrapper` 및 Concrete Wrappers (`wrappers.py`)**:
+  - `fit(X, y)`와 `predict(X)`의 표준 인터페이스를 제공하는 어댑터(Adapter) 클래스입니다.
+  - **`ModelWrapperXGBoost`**: XGBoost 회귀 어댑터.
+  - **`ModelWrapperCatBoost`**: CatBoost 회귀 어댑터.
+  - **`ModelWrapperRandomForest`**: Scikit-Learn RandomForest 어댑터.
+  - **`ModelWrapperMLP`**: Scikit-Learn Multi-layer Perceptron 어댑터.
+  - **`ModelWrapperTabPFN`**: 사전학습 정형 트랜스포머 TabPFN 어댑터.
+  - **`ModelWrapperTabICL`**: 정형 데이터 In-Context Learning 파운데이션 모델 TabICL 어댑터.
+  - **`ModelWrapperTransformer`**: PyTorch 커스텀 신경망(`TransformerBasedRegression`) 어댑터 (스칼라 회귀 및 Gaussian NLL 분포 모드 지원).
+- **`OptunaHPOTuner` (Class, `hpo.py`)**:
+  - `configs/default.yml`의 `hpo.enabled: true`일 때 기동되어 모델별 하이퍼파라미터 탐색 공간(Search Space)을 정의하고 TPE 베이지안 최적화로 Validation RMSE를 최소화하는 최적 설정을 도출합니다.
+- **`StandardBenchmarkExecutor` (Class, `model_executor.py`)**:
+  - `ModelPool`을 주입받아 HPO 기동, 일괄 학습(`fit_all`), 일괄 평가(`evaluate_all`), 예측값 수집(`get_predictions`)을 안전한 예외 감내 쉴드 하에서 대행합니다.
 
 ---
 
-### D. 프리미엄 시각화 및 레포팅 모듈: `automl_framework/util/visualizer.py`
-#### `Visualizer` (Class)
-* **책임**: 데이터 분석 결과 및 모델 성능 지표를 화려하고 세련된 그래픽 플롯(Premium Dark Theme) 및 구조화된 JSON 실행 메타데이터 파일로 보관합니다.
-* **핵심 메서드**:
-  * `plot_actual_vs_predicted(y_true, y_pred, model_name, turn)`: 실제값과 예측값의 산점도를 1:1 선(Perfect Fit Line)과 함께 시각화하여 예측 오차의 일관성을 직관적으로 관찰할 수 있도록 합니다.
-  * `plot_residuals(y_true, y_pred, model_name, turn)`: 잔차 분석 산점도를 출력하여 등분산성(Heteroscedasticity) 유무를 진단할 수 있도록 지원합니다.
-  * `plot_model_comparison(metrics, metric_name, turn)`: 전체 모델들의 성능(R², RMSE 등)을 한눈에 볼 수 있는 깔끔한 수평 바 차트(Horizontal Bar Chart)를 생성합니다.
-  * `save_json_report(metrics, turn)`: 학습된 모든 모델의 상세 평가 수치 지표와 베스트 모델의 정보를 JSON 파일로 깔끔하게 포매팅하여 저장합니다.
+### D. 프리미엄 시각화 및 리포팅: `automl_framework/util/`
+- **`Visualizer` (Class, `visualizer.py`)**:
+  - 다크 테마 규격(캔버스 `#0d1117`, 도표 `#161b22`, 그리드 `#30363d`)을 적용한 차트 렌더링.
+  - `plot_actual_vs_predicted`: 실제값 vs 예측값 산포도 및 $y=x$ 일치선.
+  - `plot_residuals`: 예측값 대비 오차 잔차 분포 산포도.
+  - `plot_model_comparison`: 모델별 $R^2$ 및 RMSE 성능 비교 수평 막대 차트.
+  - `save_json_report`: 실행 회차 메타데이터와 지표, 챔피언 모델 정보를 구조화된 JSON으로 보관.
 
 ---
 
-### E. 대화형 웹 인터페이스: `app.py` (Streamlit WebUI)
-* **책임**: 브라우저 환경에서 전체 실험의 설계, 기동, 실시간 실행 추적, 모델 성능 진단 차트 조회를 단일 웹 대시보드로 통합 제어합니다.
-* **주요 메커니즘**:
-  - **동적 스키마 로딩 (`render_dynamic_params`)**: `default.yml` 구성 파일의 딕셔너리 구조를 동적으로 순회하며 매칭되는 위젯(Checkbox, Number Input, List Area 등)을 렌더링합니다. 설정 파일이 바뀌면 UI가 자동으로 업데이트되어 높은 확장성을 보장합니다.
-  - **데이터셋 컬럼 자동 분석**: 로컬 파일을 선택하면 데이터를 미세 리드하여 컬럼 목록을 실시간으로 가져옵니다. 사용자는 텍스트 타이핑 없이 드롭다운으로 편리하게 타겟 컬럼 및 제외 컬럼(`ignored_columns`)들을 매핑할 수 있습니다.
-  - **실시간 로그 스트리밍**: 실행 버튼 작동 시 `subprocess.Popen`을 사용해 `python main.py --config configs/web_config.yml`을 비동기 구동하고, 실시간 파이프라인 터미널 콘솔 스트림을 버퍼 사이즈 1 단위로 가로채어 화면에 뿌려줍니다.
-  - **인터랙티브 분석 결과 피드**: 실행이 성공하면 `outputs/` 내부의 JSON 성적 메트릭과 `Visualizer`가 드로잉한 대용량 차트 파일들을 탐색하여 UI 상에 챔피언 모델 정보와 잔차 및 예측 산포도를 동적으로 피딩합니다.
+### E. 대화형 웹 인터페이스 스튜디오: `app.py` (Streamlit WebUI)
+- **4대 독립 뷰 사이드바 내비게이션**:
+  1. `📊 Overview & Dashboard`: 전체 시스템 개요, 기능 소개, 지원 모델 및 아키텍처 다이어그램 표시.
+  2. `🚀 Run Experiment`: 데이터셋 지정, 타겟/피처 동적 바인딩, HPO 옵션 설정, 실시간 터미널 로그 스트리밍 및 실행.
+  3. `⚙️ Config Studio`: `default.yml` 스키마 기반의 동적 위젯 렌더링을 통한 하이퍼파라미터 및 프레임워크 설정 튜닝.
+  4. `📁 History & Artifacts`: 과거 회차별 실행 결과, JSON 성적표, 프리미엄 차트 갤러리 탐색.
+- **견고한 세션 상태 및 미디어 검증**:
+  - `st.session_state`를 통한 화면 전환 시 데이터 보존.
+  - `is_valid_image()`를 통한 0바이트/손상 이미지 렌더링 방어.
 
 ---
 
-## 4. Pipeline Execution & Data Flow (파이프라인 실행 흐름)
+## 4. Design Patterns Applied (적용된 디자인 패턴)
 
-AutoML 프레임워크의 실행 흐름은 설정 파일 로딩부터 시작해 순차적으로 아래 단계들을 거칩니다:
-
-```text
-[0. configs/*.yml 로드]
-         │
-         ▼
-[1. CLI 실행 & AutoMLPipeline 생성] ──> [2. 데이터 수집/로드] ──> [3. 결측치 보정/인코딩] ──> [4. 데이터 분할]
-     (main.py)                      (pipeline.prepare_data)   (pipeline.prepare_data)   (pipeline.prepare_data)
-                                                                                                   │
-                                                                                                   ▼
-[8. 분석 결과 확인] <── [7. 프리미엄 차트 생성] <── [6. 성능 메트릭 평가] <── [5. 모델 일괄 학습]
-    (outputs/)       (pipeline.generate_reports) (pipeline.train_and_evaluate)(pipeline.train_and_evaluate)
-```
+| 디자인 패턴 | 적용 위치 | 설계 목적 및 이점 |
+| :--- | :--- | :--- |
+| **Facade Pattern** | `DataLoaderHelper`, `AutoMLPipeline` | 복잡한 서브시스템(로더, 전처리기, 분할기, 훈련기 등)의 인터페이스를 단순화하여 단일 진입점 제공 |
+| **Factory Method** | `ModelFactory`, `ModelType` | 모델 객체 생성 책임을 캡슐화하여 `ModelPool`과의 결합도를 낮추고 신규 모델 추가 용이성 확보 |
+| **Adapter Pattern** | `ABCModelWrapper` 및 하위 래퍼들 | Scikit-learn, XGBoost, CatBoost, TabPFN, TabICL, PyTorch 모델들의 상이한 API를 `fit/predict`로 통일 |
+| **Strategy Pattern** | `ABCDataLoader`, `ABCDataSplitter`, `ABCModelExecutor` | 알고리즘군과 실행 루프를 런타임에 유연하게 교체할 수 있도록 추상화 |
+| **Shield / Fallback** | `ModelFactory`, `LocalFileDataLoader`, `AutoMLPipeline` | 외부 라이브러리 미설치, 런타임 누락, 설정 파일 유실 등 환경 결함 시에도 전체 시스템 크래시 방어 |
 
 ---
 
-## 5. Technology Stack & Key Dependencies (기술 스택)
+## 5. Technology Stack & Key Dependencies
 
-- **언어**: Python 3.x
-- **설정 파일 포맷**: YAML (PyYAML)
-- **데이터 분석 및 머신러닝**:
-  - `pandas`, `numpy`: 데이터 조작 및 행렬 연산
-  - `scikit-learn`: 머신러닝 모델(RF, MLP), 데이터 스플릿, 평가 메트릭 산출
-  - `xgboost`: Gradient Boosting 기반 트리 모델
-  - `tabpfn`: 정형 데이터 특화 Prior-Data Fitted Network 모델
-- **시각화 및 레포팅**:
-  - `matplotlib`, `seaborn`: 프리미엄 다크 테마 기반 맞춤 플롯 렌더링
-  - `json`: 표준 구조화 실행 리포트 아카이빙
+- **Language**: Python 3.9+
+- **Machine Learning**: `scikit-learn`, `xgboost`, `catboost`, `tabpfn`, `tabicl`, `torch`, `optuna`
+- **Data Engineering**: `pandas`, `numpy`, `pyyaml`
+- **Visualization & UI**: `matplotlib`, `seaborn`, `streamlit`
+- **Testing**: `pytest`
