@@ -110,8 +110,8 @@
 * **REQ-UI-03: 실시간 로그 스트리밍 콘솔**
 * **REQ-UI-04: 성적표 및 시각화 결과 대시보드**
 * **REQ-UI-05: HPO 튜닝 활성화 및 최적화 시도 횟수/메트릭 지정 UI 지원**
-* **REQ-UI-06: 6대 핵심 메뉴 사이드바 내비게이션 (Sidebar Multi-Menu Navigation)**
-  - Dataset & Splitting, Models & Active Pool, SHAP Interpretability, Custom Configurations, Runner Console, Results & Metrics 메뉴 구조.
+* **REQ-UI-06: 7대 핵심 메뉴 사이드바 내비게이션 (7-View Sidebar Navigation)**
+  - Dataset Selection, Data Splitting, Models & Active Pool, SHAP Interpretability, Custom Configurations, Runner Console, Results & Metrics 7대 독립 뷰 체계 구축.
 * **REQ-UI-07: 미디어 파일 유효성 검증 및 안전 로딩 (Media Validation Shield)**
 * **REQ-UI-08: WebUI SHAP 모델 선택 및 Explainer 엔진 식별 대시보드 (Interactive SHAP UI)**
   - 사이드바 내비게이션 메뉴(`🔍 SHAP Interpretability`)에서 사용자가 SHAP 대상 모델(예: `Champion`, `TabICL`, `XGBoost` 등)을 선택할 수 있으며, 선택 시 사용될 Explainer 엔진(예: `⚡ Engine: TabICL Dedicated In-Context Explainer`, `🌲 Engine: TreeExplainer`)이 실시간 뱃지로 표시되고, 결과 화면에서 피처 중요도 차트와 JSON 리포트를 인터랙티브하게 조회/다운로드할 수 있어야 합니다.

@@ -287,7 +287,8 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-    NAV_DATASET = "📁 Dataset & Splitting"
+    NAV_DATASET = "📁 Dataset Selection"
+    NAV_SPLIT = "✂️ Data Splitting"
     NAV_MODELS = "🛠️ Models & Active Pool"
     NAV_SHAP = "🔍 SHAP Interpretability"
     NAV_CUSTOM = "🧩 Custom Configurations"
@@ -296,6 +297,7 @@ with st.sidebar:
 
     menu_options = [
         NAV_DATASET,
+        NAV_SPLIT,
         NAV_MODELS,
         NAV_SHAP,
         NAV_CUSTOM,
@@ -327,7 +329,9 @@ with st.sidebar:
     shap_str = f"Enabled ({st.session_state.cfg_shap_model})" if st.session_state.cfg_shap_enabled else "Disabled"
     st.markdown(f"""
         <div style="margin-top: 0.8rem; font-size: 0.85rem; color: #cbd5e1;">
-            <div>🤖 <b>Active Models:</b> {num_active}</div>
+            <div>📁 <b>Target Col:</b> {st.session_state.cfg_target_col}</div>
+            <div style="margin-top: 0.3rem;">✂️ <b>Split Strategy:</b> {st.session_state.cfg_split_method}</div>
+            <div style="margin-top: 0.3rem;">🤖 <b>Active Models:</b> {num_active}</div>
             <div style="margin-top: 0.3rem;">🎯 <b>HPO:</b> {hpo_str}</div>
             <div style="margin-top: 0.3rem;">🔍 <b>SHAP:</b> {shap_str}</div>
             <div style="margin-top: 0.3rem;">🔄 <b>Turn:</b> {st.session_state.current_turn}</div>
@@ -348,12 +352,12 @@ st.markdown(f"""
 
 
 # ==========================================
-# 📁 MENU 1: DATASET & SPLITTING
+# 📁 MENU 1: DATASET SELECTION
 # ==========================================
 if selected_menu == NAV_DATASET:
     st.markdown('<div class="premium-card">', unsafe_allow_html=True)
     st.markdown('<div class="card-header">📁 Data Source & Path Configurations</div>', unsafe_allow_html=True)
-    st.write("Configure where your dataset is loaded from, specify output artifacts destination, and configure column roles.")
+    st.write("Select your dataset source, explore dataset samples, and configure feature/target column roles.")
     st.markdown('</div>', unsafe_allow_html=True)
 
     col1, col2 = st.columns(2)
@@ -393,7 +397,7 @@ if selected_menu == NAV_DATASET:
         # Dataset Sample Preview
         sample_df = preview_dataset_sample(st.session_state.cfg_dataset_path)
         if sample_df is not None:
-            with st.expander("👁️ Dataset Quick Preview (Top 5 rows)", expanded=False):
+            with st.expander("👁️ Dataset Quick Preview (Top 5 rows)", expanded=True):
                 st.dataframe(sample_df, use_container_width=True)
 
     st.markdown("---")
@@ -424,29 +428,44 @@ if selected_menu == NAV_DATASET:
             feature_str = st.text_input("Feature Columns (comma separated) [Empty = All]", value=",".join(st.session_state.cfg_feature_cols))
             st.session_state.cfg_feature_cols = [c.strip() for c in feature_str.split(",") if c.strip()]
 
-    # Data Splitting Strategy
-    st.markdown("---")
-    st.markdown('<div class="card-header">✂️ Data Splitting Strategy</div>', unsafe_allow_html=True)
-    
+
+# ==========================================
+# ✂️ MENU 2: DATA SPLITTING
+# ==========================================
+elif selected_menu == NAV_SPLIT:
+    st.markdown('<div class="premium-card">', unsafe_allow_html=True)
+    st.markdown('<div class="card-header">✂️ Data Splitting & Validation Strategy</div>', unsafe_allow_html=True)
+    st.write("Configure the data partitioning technique to properly validate model generalization performance.")
+    st.markdown('</div>', unsafe_allow_html=True)
+
     split_methods = ["train_test_split", "kfold", "timeseries"]
     default_split_idx = split_methods.index(st.session_state.cfg_split_method) if st.session_state.cfg_split_method in split_methods else 0
-    st.session_state.cfg_split_method = st.selectbox("Split Method", split_methods, index=default_split_idx)
+    st.session_state.cfg_split_method = st.selectbox(
+        "Split Method", 
+        split_methods, 
+        index=default_split_idx,
+        help="train_test_split: Simple holdout split\nkfold: K-Fold cross validation\ntimeseries: Sequential time-ordered split"
+    )
     
+    st.markdown("##### ⚙️ Splitting Parameters")
     rendered_split_params = render_dynamic_params(st.session_state.cfg_split_params, "split")
     st.session_state.cfg_split_params = rendered_split_params
 
-    # Hyperparameter Optimization (Optuna)
+    # Visual explanation card for the chosen split strategy
     st.markdown("---")
-    st.markdown('<div class="card-header">🎯 Hyperparameter Optimization (Optuna)</div>', unsafe_allow_html=True)
-    hpo_c1, hpo_c2 = st.columns([1, 2])
-    with hpo_c1:
-        st.session_state.cfg_hpo_enabled = st.checkbox("Enable HPO (Optuna)", value=st.session_state.cfg_hpo_enabled)
-    with hpo_c2:
-        st.session_state.cfg_hpo_trials = st.number_input("HPO Trials per Model", min_value=2, max_value=200, value=st.session_state.cfg_hpo_trials, step=1)
+    st.markdown("##### 💡 Strategy Overview")
+    if st.session_state.cfg_split_method == "train_test_split":
+        test_sz = st.session_state.cfg_split_params.get("test_size", 0.2)
+        st.info(f"📊 **Holdout Split**: Dataset is partitioned randomly into Training ({100 - int(float(test_sz)*100)}%) and Testing ({int(float(test_sz)*100)}%) sets.")
+    elif st.session_state.cfg_split_method == "kfold":
+        n_splits = st.session_state.cfg_split_params.get("n_splits", 5)
+        st.info(f"🔄 **K-Fold Cross Validation**: Data is divided into {n_splits} equal folds to minimize evaluation bias.")
+    else:
+        st.info("⏱️ **Time Series Split**: Data is partitioned along the temporal dimension without future-data lookahead.")
 
 
 # ==========================================
-# 🛠️ MENU 2: MODELS & ACTIVE POOL
+# 🛠️ MENU 3: MODELS & ACTIVE POOL
 # ==========================================
 elif selected_menu == NAV_MODELS:
     st.markdown('<div class="premium-card">', unsafe_allow_html=True)
@@ -479,9 +498,18 @@ elif selected_menu == NAV_MODELS:
             updated_models[model_name] = updated_params
     st.session_state.cfg_models_params = updated_models
 
+    # Hyperparameter Optimization (Optuna)
+    st.markdown("---")
+    st.markdown('<div class="card-header">🎯 Hyperparameter Optimization (Optuna)</div>', unsafe_allow_html=True)
+    hpo_c1, hpo_c2 = st.columns([1, 2])
+    with hpo_c1:
+        st.session_state.cfg_hpo_enabled = st.checkbox("Enable HPO (Optuna)", value=st.session_state.cfg_hpo_enabled)
+    with hpo_c2:
+        st.session_state.cfg_hpo_trials = st.number_input("HPO Trials per Model", min_value=2, max_value=200, value=st.session_state.cfg_hpo_trials, step=1)
+
 
 # ==========================================
-# 🔍 MENU 3: SHAP INTERPRETABILITY
+# 🔍 MENU 4: SHAP INTERPRETABILITY
 # ==========================================
 elif selected_menu == NAV_SHAP:
     st.markdown('<div class="premium-card">', unsafe_allow_html=True)
@@ -563,7 +591,7 @@ elif selected_menu == NAV_SHAP:
 
 
 # ==========================================
-# 🧩 MENU 4: CUSTOM CONFIGURATIONS
+# 🧩 MENU 5: CUSTOM CONFIGURATIONS
 # ==========================================
 elif selected_menu == NAV_CUSTOM:
     st.markdown('<div class="premium-card">', unsafe_allow_html=True)
@@ -582,7 +610,7 @@ elif selected_menu == NAV_CUSTOM:
 
 
 # ==========================================
-# ⚙️ MENU 5: RUNNER CONSOLE
+# ⚙️ MENU 6: RUNNER CONSOLE
 # ==========================================
 elif selected_menu == NAV_RUNNER:
     st.markdown('<div class="premium-card">', unsafe_allow_html=True)
@@ -711,7 +739,7 @@ elif selected_menu == NAV_RUNNER:
 
 
 # ==========================================
-# 📈 MENU 6: RESULTS & METRICS
+# 📈 MENU 7: RESULTS & METRICS
 # ==========================================
 elif selected_menu == NAV_RESULTS:
     st.markdown('<div class="premium-card">', unsafe_allow_html=True)

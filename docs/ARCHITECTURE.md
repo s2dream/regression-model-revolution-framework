@@ -15,7 +15,7 @@
                              │               │
             ┌────────────────▼───────────────▼───────────────┐
             │            app.py (Streamlit WebUI)            │ (Interactive Web Studio)
-            │  - Multi-Menu (Data, Models, SHAP, Custom, Run)│
+            │  - Multi-Menu (Data, Split, Models, SHAP, etc) │
             │  - Live Explainer Engine Badge Indicators      │
             │  - Real-time Subprocess Console Log Streamer   │
             │  - Headless Default Configuration              │
@@ -211,4 +211,4 @@ regression-model-revolution-framework/
 - **`SHAPAnalyzer` (Class, `shap_analyzer.py`)**: `TreeExplainer`, `TabICL Dedicated In-Context Explainer`, `ModelExplainer` 다형성 엔진 지원.
 
 ### C. 대화형 웹 인터페이스 스튜디오: `app.py` (Streamlit WebUI)
-- 사이드바 라디오 내비게이션 기반 6대 핵심 뷰(`Dataset`, `Models`, `SHAP`, `Custom`, `Runner`, `Results`) 및 실시간 Explainer 엔진 뱃지 지원.
+- 사이드바 라디오 내비게이션 기반 7대 핵심 뷰(`Dataset Selection`, `Data Splitting`, `Models & Active Pool`, `SHAP Interpretability`, `Custom Configurations`, `Runner Console`, `Results & Metrics`) 및 실시간 Explainer 엔진 뱃지 지원.

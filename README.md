@@ -113,13 +113,15 @@ pip install -r requirements.txt
 ```bash
 ./scripts/run_webui.sh
 ```
-This starts the local Streamlit studio with 6 sidebar views:
-- `📁 Dataset & Splitting`: Data source & column mapping
-- `🛠️ Models & Active Pool`: Model selection & hyperparameter configuration
+
+This starts the local Streamlit studio with 7 sidebar views:
+- `📁 Dataset Selection`: Data source selection, dataset sample preview & column role mapping
+- `✂️ Data Splitting`: Partitioning strategy (TrainTest, K-Fold, TimeSeries) & split parameter controls
+- `🛠️ Models & Active Pool`: Model selection, hyperparameter tuning & Optuna HPO configuration
 - `🔍 SHAP Interpretability`: Feature attribution model selection & live Explainer engine indicators
-- `🧩 Custom Configurations`: Extended settings
-- `⚙️ Runner Console`: Real-time streaming subprocess executor
-- `📈 Results & Metrics`: Performance metrics, visual diagnostics & interactive SHAP reports
+- `🧩 Custom Configurations`: Extended custom YAML configurations
+- `⚙️ Runner Console`: Real-time streaming subprocess execution console
+- `📈 Results & Metrics`: Performance leaderboard, visual diagnostics, loss curves & SHAP reports
 
 ### 3. Run via Command Line Interface (CLI)
 ```bash
