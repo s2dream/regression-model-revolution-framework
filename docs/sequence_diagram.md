@@ -148,9 +148,16 @@ sequenceDiagram
         Main->>Vis: plot_actual_vs_predicted(...)
         Main->>Vis: plot_residuals(...)
     end
-    Main->>Vis: save_json_report(metrics, turn)
-    Main->>Vis: save_html_report(metrics, turn)
-    Main->>Vis: save_markdown_summary(metrics, turn)
+
+    loop 반복/신경망 모델 순회
+        opt hasattr(model, 'get_loss_history')
+            Main->>Vis: plot_learning_curve(loss_history, model_name, turn)
+        end
+    end
+
+    Main->>Vis: save_json_report(metrics, turn, metadata, learning_curves)
+    Main->>Vis: save_html_report(metrics, turn, metadata)
+    Main->>Vis: save_markdown_summary(metrics, turn, metadata)
 
     %% ==========================================
     %% 5. SHAP INTERPRETABILITY PHASE

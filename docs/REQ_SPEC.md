@@ -13,7 +13,7 @@
 - **엔드투엔드 솔루션 제공**: 데이터 수집/수신, 결측치 보정 및 인코딩 전처리, 모델 팩토리 인스턴스화, Optuna HPO 자동 튜닝, 일괄 벤치마크 학습 및 평가, SHAP 피처 기여도 분석, 프리미엄 다크 테마 분석 플롯 생성 및 구조화 리포트 저장을 아우르는 단일 파이프라인을 구축합니다.
 - **개발 부담 최소화 및 무코드 설정**: 기계학습 모델 훈련에 소요되는 데이터 가공 및 알고리즘 탐색 노력을 최소화하며, 외부 설정 파일(`configs/*.yml`) 및 Streamlit Web UI 연동을 통해 코딩 없이 모델의 세부 하이퍼파라미터 및 구동 방식을 제어합니다.
 - **높은 신뢰성과 결함 감내**: 실행 환경의 차이(특정 라이브러리 누락, C-library / OpenMP 런타임 부재 등)에도 파이프라인이 즉시 크래시되지 않고, 최선의 유효 모델 세트를 활용하여 성공적인 완료를 보장합니다.
-- **세련된 분석 결과 제공**: 의사결정권자 또는 연구원에게 분석 결과를 명확하게 전달할 수 있는 프리미엄 다크 테마 시각화 차트와 기계 가독성이 뛰어난 표준 JSON 리포트, 그리고 반응형 HTML/Markdown 리포트를 자동 발행합니다.
+- **세련된 분석 결과 제공**: 의사결정권자 또는 연구원에게 분석 결과를 명확하게 전달할 수 있는 프리미엄 다크 테마 시각화 차트와 기계 가독성이 뛰어난 표준 JSON 리포트, 독립형 인터랙티브 HTML 대시보드 및 Markdown 진단 리포트를 자동 발행합니다.
 - **단일 책임 및 디자인 패턴 기반 확장성**: 모델 팩토리(`ModelFactory`), 모델 저장소(`ModelPool`), 학습/평가 실행기(`BenchmarkExecutor`), HPO 튜너(`OptunaHPOTuner`), SHAP 분석기(`SHAPAnalyzer`), 데이터 퍼사드(`DataLoaderHelper`)를 철저히 모듈화하여 새로운 알고리즘과 분석 전략을 손쉽게 추가할 수 있도록 설계합니다.
 
 ---
@@ -25,7 +25,7 @@
 - **운영체제**: OS 독립적 (Linux, macOS, Windows 크로스 플랫폼 지원)
 
 ### 2.2 기술 스택 및 의존성 (Key Dependencies)
-- **데이터 분석 및 프레임 처리**: `pandas` (>= 1.x), `numpy` (>= 1.x)
+- **데이터 분석 및 프레임 처리**: `pandas` (>= 1.3.0), `numpy` (>= 1.20.0)
 - **설정 파일 포맷**: `PyYAML` (>= 6.0)
 - **머신러닝 & 알고리즘**:
   - `scikit-learn`: 데이터 분할(`train_test_split`), 회귀 평가 지표 계산, `RandomForestRegressor`, `MLPRegressor`
@@ -38,7 +38,7 @@
   - `shap`: 모델 해석 및 피처 기여도 분석 라이브러리 (TreeExplainer, KernelExplainer)
 - **시각화 및 UI**:
   - `matplotlib`, `seaborn`: 프리미엄 다크 테마 시각화 렌더링
-  - `streamlit`: 대화형 웹 인터페이스 스튜디오
+  - `streamlit`: 대화형 웹 인터페이스 스튜디오 (Headless 모드 기본 지원)
 - **외부 데이터 소스 연동**:
   - `kaggle`: Kaggle API 연동 및 원격 데이터셋 파일 다운로드 지원
   - `urllib.request`: 내장 다운로더 모듈을 통한 직접 HTTP URL 파싱 지원
@@ -101,18 +101,22 @@
   - SHAP Feature Importance 수평 막대 차트(`turn_{turn}_{model}_shap_bar.png`), Summary Beeswarm 플롯(`turn_{turn}_{model}_shap_summary.png`), 그리고 피처별 기여도 순위와 사용된 Explainer 엔진명이 명시된 독립 JSON 리포트(`turn_{turn}_{model}_shap_report.json`)를 자동 생성해야 합니다.
 * **REQ-VI-07: 반응형 HTML 및 Markdown 진단 리포트 자동 생성**
   - 독립 실행 가능한 반응형 인터랙티브 HTML 대시보드(`turn_{turn}_report.html`) 및 공유 가능한 Markdown 요약 리포트(`turn_{turn}_report.md` / `turn_{turn}_summary.md`)를 자동 발행해야 합니다.
+* **REQ-VI-08: 학습 곡선 시각화 (Learning Curve Plotting)**
+  - 반복 기반 훈련 모델(MLP, Neural Networks 등)에 대해 훈련 손실 추이를 시각화한 학습 곡선 차트(`turn_{turn}_{model}_learning_curve.png`)를 생성해야 합니다.
 
 ### 3.7 대화형 웹 인터페이스 (Interactive Web UI Studio)
 * **REQ-UI-01: 동적 설정 구성 및 스키마 기반 렌더링**
 * **REQ-UI-02: 데이터셋 기반 컬럼 동적 바인딩**
 * **REQ-UI-03: 실시간 로그 스트리밍 콘솔**
 * **REQ-UI-04: 성적표 및 시각화 결과 대시보드**
-* **REQ-UI-05: HPO 튜닝 활성화 및 최적화 시도 횟수 지정 UI 지원**
+* **REQ-UI-05: HPO 튜닝 활성화 및 최적화 시도 횟수/메트릭 지정 UI 지원**
 * **REQ-UI-06: 6대 핵심 메뉴 사이드바 내비게이션 (Sidebar Multi-Menu Navigation)**
   - Dataset & Splitting, Models & Active Pool, SHAP Interpretability, Custom Configurations, Runner Console, Results & Metrics 메뉴 구조.
 * **REQ-UI-07: 미디어 파일 유효성 검증 및 안전 로딩 (Media Validation Shield)**
 * **REQ-UI-08: WebUI SHAP 모델 선택 및 Explainer 엔진 식별 대시보드 (Interactive SHAP UI)**
   - 사이드바 내비게이션 메뉴(`🔍 SHAP Interpretability`)에서 사용자가 SHAP 대상 모델(예: `Champion`, `TabICL`, `XGBoost` 등)을 선택할 수 있으며, 선택 시 사용될 Explainer 엔진(예: `⚡ Engine: TabICL Dedicated In-Context Explainer`, `🌲 Engine: TreeExplainer`)이 실시간 뱃지로 표시되고, 결과 화면에서 피처 중요도 차트와 JSON 리포트를 인터랙티브하게 조회/다운로드할 수 있어야 합니다.
+* **REQ-UI-09: 기본 Headless 모드 동작 지원 (Headless Execution by Default)**
+  - Streamlit 기동 시 불필요하게 브라우저 창이 자동으로 뜨지 않도록 `.streamlit/config.toml` 및 실행 스크립트(`scripts/run_webui.sh`)를 통해 Headless 모드로 동작해야 합니다.
 
 ---
 
@@ -129,3 +133,4 @@
 * **REQ-QA-02: 종단간 파이프라인 통합 테스트 (E2E Integration Testing)**
 * **REQ-QA-03: WebUI 헬퍼 기능 테스트 (UI Helper Testing)**
 * **REQ-QA-04: SHAP 해석 및 Explainer 무결성 검증 (SHAP QA Testing)**
+  - `tests/test_shap.py`를 통해 TabICL Dedicated Explainer, TreeExplainer, ModelExplainer의 피처 중요도 산출 및 산출물 파일 무결성을 100% 검증해야 합니다.

@@ -50,6 +50,7 @@ framework:
 hpo:
   enabled: false                         # Optuna 자동 튜닝 기동 여부 (bool)
   n_trials: 10                           # 모델별 하이퍼파라미터 최적화 시도 횟수 (int)
+  metric: "RMSE"                         # 최적화 대상 평가지표: "RMSE", "MAE", "R2" (str)
 
 shap:
   enabled: false                         # SHAP 모델 해석 및 피처 기여도 분석 활성화 여부 (bool)
@@ -58,8 +59,12 @@ shap:
 
 data:
   data_dir: "data"                       # 데이터 파일 저장 디렉토리 (str)
+  output_dir: "outputs"                  # 산출물 저장 디렉토리 (str)
   ignored_columns: []                    # 전처리 시작 전 제외할 컬럼 목록 (list of str)
   feature_columns: []                    # 명시적으로 사용할 독립 변수 목록 (비어있으면 전체 사용)
+  split:
+    method: "train_test_split"           # 분할 전략: "train_test_split", "kfold", "timeseries"
+    test_size: 0.2
 
 models:                                  # 개별 모델별 하이퍼파라미터 사전 (kwargs로 바인딩)
   XGBoost:
@@ -87,7 +92,7 @@ models:                                  # 개별 모델별 하이퍼파라미�
 
 ---
 
-## 4. 핵심 컨트롤러 & 파사드 API
+## 4. 핵심 컨트롤러 & 도메인 클래스 API
 
 ### 4.1 `AutoMLPipeline` (`main.py`)
 ```python
@@ -115,7 +120,7 @@ class AutoMLPipeline:
         """활성 모델 풀에 대해 HPO 튜닝 및 학습을 수행하고 평가 메트릭 반환"""
 
     def generate_reports(self) -> None:
-        """프리미엄 다크 테마 차트 및 JSON 리포트를 outputs/ 에 저장"""
+        """프리미엄 다크 테마 차트, HTML 대시보드, Markdown 요약 및 JSON 리포트를 outputs/ 에 저장"""
 
     def run_shap_analysis(self) -> Optional[Dict[str, Any]]:
         """지정된 대상 모델(또는 Champion)에 대해 SHAP 피처 기여도 분석 및 리포트 파일 생성"""
@@ -131,7 +136,37 @@ class AutoMLPipeline:
 
 ---
 
-### 4.2 `SHAPAnalyzer` (`automl_framework.util.shap_analyzer`)
+### 4.2 `Visualizer` (`automl_framework.util.visualizer`)
+```python
+class Visualizer:
+    def __init__(self, output_dir: str = "outputs") -> None:
+        """Visualizer 초기화 및 출력 폴더 생성"""
+
+    def plot_actual_vs_predicted(self, y_true: np.ndarray, y_pred: np.ndarray, model_name: str, turn: int = 1) -> str:
+        """실제값 vs 예측값 산포도 및 y=x 대각선 플롯 생성"""
+
+    def plot_residuals(self, y_true: np.ndarray, y_pred: np.ndarray, model_name: str, turn: int = 1) -> str:
+        """잔차 산포도 플롯 생성"""
+
+    def plot_model_comparison(self, metrics: Dict[str, Dict[str, float]], metric_name: str = "RMSE", turn: int = 1) -> str:
+        """모델 성능 비교 수평 막대 차트 생성"""
+
+    def plot_learning_curve(self, loss_history: list, model_name: str, turn: int = 1) -> str:
+        """학습 곡선 손실 추이 차트 생성"""
+
+    def save_json_report(self, metrics: Dict[str, Dict[str, float]], turn: int = 1, metadata: Optional[Dict[str, Any]] = None, ...) -> str:
+        """구조화 JSON 실행 리포트 저장"""
+
+    def save_html_report(self, metrics: Dict[str, Dict[str, float]], turn: int = 1, metadata: Optional[Dict[str, Any]] = None) -> str:
+        """base64 임베딩 독립 실행형 반응형 HTML 대시보드 저장"""
+
+    def save_markdown_summary(self, metrics: Dict[str, Dict[str, float]], turn: int = 1, metadata: Optional[Dict[str, Any]] = None) -> str:
+        """공유 가능한 GFM 요약 리포트 저장"""
+```
+
+---
+
+### 4.3 `SHAPAnalyzer` (`automl_framework.util.shap_analyzer`)
 ```python
 class SHAPAnalyzer:
     def __init__(
@@ -172,7 +207,15 @@ class SHAPAnalyzer:
     "CatBoost": { "RMSE": 1.1201, "MAE": 0.8912, "R2": 0.9412 },
     "TabICL": { "RMSE": 1.1504, "MAE": 0.9102, "R2": 0.9380 }
   },
-  "timestamp": "2026-08-15T10:35:00"
+  "metadata": {
+    "target_column": "Target_Y",
+    "split_method": "train_test_split",
+    "train_samples": 80,
+    "test_samples": 20,
+    "num_features": 4,
+    "random_state": 42
+  },
+  "timestamp": "2026-08-15T12:00:00"
 }
 ```
 
@@ -185,21 +228,21 @@ class SHAPAnalyzer:
   "num_samples_analyzed": 20,
   "num_features": 4,
   "top_features": [
-    "Feat_Beta",
-    "Feat_Delta",
-    "Feat_Alpha",
-    "Feat_Gamma"
+    "Feature_X1",
+    "Feature_X2",
+    "Category_X3_low",
+    "Category_X3_medium"
   ],
   "mean_abs_shap": {
-    "Feat_Beta": 42.1582,
-    "Feat_Delta": 18.3491,
-    "Feat_Alpha": 9.2014,
-    "Feat_Gamma": 3.1205
+    "Feature_X1": 9.7789,
+    "Feature_X2": 2.9238,
+    "Category_X3_low": 2.0413,
+    "Category_X3_medium": 1.2719
   },
   "artifacts": [
     "turn_1_TabICL_shap_bar.png",
     "turn_1_TabICL_shap_summary.png"
   ],
-  "timestamp": "2026-08-15T10:37:00"
+  "timestamp": "2026-08-15T12:00:00"
 }
 ```

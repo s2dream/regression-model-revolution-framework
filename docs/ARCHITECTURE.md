@@ -18,6 +18,7 @@
             │  - Multi-Menu (Data, Models, SHAP, Custom, Run)│
             │  - Live Explainer Engine Badge Indicators      │
             │  - Real-time Subprocess Console Log Streamer   │
+            │  - Headless Default Configuration              │
             └────────────────┬───────────────────────────────┘
                              │ Generates configs/web_config.yml & Executes
                              ▼
@@ -44,13 +45,15 @@
 ├──────────────────────────────┤    │    │ - plot_actual_vs_predicted() │
 │ - download_from_kaggle()     │    │    │ - plot_residuals()           │
 │ - download_from_url()        │    │    │ - plot_model_comparison()    │
-│ - load_dataset()             │    │    │ - save_json_report()         │
-│ - preprocess_data()          │    │    │ - save_html_report()         │
-│ - split_data()               │    │    │ - save_markdown_report()     │
-│ - prepare_data()             │    │    └──────────────────────────────┘
-│  (Delegates to modular       │    │
-│   strategies under-the-hood) │    │    ┌──────────────────────────────┐
-└──────────────────────────────┘    │    │         SHAPAnalyzer         │
+│ - load_dataset()             │    │    │ - plot_learning_curve()      │
+│ - preprocess_data()          │    │    │ - save_json_report()         │
+│ - split_data()               │    │    │ - save_html_report()         │
+│ - prepare_data()             │    │    │ - save_markdown_report()     │
+│  (Delegates to modular       │    │    │ - save_markdown_summary()    │
+│   strategies under-the-hood) │    │    └──────────────────────────────┘
+└──────────────────────────────┘    │
+                                    │    ┌──────────────────────────────┐
+                                    │    │         SHAPAnalyzer         │
                                     │    │  (automl_framework/          │
                                     │    │   util/shap_analyzer.py)     │
                                     │    ├──────────────────────────────┤
@@ -121,6 +124,16 @@ regression-model-revolution-framework/
 ├── main.py                         # 프로젝트 전체 실행 진입점 (CLI Orchestrator & AutoMLPipeline)
 ├── app.py                          # Streamlit 기반 대화형 웹 인터페이스 스튜디오 (WebUI Studio)
 │
+├── .streamlit/                     # ⚙️ Streamlit 전역 환경설정
+│   └── config.toml                 # Headless 기본 활성화 설정
+│
+├── docs/                           # 📚 프로젝트 소프트웨어 엔지니어링 표준 산출물 문서 보관소
+│   ├── REQ_SPEC.md                 # 소프트웨어 요구사항 명세서 (SRS)
+│   ├── ARCHITECTURE.md             # [본 문서] 시스템 아키텍처 설계서 (SAD)
+│   ├── sequence_diagram.md         # 세부 상호작용 시퀀스 다이어그램 문서
+│   ├── TEST_SPEC.md                # 소프트웨어 테스트 계획 및 명세서 (STP/STD)
+│   └── INTERFACE_SPEC.md           # 프레임워크 API 및 인터페이스 정의서
+│
 ├── configs/                        # 📂 설정 프로파일 보관소 (실험 목적별 YAML 설정 파일)
 │   ├── default.yml                 # 기본 통합 설정 프로파일 (모델별 파라미터, HPO, SHAP 설정)
 │   ├── kfold_split.yml             # 교차 검증(K-Fold Split) 실험 설정 프로파일
@@ -132,7 +145,7 @@ regression-model-revolution-framework/
 │   ├── run_local_csv.sh            # 로컬 CSV 데이터셋 학습 실행기
 │   ├── run_local_jsonl.sh          # 로컬 JSONL 데이터셋(동적 컬럼 지원) 학습 실행기
 │   ├── run_url.sh                  # 원격 HTTP URL 파일 다운로드 후 학습 실행기
-│   └── run_webui.sh                # Streamlit Web UI 기동 실행기
+│   └── run_webui.sh                # Streamlit Web UI 기동 실행기 (--server.headless true)
 │
 ├── automl_framework/               # 📦 프레임워크 메인 패키지
 │   ├── __init__.py                 # 패키지 파사드 진입점 (핵심 모듈 클래스 외부 노출)
@@ -156,13 +169,13 @@ regression-model-revolution-framework/
 │   │
 │   ├── util/                       # 📂 분석/유틸리티 서브패키지 (Utility Domain)
 │   │   ├── __init__.py
-│   │   ├── visualizer.py           # 프리미엄 다크 테마 차트 생성 및 JSON 리포트 작성
+│   │   ├── visualizer.py           # 프리미엄 다크 테마 차트 생성, HTML/Markdown 리포트 작성
 │   │   ├── shap_analyzer.py        # SHAP 모델 해석 및 TabICL 전용 In-Context Explainer 엔진
 │   │   └── logger.py               # 콘솔/파일 로깅 설정 모듈
 │   │
-│   └── README.md                   # 패키지 명세서
+│   └── README.md                   # 서브패키지 명세서
 │
-├── tests/                          # 🧪 종합 테스트 스위트 (Unit & Integration Tests)
+├── tests/                          # 🧪 종합 테스트 스위트 (70개 Unit & Integration Tests)
 │   ├── __init__.py
 │   ├── test_dataloader.py          # 데이터 로더, JSONL 동적 스키마 로딩 및 분할 기능 테스트
 │   ├── test_model.py               # 모델 초기화, 수동 등록 및 실행기 기본 테스트
@@ -170,20 +183,15 @@ regression-model-revolution-framework/
 │   ├── test_all_models.py          # 전체 활성 회귀 모델 Wrapper 학습/추론 단위 테스트
 │   ├── test_tabicl.py              # TabICL In-Context Learning 회귀 모델 테스트
 │   ├── test_transformer_regression.py # PyTorch 트랜스포머 회귀 모델 및 확률 모드 테스트
-│   ├── test_hpo.py                 # Optuna HPO 튜닝 및 파라미터 업데이트 테스트
+│   ├── test_hpo.py                 # Optuna HPO 튜닝 (RMSE/MAE/R2 메트릭) 테스트
 │   ├── test_shap.py                # SHAP 모델 해석 및 TabICL 전용 Explainer 단위/통합 테스트
-│   ├── test_visualizer.py          # 시각화 플롯 생성 및 JSON 리포트 작성 테스트
+│   ├── test_visualizer.py          # 시각화 플롯 생성 및 JSON/HTML/Markdown 리포트 작성 테스트
 │   ├── test_logger.py              # 로거 구성 및 로그 파일 기록 테스트
 │   ├── test_webui_helpers.py       # WebUI 헬퍼 함수, 스키마 플래트닝 및 미디어 검증 테스트
 │   └── test_pipeline_e2e.py        # 모의 데이터셋 기반 End-to-End 전체 파이프라인 통합 테스트
 │
 ├── data/                           # 📂 (데이터 저장소) 모의 데이터셋 및 벤치마크 데이터
 ├── outputs/                        # 📂 (결과 저장소) 시각화 이미지(.png) 및 JSON 실행 리포트
-├── ARCHITECTURE.md                 # [본 문서] 시스템 아키텍처 설계서
-├── REQ_SPEC.md                     # 소프트웨어 요구사항 명세서
-├── sequence_diagram.md             # 세부 상호작용 시퀀스 다이어그램 문서
-├── TEST_SPEC.md                    # 소프트웨어 테스트 계획 및 명세서
-├── INTERFACE_SPEC.md               # 프레임워크 API 및 인터페이스 정의서
 └── README.md                       # 프로젝트 개요 및 빠른 시작 가이드
 ```
 
@@ -193,10 +201,14 @@ regression-model-revolution-framework/
 
 ### A. CLI 및 파이프라인 오케스트레이션: `main.py`
 - **`AutoMLPipeline` (Class)**: 데이터 수집, 전처리, 모델 초기화, HPO 튜닝, 일괄 학습, 성능 평가, 프리미엄 시각화, SHAP 피처 해석 및 리포트 파일 아카이빙까지의 전체 생명주기를 조율하는 마스터 오케스트레이터입니다.
+  - `prepare_data()`: 데이터 수집, 결측치 보정/인코딩 및 train/test 분할.
+  - `train_and_evaluate()`: 활성 모델 풀에 대해 HPO 및 학습/평가 수행.
+  - `generate_reports()`: 다크 테마 차트, 잔차 플롯, 러닝 커브, JSON 리포트, 인터랙티브 HTML 리포트 및 Markdown 요약본 저장.
+  - `run_shap_analysis()`: 대상 모델(또는 Champion)에 대해 `SHAPAnalyzer`를 호출하여 피처 기여도 차트 및 독립 JSON 리포트 생성.
 
 ### B. 프리미엄 시각화 및 SHAP 해석 모듈: `automl_framework/util/`
-- **`Visualizer` (Class, `visualizer.py`)**: 다크 테마 플롯, 반응형 HTML 리포트 및 Markdown 요약본 생성.
+- **`Visualizer` (Class, `visualizer.py`)**: 다크 테마 플롯, 반응형 HTML 리포트, Markdown 요약본, 그리고 러닝 커브 차트 생성.
 - **`SHAPAnalyzer` (Class, `shap_analyzer.py`)**: `TreeExplainer`, `TabICL Dedicated In-Context Explainer`, `ModelExplainer` 다형성 엔진 지원.
 
 ### C. 대화형 웹 인터페이스 스튜디오: `app.py` (Streamlit WebUI)
-- 사이드바 내비게이션 기반 6대 핵심 뷰 및 실시간 Explainer 엔진 뱃지 표시.
+- 사이드바 라디오 내비게이션 기반 6대 핵심 뷰(`Dataset`, `Models`, `SHAP`, `Custom`, `Runner`, `Results`) 및 실시간 Explainer 엔진 뱃지 지원.

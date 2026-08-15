@@ -20,12 +20,12 @@
 
 ## 2. 테스트 환경 및 실행 도구
 
-- **테스트 프레임워크**: `pytest` (>= 7.x)
+- **테스트 프레임워크**: `pytest` (>= 7.0.0), `pytest-mock` (>= 3.6.0)
 - **실행 언어 및 환경**: Python 3.13 (Conda `py313`)
 - **테스트 소스 위치**: `tests/`
 - **테스트 실행 명령**:
   ```bash
-  # 전체 테스트 스위트 상세 실행
+  # 전체 테스트 스위트 상세 실행 (총 70개 테스트)
   conda run -n py313 pytest tests/ -v
 
   # SHAP 전용 테스트 실행
@@ -46,6 +46,8 @@
 | **TC-DL-04** | 결측치 임퓨테이션 검증 | `StandardDataPreprocessor` | 수치형 및 범주형 결측치(`NaN`)가 포함된 데이터 | 수치형은 중앙값(Median), 범주형은 최빈값(Mode)으로 대체되어 결측치 0개 달성 |
 | **TC-DL-05** | One-Hot Dummy 인코딩 검증 | `StandardDataPreprocessor` | 범주형 문자열 열을 포함한 데이터 | `drop_first=True` 기준의 원-핫 인코딩 수치 행렬로 변환됨 |
 | **TC-DL-06** | Train/Test 데이터 분할 검증 | `TrainTestSplitter` | `test_size=0.2`, 고정 난수 시드 `random_state=42` | 지정된 비율(80:20)로 데이터가 정확히 분할되며 결과 재현성이 보장됨 |
+| **TC-DL-07** | K-Fold 교차 분할 검증 | `KFoldSplitter` | `n_splits=5`, `shuffle=True` | 5개 폴드의 Train/Validation 인덱스가 정확히 분할됨 |
+| **TC-DL-08** | TimeSeries 시계열 분할 검증 | `TimeSeriesSplitter` | `n_splits=3` | 시간 순서를 거스르지 않는 시계열 분할이 정상 수행됨 |
 
 ---
 
@@ -81,6 +83,7 @@
 | **TC-HPO-01** | HPO 튜너 목적함수 검증 | `OptunaHPOTuner` | `n_trials=3`, 대상 모델 `XGBoost` | Optuna Study가 정상 실행되고 Validation RMSE가 최소화되는 방향으로 수렴 |
 | **TC-HPO-02** | HPO 완료 후 Best Model 갱신 | `OptunaHPOTuner.run_hpo_tuning()` | `ModelPool` 주입 및 훈련 데이터 | 최적 파라미터로 생성된 신규 래퍼 인스턴스가 `ModelPool` 내 기존 모델을 안전하게 대체 |
 | **TC-HPO-03** | HPO 스킵 모델 방어 | `OptunaHPOTuner` | `TabPFN`, `TabICL` 등 튜닝 불필요 모델 | 에러 없이 안전하게 튜닝을 스킵하고 기본 모델 상태 유지 |
+| **TC-HPO-04** | HPO MAE/R2 커스텀 메트릭 검증 | `OptunaHPOTuner` | `metric="MAE"` 또는 `metric="R2"` | 선택된 지표에 맞춰 목적함수가 정확히 최적화 방향(최소화/최대화)으로 수렴 |
 
 ---
 
@@ -105,6 +108,10 @@
 | **TC-VIS-02** | 잔차 분포 산포도 생성 | `Visualizer.plot_residuals()` | 실제 $y$ 벡터, 예측 $y_{pred}$ 벡터, 모델명 | `outputs/` 디렉토리에 유효한 잔차 분석 PNG 이미지 파일이 생성됨 |
 | **TC-VIS-03** | 모델 성능 비교 수평 막대 차트 생성 | `Visualizer.plot_model_comparison()` | 모델별 메트릭 사전 (R2, RMSE 등) | 모델 순위별 정렬된 수평 막대 비교 차트 PNG 파일이 생성됨 |
 | **TC-VIS-04** | 회차별 JSON 실행 리포트 저장 | `Visualizer.save_json_report()` | 지표 딕셔너리 및 turn 번호 | `outputs/turn_{turn}_report.json` 파일이 표준 JSON 스키마로 유효하게 저장됨 |
+| **TC-VIS-05** | 인터랙티브 HTML 대시보드 저장 | `Visualizer.save_html_report()` | 지표 딕셔너리, metadata, turn | base64 차트가 임베딩된 독립 실행형 `turn_{turn}_report.html` 파일 생성 |
+| **TC-VIS-06** | Markdown 요약본 저장 | `Visualizer.save_markdown_summary()` | 지표 딕셔너리, turn | 공유 가능한 GFM `turn_{turn}_summary.md` 파일 생성 |
+| **TC-VIS-07** | 학습 곡선 차트 생성 | `Visualizer.plot_learning_curve()` | `loss_history` 리스트, 모델명 | `turn_{turn}_{model}_learning_curve.png` 파일 생성 |
+| **TC-VIS-08** | 종합 Markdown 진단 리포트 저장 | `Visualizer.save_markdown_report()` | 지표, SHAP 리포트, 러닝커브 경로 | `turn_{turn}_report.md` 파일 생성 |
 
 ---
 
@@ -114,6 +121,8 @@
 | :--- | :--- | :--- | :--- | :--- |
 | **TC-UI-01** | 이미지 파일 유효성 검사 (정상 파일) | `is_valid_image()` | 정상적으로 생성된 1KB 이상의 PNG 이미지 | `True`를 반환하여 안전하게 UI에 렌더링 허용 |
 | **TC-UI-02** | 이미지 파일 유효성 검사 (0바이트/손상) | `is_valid_image()` | 0바이트 빈 파일 또는 비이미지 파일 | `False`를 반환하여 UI 크래시 방어 |
+| **TC-UI-03** | 설정 저장 및 로드 검증 | `load_config()`, `save_config()` | 임시 YAML 파일 경로 | 딕셔너리 데이터가 유실 없이 저장되고 정확히 복원됨 |
+| **TC-UI-04** | 컬럼 추출 및 샘플 미리보기 검증 | `get_dataset_columns()`, `preview_dataset_sample()` | CSV/TSV 파일 경로 | 컬럼 목록 및 상위 5개 행 데이터프레임이 정상 반환됨 |
 | **TC-LOG-01** | 시스템 로거 초기화 및 핸들러 등록 | `setup_logger()` | 로거 이름 및 로그 파일 경로 | 콘솔 스트림 및 파일 핸들러가 올바르게 바인딩되고 로그 메시지가 기록됨 |
 
 ---
@@ -122,13 +131,13 @@
 
 | 테스트 ID | 테스트 명칭 | 테스트 대상 | 입력 / 조건 | 예상 결과 |
 | :--- | :--- | :--- | :--- | :--- |
-| **TC-E2E-01** | E2E 합성 데이터 전체 파이프라인 구동 | `AutoMLPipeline.run()` | 모의 회귀 CSV, 기본 설정 파일, `turn=99` | 1) 데이터 수집/전처리 완료<br/>2) 가용 모델 전체 일괄 학습<br/>3) 평가 지표 산출<br/>4) 차트 PNG 및 JSON 리포트가 `outputs/`에 정상 기록됨 |
+| **TC-E2E-01** | E2E 합성 데이터 전체 파이프라인 구동 | `AutoMLPipeline.run()` | 모의 회귀 CSV, 기본 설정 파일, `turn=99` | 1) 데이터 수집/전처리 완료<br/>2) 가용 모델 전체 일괄 학습<br/>3) 평가 지표 산출<br/>4) 차트 PNG, HTML 및 JSON 리포트가 `outputs/`에 정상 기록됨 |
 | **TC-E2E-02** | HPO 활성화 상태 E2E 파이프라인 구동 | `AutoMLPipeline.run()` | `hpo.enabled: true`, `n_trials=2` | Optuna 튜닝 후 학습 및 평가가 중단 없이 원활하게 완료됨 |
 
 ---
 
 ## 4. 품질 판정 기준 (Acceptance Criteria)
 
-1. **테스트 성공률 100%**: 전체 `pytest` 테스트 스위트의 모든 테스트 케이스(총 65개)가 Pass되어야 합니다 (`0 failed`).
+1. **테스트 성공률 100%**: 전체 `pytest` 테스트 스위트의 모든 테스트 케이스(총 70개)가 Pass되어야 합니다 (`0 failed`).
 2. **무결점 쉴딩 검증**: 지원 라이브러리가 미설치된 환경에서도 `ModelFactory`, `ModelPool`, `SHAPAnalyzer`가 예외로 비정상 종료되지 않고 정상 구동되어야 합니다.
-3. **아티팩트 무결성**: 생성된 모든 JSON 리포트와 PNG 차트 파일은 파싱 가능하고 0 바이트가 아니어야 합니다.
+3. **아티팩트 무결성**: 생성된 모든 JSON/HTML/Markdown 리포트와 PNG 차트 파일은 파싱 가능하고 0 바이트가 아니어야 합니다.
