@@ -2,6 +2,7 @@ import streamlit as st
 import yaml
 import os
 import sys
+
 # Cross-platform OpenMP duplicate library protection (Linux, Windows, macOS)
 os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 os.environ.setdefault("OMP_NUM_THREADS", "1")
@@ -16,16 +17,16 @@ import time
 from PIL import Image
 
 # ==========================================
-# 🎨 PREMIUM AESTHETIC CONFIGURATIONS
+# 🎨 PAGE & WORKSPACE CONFIGURATION
 # ==========================================
 st.set_page_config(
     page_title="AutoML Regression Studio",
-    page_icon="🚀",
+    page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom premium styling (Glassmorphism & Neon accents)
+# Clean, professional styling that seamlessly integrates with Streamlit native layout
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
@@ -38,104 +39,33 @@ st.markdown("""
         font-family: 'JetBrains Mono', monospace !important;
     }
 
-    /* Professional Top Padding */
-    .block-container {
-        padding-top: 1.5rem !important;
-        padding-bottom: 2rem !important;
-        max-width: 95% !important;
-    }
-    
-    /* Modern Enterprise MLOps Breadcrumb Top Bar (No clunky banner box) */
-    .top-nav-bar {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0.4rem 0.2rem 0.8rem 0.2rem;
+    /* Tab styling */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+        padding-bottom: 4px;
         margin-bottom: 1.2rem;
-        border-bottom: 1px solid rgba(148, 163, 184, 0.15);
-    }
-    
-    .nav-left {
-        display: flex;
-        align-items: center;
-        gap: 0.6rem;
     }
 
-    .platform-logo {
-        color: #6366f1;
-        font-size: 1.1rem;
-        font-weight: 800;
-    }
-
-    .platform-name {
-        font-size: 0.95rem;
-        font-weight: 700;
-        letter-spacing: -0.01em;
-        color: #f1f5f9;
-    }
-
-    .nav-divider {
-        color: #475569;
-        font-size: 0.85rem;
-        font-weight: 400;
-    }
-
-    .current-view-name {
-        font-size: 0.9rem;
+    .stTabs [data-baseweb="tab"] {
         font-weight: 600;
-        color: #818cf8;
-    }
-
-    .nav-right {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-
-    /* Clean Section Heading */
-    .section-heading-wrap {
-        margin-bottom: 1.2rem;
-    }
-
-    .section-title {
-        font-size: 1.15rem;
-        font-weight: 700;
-        color: #f8fafc;
-        margin: 0;
-        letter-spacing: -0.01em;
-    }
-
-    .section-desc {
-        font-size: 0.85rem;
+        font-size: 0.88rem;
+        padding: 0.45rem 0.9rem;
+        border-radius: 6px;
         color: #94a3b8;
-        margin: 0.2rem 0 0 0;
     }
 
-    /* Card design */
-    .premium-card {
-        background: rgba(30, 41, 59, 0.3);
-        border: 1px solid rgba(148, 163, 184, 0.1);
-        border-radius: 8px;
-        padding: 1.2rem;
-        margin-bottom: 1rem;
+    .stTabs [aria-selected="true"] {
+        background-color: rgba(99, 102, 241, 0.12) !important;
+        color: #818cf8 !important;
     }
-    
-    .card-header {
-        font-size: 1rem;
-        font-weight: 600;
-        color: #93c5fd;
-        margin-bottom: 0.6rem;
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-    }
-    
+
     /* Modern status indicator */
     .status-badge {
         display: inline-flex;
         align-items: center;
         gap: 0.35rem;
-        padding: 0.2rem 0.65rem;
+        padding: 0.25rem 0.7rem;
         border-radius: 4px;
         font-size: 0.75rem;
         font-weight: 600;
@@ -153,7 +83,6 @@ st.markdown("""
         background-color: rgba(245, 158, 11, 0.1);
         color: #fbbf24;
         border: 1px solid rgba(245, 158, 11, 0.25);
-        animation: pulse 1.5s infinite;
     }
 
     .engine-badge {
@@ -250,28 +179,34 @@ def render_dynamic_params(params_dict, key_prefix):
                 updated[k] = st.number_input(k, value=v, format="%.4f", step=0.01, key=widget_key)
             elif isinstance(v, list):
                 val_str = str(v)
-                res_str = st.text_input(f"{k} (list, e.g. [128, 64])", value=val_str, key=widget_key)
+                new_str = st.text_input(f"{k} (list)", value=val_str, key=widget_key)
                 try:
-                    updated[k] = ast.literal_eval(res_str)
+                    updated[k] = ast.literal_eval(new_str)
+                except Exception:
+                    updated[k] = [x.strip() for x in new_str.strip("[]").split(",") if x.strip()]
+            elif isinstance(v, dict):
+                dict_str = json.dumps(v)
+                new_dict_str = st.text_input(f"{k} (dict/JSON)", value=dict_str, key=widget_key)
+                try:
+                    updated[k] = json.loads(new_dict_str)
                 except Exception:
                     updated[k] = v
             elif v is None:
-                col1, col2 = st.columns([1, 2])
-                with col1:
-                    is_null = st.checkbox("Null", value=True, key=f"{widget_key}_null_chk")
-                with col2:
-                    if is_null:
-                        st.text_input(k, value="null (disabled)", disabled=True, key=f"{widget_key}_null_val")
-                        updated[k] = None
-                    else:
-                        raw_val = st.text_input(k, value="", key=f"{widget_key}_null_val")
-                        if raw_val.isdigit():
-                            updated[k] = int(raw_val)
-                        else:
-                            try:
-                                updated[k] = float(raw_val)
-                            except ValueError:
-                                updated[k] = raw_val if raw_val else None
+                raw_val = st.text_input(f"{k} (optional)", value="", key=widget_key)
+                if raw_val.lower() in ["none", "null", ""]:
+                    updated[k] = None
+                elif raw_val.lower() == "true":
+                    updated[k] = True
+                elif raw_val.lower() == "false":
+                    updated[k] = False
+                else:
+                    try:
+                        updated[k] = int(raw_val)
+                    except ValueError:
+                        try:
+                            updated[k] = float(raw_val)
+                        except ValueError:
+                            updated[k] = raw_val if raw_val else None
             else:
                 updated[k] = st.text_input(k, value=str(v), key=widget_key)
     return updated
@@ -289,7 +224,7 @@ if "run_logs" not in st.session_state:
 if "custom_run_id" not in st.session_state:
     st.session_state.custom_run_id = ""
 
-# Persistent app config states across navigation switches
+# Persistent app config states
 if "cfg_data_dir" not in st.session_state:
     st.session_state.cfg_data_dir = base_default.get("data", {}).get("data_dir", "data")
 if "cfg_output_dir" not in st.session_state:
@@ -332,101 +267,63 @@ if "cfg_custom_sections" not in st.session_state:
 
 
 # ==========================================
-# 👈 LEFT SIDEBAR: MENU NAVIGATION
+# 👈 SIDEBAR: CONTROL & ENGINE STATUS
 # ==========================================
 with st.sidebar:
-    st.markdown("""
-    <div style="padding: 0.8rem 0 1.2rem 0;">
-        <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: #818cf8; font-weight: 700;">MLOps Studio</div>
-        <h2 style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 1.25rem; font-weight: 700; color: #f8fafc; margin: 0.2rem 0 0 0;">
-            AutoML Platform
-        </h2>
-    </div>
-    """, unsafe_allow_html=True)
-
-    NAV_DATASET = "Dataset Source"
-    NAV_SPLIT = "Data Partitioning"
-    NAV_MODELS = "Model Pool & Tuning"
-    NAV_SHAP = "SHAP Explainability"
-    NAV_CUSTOM = "Custom Parameters"
-    NAV_RUNNER = "Pipeline Runner"
-    NAV_RESULTS = "Results & Metrics"
-
-    menu_options = [
-        NAV_DATASET,
-        NAV_SPLIT,
-        NAV_MODELS,
-        NAV_SHAP,
-        NAV_CUSTOM,
-        NAV_RUNNER,
-        NAV_RESULTS
-    ]
-
-    selected_menu = st.radio(
-        "Navigation",
-        options=menu_options,
-        index=0,
-        label_visibility="collapsed"
-    )
-
+    st.title("AutoML Platform")
+    st.caption("Tabular Regression Benchmark Suite")
     st.markdown("---")
     
-    # Sidebar quick status card
-    st.markdown("""
-    <div style="background: rgba(30, 41, 59, 0.35); padding: 0.9rem; border-radius: 8px; border: 1px solid rgba(148, 163, 184, 0.1);">
-        <div style="font-size: 0.75rem; text-transform: uppercase; color: #94a3b8; font-weight: 600; margin-bottom: 0.4rem; letter-spacing: 0.05em;">Engine Status</div>
-    """, unsafe_allow_html=True)
+    st.markdown("##### Engine Status")
     if st.session_state.pipeline_running:
-        st.markdown('<span class="status-badge status-running">● Running</span>', unsafe_allow_html=True)
+        st.markdown('<span class="status-badge status-running">● Running Benchmark</span>', unsafe_allow_html=True)
     else:
         st.markdown('<span class="status-badge status-ready">● Ready</span>', unsafe_allow_html=True)
     
     num_active = len(st.session_state.cfg_active_models)
     hpo_str = "Enabled" if st.session_state.cfg_hpo_enabled else "Disabled"
     shap_str = f"Enabled ({st.session_state.cfg_shap_model})" if st.session_state.cfg_shap_enabled else "Disabled"
+    
     st.markdown(f"""
-        <div style="margin-top: 0.75rem; font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">
-            <div>Target Column: <b style="color: #93c5fd;">{st.session_state.cfg_target_col}</b></div>
-            <div>Split: <b>{st.session_state.cfg_split_method}</b></div>
-            <div>Active Models: <b>{num_active}</b></div>
-            <div>HPO: <b>{hpo_str}</b></div>
-            <div>SHAP: <b>{shap_str}</b></div>
+        <div style="font-size: 0.82rem; color: #94a3b8; line-height: 1.7; margin-top: 0.8rem; background: rgba(30, 41, 59, 0.3); padding: 0.8rem; border-radius: 6px; border: 1px solid rgba(148, 163, 184, 0.1);">
+            <div>Target: <b style="color: #f1f5f9;">{st.session_state.cfg_target_col}</b></div>
+            <div>Split: <b style="color: #f1f5f9;">{st.session_state.cfg_split_method}</b></div>
+            <div>Active Models: <b style="color: #f1f5f9;">{num_active}</b></div>
+            <div>HPO: <b style="color: #f1f5f9;">{hpo_str}</b></div>
+            <div>SHAP: <b style="color: #f1f5f9;">{shap_str}</b></div>
             <div>Outputs: <code style="font-size: 0.75rem;">{st.session_state.cfg_output_dir}/&lt;run_id&gt;</code></div>
         </div>
-    </div>
     """, unsafe_allow_html=True)
 
-
-# ==========================================
-# 🚀 HEADER SECTION (TOP OF MAIN VIEW)
-# ==========================================
-status_indicator = '<span class="status-badge status-running">● Running</span>' if st.session_state.pipeline_running else '<span class="status-badge status-ready">● Ready</span>'
-
-st.markdown(f"""
-<div class="top-nav-bar">
-    <div class="nav-left">
-        <span class="platform-logo">◈</span>
-        <span class="platform-name">AutoML Regression Platform</span>
-        <span class="nav-divider">/</span>
-        <span class="current-view-name">{selected_menu}</span>
-    </div>
-    <div class="nav-right">
-        {status_indicator}
-    </div>
-</div>
-""", unsafe_allow_html=True)
+    st.markdown("---")
+    if st.button("🔄 Reset to Default Config", use_container_width=True):
+        st.session_state.cfg_data_dir = base_default.get("data", {}).get("data_dir", "data")
+        st.session_state.cfg_output_dir = base_default.get("data", {}).get("output_dir", "outputs")
+        st.session_state.cfg_active_models = base_default.get("framework", {}).get("active_models", list(base_default.get("models", {}).keys()))
+        st.session_state.cfg_models_params = base_default.get("models", {})
+        st.rerun()
 
 
 # ==========================================
-# 📁 MENU 1: DATASET SELECTION
+# 📑 MAIN WORKSPACE: NATIVE TABBED INTERFACE
 # ==========================================
-if selected_menu == NAV_DATASET:
-    st.markdown("""
-    <div class="section-heading-wrap">
-        <h3 class="section-title">Dataset Source & Column Roles</h3>
-        <p class="section-desc">Select dataset source, explore data distributions, and map target/feature columns.</p>
-    </div>
-    """, unsafe_allow_html=True)
+tab_data, tab_split, tab_models, tab_shap, tab_custom, tab_runner, tab_results = st.tabs([
+    "📁 Data Ingestion",
+    "✂️ Partitioning",
+    "🤖 Model Pool",
+    "🔍 SHAP Attribution",
+    "🧩 Advanced Config",
+    "⚙️ Runner Console",
+    "📈 Results & Metrics"
+])
+
+
+# ==========================================
+# 📁 TAB 1: DATA INGESTION
+# ==========================================
+with tab_data:
+    st.subheader("Data Source & Role Mapping")
+    st.caption("Select dataset source, inspect data samples, and assign feature and target column roles.")
 
     col1, col2 = st.columns(2)
     with col1:
@@ -462,14 +359,13 @@ if selected_menu == NAV_DATASET:
     if st.session_state.cfg_data_source == "Local Directory" and st.session_state.cfg_dataset_path and os.path.exists(st.session_state.cfg_dataset_path):
         columns = get_dataset_columns(st.session_state.cfg_dataset_path)
         
-        # Dataset Sample Preview
         sample_df = preview_dataset_sample(st.session_state.cfg_dataset_path)
         if sample_df is not None:
-            with st.expander("👁️ Dataset Quick Preview (Top 5 rows)", expanded=True):
+            with st.expander("👁️ Quick Dataset Sample Preview (Top 5 rows)", expanded=True):
                 st.dataframe(sample_df, use_container_width=True)
 
     st.markdown("---")
-    st.markdown('<div class="card-header">🏷️ Column Mapping & Roles</div>', unsafe_allow_html=True)
+    st.markdown("##### Column Role Mapping")
 
     col_target, col_cols = st.columns([1, 2])
     
@@ -498,15 +394,11 @@ if selected_menu == NAV_DATASET:
 
 
 # ==========================================
-# ✂️ MENU 2: DATA SPLITTING
+# ✂️ TAB 2: DATA PARTITIONING
 # ==========================================
-elif selected_menu == NAV_SPLIT:
-    st.markdown("""
-    <div class="section-heading-wrap">
-        <h3 class="section-title">Data Partitioning Strategy</h3>
-        <p class="section-desc">Configure data splitting methods to reliably evaluate generalization performance.</p>
-    </div>
-    """, unsafe_allow_html=True)
+with tab_split:
+    st.subheader("Data Partitioning & Validation Strategy")
+    st.caption("Configure dataset splitting method to reliably validate model generalization.")
 
     split_methods = ["train_test_split", "kfold", "timeseries"]
     default_split_idx = split_methods.index(st.session_state.cfg_split_method) if st.session_state.cfg_split_method in split_methods else 0
@@ -517,38 +409,32 @@ elif selected_menu == NAV_SPLIT:
         help="train_test_split: Simple holdout split\nkfold: K-Fold cross validation\ntimeseries: Sequential time-ordered split"
     )
     
-    st.markdown("##### ⚙️ Splitting Parameters")
+    st.markdown("##### Splitting Parameters")
     rendered_split_params = render_dynamic_params(st.session_state.cfg_split_params, "split")
     st.session_state.cfg_split_params = rendered_split_params
 
-    # Visual explanation card for the chosen split strategy
     st.markdown("---")
-    st.markdown("##### 💡 Strategy Overview")
+    st.markdown("##### Strategy Overview")
     if st.session_state.cfg_split_method == "train_test_split":
         test_sz = st.session_state.cfg_split_params.get("test_size", 0.2)
-        st.info(f"📊 **Holdout Split**: Dataset is partitioned randomly into Training ({100 - int(float(test_sz)*100)}%) and Testing ({int(float(test_sz)*100)}%) sets.")
+        st.info(f"📊 **Holdout Split**: Dataset is partitioned into Training ({100 - int(float(test_sz)*100)}%) and Testing ({int(float(test_sz)*100)}%) sets.")
     elif st.session_state.cfg_split_method == "kfold":
         n_splits = st.session_state.cfg_split_params.get("n_splits", 5)
         st.info(f"🔄 **K-Fold Cross Validation**: Data is divided into {n_splits} equal folds to minimize evaluation bias.")
     else:
-        st.info("⏱️ **Time Series Split**: Data is partitioned along the temporal dimension without future-data lookahead.")
+        st.info("⏱️ **Time Series Split**: Data is partitioned along the temporal dimension without future lookahead.")
 
 
 # ==========================================
-# 🛠️ MENU 3: MODELS & ACTIVE POOL
+# 🤖 TAB 3: MODEL POOL & TUNING
 # ==========================================
-elif selected_menu == NAV_MODELS:
-    st.markdown("""
-    <div class="section-heading-wrap">
-        <h3 class="section-title">Model Inventory & Tuning</h3>
-        <p class="section-desc">Select active regressor architectures and configure hyperparameters.</p>
-    </div>
-    """, unsafe_allow_html=True)
+with tab_models:
+    st.subheader("Model Pool & Hyperparameter Tuning")
+    st.caption("Select active regressor architectures and configure baseline hyperparameters.")
 
     available_models = list(base_default.get("models", {}).keys())
 
-    # Active model checkboxes
-    st.markdown("##### ⚡ Active Model Selection")
+    st.markdown("##### Active Models")
     active_cols = st.columns(len(available_models) if available_models else 1)
     new_active_models = []
     for i, model in enumerate(available_models):
@@ -560,7 +446,7 @@ elif selected_menu == NAV_MODELS:
     st.session_state.cfg_active_models = new_active_models
 
     st.markdown("---")
-    st.markdown("##### ⚙️ Model Hyperparameters & Architectures")
+    st.markdown("##### Model Hyperparameters")
     
     updated_models = {}
     for model_name in available_models:
@@ -572,7 +458,7 @@ elif selected_menu == NAV_MODELS:
 
     # Hyperparameter Optimization (Optuna)
     st.markdown("---")
-    st.markdown('<div class="card-header">🎯 Hyperparameter Optimization (Optuna)</div>', unsafe_allow_html=True)
+    st.markdown("##### Hyperparameter Optimization (Optuna)")
     hpo_c1, hpo_c2 = st.columns([1, 2])
     with hpo_c1:
         st.session_state.cfg_hpo_enabled = st.checkbox("Enable HPO (Optuna)", value=st.session_state.cfg_hpo_enabled)
@@ -581,15 +467,11 @@ elif selected_menu == NAV_MODELS:
 
 
 # ==========================================
-# 🔍 MENU 4: SHAP INTERPRETABILITY
+# 🔍 TAB 4: SHAP EXPLAINABILITY
 # ==========================================
-elif selected_menu == NAV_SHAP:
-    st.markdown("""
-    <div class="section-heading-wrap">
-        <h3 class="section-title">SHAP Feature Attribution</h3>
-        <p class="section-desc">Generate model interpretability dashboards, global importance, and Beeswarm charts.</p>
-    </div>
-    """, unsafe_allow_html=True)
+with tab_shap:
+    st.subheader("SHAP Model Interpretability")
+    st.caption("Generate feature attribution rankings, Beeswarm distributions, and explainer dashboards.")
 
     st.session_state.cfg_shap_enabled = st.checkbox(
         "Enable SHAP Analysis after Training", 
@@ -625,55 +507,23 @@ elif selected_menu == NAV_SHAP:
     # Display indicator badge for explainer engine
     chosen = st.session_state.cfg_shap_model
     st.markdown("---")
-    st.markdown("##### ⚡ Explainer Engine Routing Indicator")
+    st.markdown("##### Explainer Engine Routing")
     if chosen == "TabICL":
-        st.markdown("""
-        <div style="background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 12px; padding: 1rem;">
-            <span class="engine-badge">⚡ Engine: TabICL Dedicated In-Context Explainer</span>
-            <p style="margin-top: 0.5rem; font-size: 0.9rem; color: #cbd5e1;">
-                TabICL utilizes its specialized In-Context explainer pipeline, sampling background context from the prompt dataset to compute exact feature attributions.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.info("⚡ **TabICL Dedicated Explainer**: Utilizes in-context prompt dataset sampling to compute exact feature attributions.")
     elif chosen in ["XGBoost", "CatBoost", "RandomForest"]:
-        st.markdown(f"""
-        <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 12px; padding: 1rem;">
-            <span class="engine-badge" style="color: #6ee7b7; border-color: #10b981;">🌲 Engine: TreeExplainer</span>
-            <p style="margin-top: 0.5rem; font-size: 0.9rem; color: #cbd5e1;">
-                <b>{chosen}</b> uses fast TreeExplainer for exact and rapid tree traversal feature attributions.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.info(f"🌲 **TreeExplainer**: Fast and exact tree traversal feature attributions for **{chosen}**.")
     elif chosen == "Champion":
-        st.markdown("""
-        <div style="background: rgba(227, 179, 65, 0.1); border: 1px solid rgba(227, 179, 65, 0.3); border-radius: 12px; padding: 1rem;">
-            <span class="engine-badge" style="color: #fde047; border-color: #eab308;">🏆 Engine: Dynamic Champion Explainer</span>
-            <p style="margin-top: 0.5rem; font-size: 0.9rem; color: #cbd5e1;">
-                The framework will automatically inspect the winning Champion model and apply the optimal explainer engine (TreeExplainer, TabICL Dedicated, or KernelExplainer).
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.info("🏆 **Dynamic Champion Explainer**: Automatically inspects winning model architecture and routes to TreeExplainer, TabICL Dedicated, or KernelExplainer.")
     else:
-        st.markdown(f"""
-        <div style="background: rgba(148, 163, 184, 0.1); border: 1px solid rgba(148, 163, 184, 0.3); border-radius: 12px; padding: 1rem;">
-            <span class="engine-badge" style="color: #cbd5e1; border-color: #94a3b8;">🧠 Engine: ModelExplainer / KernelExplainer</span>
-            <p style="margin-top: 0.5rem; font-size: 0.9rem; color: #cbd5e1;">
-                <b>{chosen}</b> utilizes model-agnostic kernel explainer sampling.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.info(f"🧠 **ModelExplainer / KernelExplainer**: Model-agnostic background sampling for **{chosen}**.")
 
 
 # ==========================================
-# 🧩 MENU 5: CUSTOM CONFIGURATIONS
+# 🧩 TAB 5: ADVANCED CONFIG
 # ==========================================
-elif selected_menu == NAV_CUSTOM:
-    st.markdown("""
-    <div class="section-heading-wrap">
-        <h3 class="section-title">Custom Configurations</h3>
-        <p class="section-desc">Review and inject extended YAML sections directly into the pipeline config.</p>
-    </div>
-    """, unsafe_allow_html=True)
+with tab_custom:
+    st.subheader("Custom YAML Profile")
+    st.caption("Review or inject additional non-standard sections in YAML format.")
 
     custom_yaml_str = yaml.dump(st.session_state.cfg_custom_sections, default_flow_style=False, allow_unicode=True)
     edited_custom_yaml = st.text_area("Custom YAML Dictionary", value=custom_yaml_str, height=250)
@@ -686,15 +536,11 @@ elif selected_menu == NAV_CUSTOM:
 
 
 # ==========================================
-# ⚙️ MENU 6: RUNNER CONSOLE
+# ⚙️ TAB 6: RUNNER CONSOLE
 # ==========================================
-elif selected_menu == NAV_RUNNER:
-    st.markdown("""
-    <div class="section-heading-wrap">
-        <h3 class="section-title">Execution Console & Runner</h3>
-        <p class="section-desc">Compile active configuration profile and launch the AutoML execution pipeline.</p>
-    </div>
-    """, unsafe_allow_html=True)
+with tab_runner:
+    st.subheader("Pipeline Execution Runner")
+    st.caption("Compile your active configuration profile and launch the AutoML execution pipeline.")
 
     # Assemble complete configuration dictionary
     split_payload = {"method": st.session_state.cfg_split_method}
@@ -737,30 +583,27 @@ elif selected_menu == NAV_RUNNER:
     col_ctrl, col_status = st.columns([1.1, 0.9])
     
     with col_ctrl:
-        st.markdown("##### 📄 Compiled YAML Config Preview")
+        st.markdown("##### Compiled Config Preview")
         st.code(yaml.dump(compiled_config, default_flow_style=False, allow_unicode=True), language="yaml")
     
     with col_status:
-        st.markdown("##### 🚀 Execution Controls")
+        st.markdown("##### Execution Controls")
         
-        custom_run_id = st.text_input("Custom Run ID (Optional)", value=st.session_state.custom_run_id, placeholder="e.g. experiment_v1 (Leave blank for auto-timestamp)")
+        custom_run_id = st.text_input("Custom Run ID (Optional)", value=st.session_state.custom_run_id, placeholder="e.g. run_exp_1 (Blank = auto timestamp)")
         st.session_state.custom_run_id = custom_run_id
-        overwrite_choice = st.checkbox("Overwrite existing output directory if Run ID already exists (--overwrite-run)", value=False)
+        overwrite_choice = st.checkbox("Overwrite existing output directory (--overwrite-run)", value=False)
 
-        # Save config button
         if st.button("💾 Save Config to configs/web_config.yml", use_container_width=True):
             save_config(compiled_config, "configs/web_config.yml")
             st.success("Saved configs/web_config.yml successfully!")
 
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # Start execution button
         if st.button("🚀 Start AutoML Benchmark Run", type="primary", use_container_width=True, disabled=st.session_state.pipeline_running):
             save_config(compiled_config, "configs/web_config.yml")
             st.session_state.pipeline_running = True
             st.session_state.run_logs = ""
             
-            # Construct CLI command arguments
             cmd = [
                 sys.executable, "main.py",
                 "--config", "configs/web_config.yml"
@@ -784,7 +627,6 @@ elif selected_menu == NAV_RUNNER:
                 cmd.append("--enable-shap")
                 cmd.extend(["--shap-model", st.session_state.cfg_shap_model])
 
-            # Stream subprocess execution
             st.info(f"Executing: `{' '.join(cmd)}`")
             log_placeholder = st.empty()
             
@@ -807,7 +649,7 @@ elif selected_menu == NAV_RUNNER:
                 st.session_state.run_logs = "".join(logs_buffer)
                 
                 if process.returncode == 0:
-                    st.success("🎉 Pipeline executed successfully! Navigate to '📈 Results & Metrics' to explore diagnostic charts and SHAP reports.")
+                    st.success("🎉 Pipeline executed successfully! Go to '📈 Results & Metrics' to inspect visual diagnostics.")
                 else:
                     st.error(f"❌ Pipeline execution terminated with exit code: {process.returncode}")
             except Exception as e:
@@ -816,22 +658,17 @@ elif selected_menu == NAV_RUNNER:
                 st.session_state.pipeline_running = False
 
     st.markdown("---")
-    st.markdown("##### 📜 Full Process Log Stream")
-    st.code(st.session_state.run_logs if st.session_state.run_logs else "No logs yet. Run an experiment above to view stdout/stderr stream.", language="bash")
+    st.markdown("##### Live Console Stream")
+    st.code(st.session_state.run_logs if st.session_state.run_logs else "No active logs. Start a benchmark run above.", language="bash")
 
 
 # ==========================================
-# 📈 MENU 7: RESULTS & METRICS
+# 📈 TAB 7: RESULTS & METRICS
 # ==========================================
-elif selected_menu == NAV_RESULTS:
-    st.markdown("""
-    <div class="section-heading-wrap">
-        <h3 class="section-title">Benchmark Results & Model Diagnostics</h3>
-        <p class="section-desc">Performance scorecard, actual vs predicted comparisons, and SHAP explainability.</p>
-    </div>
-    """, unsafe_allow_html=True)
+with tab_results:
+    st.subheader("Benchmark Results & Model Diagnostics")
+    st.caption("Inspect performance scorecards, error distributions, loss curves, and SHAP explainability.")
 
-    # Scan available run directories inside outputs/
     available_runs = []
     output_base = st.session_state.cfg_output_dir
     if os.path.exists(output_base):
@@ -840,14 +677,13 @@ elif selected_menu == NAV_RESULTS:
             if os.path.isdir(entry_path) and os.path.exists(os.path.join(entry_path, "report.json")):
                 available_runs.append(entry)
                 
-    # Sort runs newest first by folder creation/modification time
     available_runs.sort(
         key=lambda r: os.path.getmtime(os.path.join(output_base, r)) if os.path.exists(os.path.join(output_base, r)) else 0,
         reverse=True
     )
 
     if not available_runs:
-        st.info(f"No execution runs found under `{output_base}/`. Run an experiment in the '⚙️ Runner Console' menu first to generate results!")
+        st.info(f"No execution runs found in `{output_base}/`. Run an experiment in the '⚙️ Runner Console' tab first!")
     else:
         col_t1, col_t2 = st.columns([1, 3])
         with col_t1:
@@ -860,144 +696,113 @@ elif selected_menu == NAV_RESULTS:
             with open(report_path, "r", encoding="utf-8") as f:
                 report_data = json.load(f)
                 
-            metrics_dict = report_data.get("metrics", {})
-            champion_model = report_data.get("champion_model", report_data.get("best_model", "N/A"))
+            champion_model = report_data.get("champion", "N/A")
+            metrics = report_data.get("metrics", {})
             
-            if metrics_dict:
-                # 1. Champion Highlight Card
-                champ_r2 = metrics_dict.get(champion_model, {}).get("R2", 0.0)
-                champ_rmse = metrics_dict.get(champion_model, {}).get("RMSE", 0.0)
-                champ_mae = metrics_dict.get(champion_model, {}).get("MAE", 0.0)
+            # Champion Metric Cards
+            st.markdown(f"#### 🏆 Champion Architecture: **{champion_model}**")
+            
+            champ_metrics = metrics.get(champion_model, {})
+            m1, m2, m3, m4 = st.columns(4)
+            with m1:
+                r2_val = champ_metrics.get("R2", champ_metrics.get("r2", "N/A"))
+                st.metric("R² Score (Higher is better)", f"{r2_val:.4f}" if isinstance(r2_val, float) else str(r2_val))
+            with m2:
+                rmse_val = champ_metrics.get("RMSE", champ_metrics.get("rmse", "N/A"))
+                st.metric("RMSE (Lower is better)", f"{rmse_val:.4f}" if isinstance(rmse_val, float) else str(rmse_val))
+            with m3:
+                mae_val = champ_metrics.get("MAE", champ_metrics.get("mae", "N/A"))
+                st.metric("MAE (Lower is better)", f"{mae_val:.4f}" if isinstance(mae_val, float) else str(mae_val))
+            with m4:
+                run_id_val = report_data.get("run_id", selected_run)
+                st.metric("Run Identifier", str(run_id_val))
+
+            st.markdown("---")
+
+            # Leaderboard Table
+            st.markdown("##### 📊 Full Evaluation Leaderboard")
+            leaderboard_rows = []
+            for model_name, model_metrics in metrics.items():
+                row = {"Model": model_name}
+                row.update(model_metrics)
+                leaderboard_rows.append(row)
+            
+            if leaderboard_rows:
+                df_leaderboard = pd.DataFrame(leaderboard_rows)
+                if "R2" in df_leaderboard.columns:
+                    df_leaderboard = df_leaderboard.sort_values(by="R2", ascending=False)
+                elif "r2" in df_leaderboard.columns:
+                    df_leaderboard = df_leaderboard.sort_values(by="r2", ascending=False)
+                st.dataframe(df_leaderboard, use_container_width=True)
+
+            st.markdown("---")
+
+            # Benchmark Plots
+            st.markdown("##### 📈 Model Comparison Charts")
+            c_p1, c_p2 = st.columns(2)
+            with c_p1:
+                r2_plot = os.path.join(run_dir, "model_comparison_r2.png")
+                if is_valid_image(r2_plot):
+                    st.image(r2_plot, caption="R² Comparison Across Models", use_container_width=True)
+            with c_p2:
+                rmse_plot = os.path.join(run_dir, "model_comparison_rmse.png")
+                if is_valid_image(rmse_plot):
+                    st.image(rmse_plot, caption="RMSE Comparison Across Models", use_container_width=True)
+
+            st.markdown("---")
+
+            # Detailed Diagnostics
+            st.markdown("##### 🔬 Individual Model Diagnostic Plots")
+            evaluated_models = list(metrics.keys())
+            if evaluated_models:
+                selected_diag_model = st.selectbox("Inspect Diagnostic Curves for Model:", evaluated_models, index=0)
                 
-                st.markdown(f"""
-                <div style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%); border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 16px; padding: 1.5rem; margin-bottom: 1.5rem;">
-                    <div style="font-size: 0.9rem; text-transform: uppercase; color: #e3b341; font-weight: 700; letter-spacing: 0.08em; margin-bottom: 0.4rem;">🏆 Winning Champion Model (Run: {selected_run})</div>
-                    <div style="font-family: 'Outfit', sans-serif; font-size: 2.2rem; font-weight: 800; color: #ffffff;">{champion_model}</div>
-                    <div style="display: flex; gap: 2rem; margin-top: 1rem;">
-                        <div><span style="color: #94a3b8; font-size: 0.85rem;">R² SCORE:</span> <b style="color: #58a6ff; font-size: 1.2rem;">{champ_r2:.4f}</b></div>
-                        <div><span style="color: #94a3b8; font-size: 0.85rem;">RMSE:</span> <b style="color: #cbd5e1; font-size: 1.2rem;">{champ_rmse:.4f}</b></div>
-                        <div><span style="color: #94a3b8; font-size: 0.85rem;">MAE:</span> <b style="color: #aff5b4; font-size: 1.2rem;">{champ_mae:.4f}</b></div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                # 2. Performance Summary Table
-                st.markdown("##### 📊 Model Leaderboard")
-                df_metrics = pd.DataFrame(metrics_dict).T.reset_index().rename(columns={"index": "Model Name"})
-                if "R2" in df_metrics.columns:
-                    df_metrics = df_metrics.sort_values(by="R2", ascending=False)
-                st.dataframe(df_metrics.style.format({"RMSE": "{:.4f}", "MAE": "{:.4f}", "R2": "{:.4f}"}), use_container_width=True)
-                
-                # 3. Model Comparison Charts
-                st.markdown("---")
-                st.markdown("##### 📈 Model Comparison Charts")
-                col_c1, col_c2 = st.columns(2)
-                r2_img = os.path.join(run_dir, "model_comparison_r2.png")
-                rmse_img = os.path.join(run_dir, "model_comparison_rmse.png")
-                
-                with col_c1:
-                    if is_valid_image(r2_img):
-                        st.image(r2_img, caption=f"R2 Comparison ({selected_run})", use_container_width=True)
+                d1, d2, d3 = st.columns(3)
+                with d1:
+                    act_pred = os.path.join(run_dir, f"{selected_diag_model}_actual_vs_pred.png")
+                    if is_valid_image(act_pred):
+                        st.image(act_pred, caption=f"{selected_diag_model} Actual vs Predicted", use_container_width=True)
                     else:
-                        st.info("R2 Comparison chart not found.")
-                with col_c2:
-                    if is_valid_image(rmse_img):
-                        st.image(rmse_img, caption=f"RMSE Comparison ({selected_run})", use_container_width=True)
+                        st.info("Actual vs Pred plot not generated.")
+                with d2:
+                    residuals_plot = os.path.join(run_dir, f"{selected_diag_model}_residuals.png")
+                    if is_valid_image(residuals_plot):
+                        st.image(residuals_plot, caption=f"{selected_diag_model} Residual Errors", use_container_width=True)
                     else:
-                        st.info("RMSE Comparison chart not found.")
+                        st.info("Residuals plot not generated.")
+                with d3:
+                    lc_plot = os.path.join(run_dir, f"{selected_diag_model}_learning_curve.png")
+                    if is_valid_image(lc_plot):
+                        st.image(lc_plot, caption=f"{selected_diag_model} Learning Curve", use_container_width=True)
+                    else:
+                        st.info("Learning curve not generated for this model type.")
 
-                # 4. Diagnostic Plots
-                st.markdown("---")
-                st.markdown("##### 🔍 Model Diagnostics & Residual Analysis")
-                selected_model = st.selectbox("Select Model for Diagnostic Plots", list(metrics_dict.keys()))
+            st.markdown("---")
+
+            # SHAP Explainability Reports
+            st.markdown("##### 🔍 SHAP Explainability & Feature Contribution")
+            shap_report_files = glob.glob(os.path.join(run_dir, "*_shap_report.json"))
+            if shap_report_files:
+                shap_report_path = shap_report_files[0]
+                with open(shap_report_path, "r", encoding="utf-8") as sf:
+                    shap_data = json.load(sf)
                 
-                if selected_model:
-                    col_diag1, col_diag2 = st.columns(2)
-                    pred_vs_act_img = os.path.join(run_dir, f"{selected_model}_actual_vs_pred.png")
-                    residuals_img = os.path.join(run_dir, f"{selected_model}_residuals.png")
-                    
-                    with col_diag1:
-                        if is_valid_image(pred_vs_act_img):
-                            st.image(pred_vs_act_img, caption=f"{selected_model}: Actual vs Predicted", use_container_width=True)
-                        else:
-                            st.info(f"Actual vs Predicted plot not found for {selected_model}.")
-                    with col_diag2:
-                        if is_valid_image(residuals_img):
-                            st.image(residuals_img, caption=f"{selected_model}: Residuals Plot", use_container_width=True)
-                        else:
-                            st.info(f"Residuals plot not found for {selected_model}.")
-
-                    # If learning curve exists, render it below
-                    learning_curves = report_data.get("learning_curves", {})
-                    if selected_model in learning_curves:
-                        curve_img = learning_curves[selected_model]
-                        if is_valid_image(curve_img):
-                            st.markdown("###### 📈 Loss / Learning Curve")
-                            st.image(curve_img, caption=f"{selected_model}: Loss Curve", use_container_width=True)
-
-                # ==========================================
-                # 🔍 SHAP FEATURE ATTRIBUTION SECTION
-                # ==========================================
-                st.markdown("---")
-                st.markdown('<div class="card-header">🔍 SHAP Feature Attribution & Model Interpretation</div>', unsafe_allow_html=True)
+                st.write(f"**Target Model Explained:** `{shap_data.get('model', 'N/A')}` | **Samples Evaluated:** `{shap_data.get('sample_count', 'N/A')}`")
                 
-                # Find any SHAP report for this run
-                shap_report_files = glob.glob(os.path.join(run_dir, "*_shap_report.json"))
-                if shap_report_files:
-                    for shap_file in shap_report_files:
-                        try:
-                            with open(shap_file, "r", encoding="utf-8") as f_s:
-                                s_data = json.load(f_s)
-                            
-                            s_model = s_data.get("model_name", "Unknown")
-                            s_engine = s_data.get("explainer_engine", "Default Explainer")
-                            s_samples = s_data.get("num_samples_analyzed", 0)
-                            s_importance = s_data.get("mean_abs_shap", {})
-                            
-                            st.markdown(f"""
-                            <div class="premium-card">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem;">
-                                    <h4 style="margin: 0; color: #818cf8;">Model: <b>{s_model}</b></h4>
-                                    <span class="engine-badge">⚡ Engine: {s_engine}</span>
-                                </div>
-                                <p style="font-size: 0.9rem; color: #94a3b8; margin: 0;">Evaluated Samples: <b>{s_samples}</b> | Top Features: <b>{', '.join(s_data.get('top_features', []))}</b></p>
-                            </div>
-                            """, unsafe_allow_html=True)
-
-                            # Render SHAP bar and summary plots
-                            col_s1, col_s2 = st.columns(2)
-                            s_bar_img = os.path.join(run_dir, f"{s_model}_shap_bar.png")
-                            s_summary_img = os.path.join(run_dir, f"{s_model}_shap_summary.png")
-                            
-                            with col_s1:
-                                if is_valid_image(s_bar_img):
-                                    st.image(s_bar_img, caption=f"{s_model}: SHAP Feature Importance", use_container_width=True)
-                                else:
-                                    st.info("SHAP Bar plot not available.")
-                            with col_s2:
-                                if is_valid_image(s_summary_img):
-                                    st.image(s_summary_img, caption=f"{s_model}: SHAP Beeswarm Summary", use_container_width=True)
-                                else:
-                                    st.info("SHAP Summary plot not available.")
-
-                            # Show feature importance table
-                            if s_importance:
-                                with st.expander(f"📋 View Full SHAP Importance Scores ({s_model})", expanded=False):
-                                    df_shap = pd.DataFrame(list(s_importance.items()), columns=["Feature", "Mean Absolute SHAP"])
-                                    st.dataframe(df_shap, use_container_width=True)
-                                    
-                                    with open(shap_file, "r", encoding="utf-8") as f_dl:
-                                        st.download_button(
-                                            label=f"📥 Download {s_model} SHAP JSON Report",
-                                            data=f_dl.read(),
-                                            file_name=os.path.basename(shap_file),
-                                            mime="application/json"
-                                        )
-                        except Exception as e:
-                            st.warning(f"Error loading SHAP report file `{shap_file}`: {e}")
-                else:
-                    st.info(f"No SHAP explanation report generated for Run `{selected_run}`. Enable SHAP Analysis in '🔍 SHAP Interpretability' and re-run.")
+                sh1, sh2 = st.columns(2)
+                with sh1:
+                    summary_plot = os.path.join(run_dir, f"{shap_data.get('model')}_shap_summary.png")
+                    if is_valid_image(summary_plot):
+                        st.image(summary_plot, caption="SHAP Beeswarm Summary Plot", use_container_width=True)
+                with sh2:
+                    bar_plot = os.path.join(run_dir, f"{shap_data.get('model')}_shap_bar.png")
+                    if is_valid_image(bar_plot):
+                        st.image(bar_plot, caption="SHAP Global Feature Importance", use_container_width=True)
+                
+                st.markdown("##### Top Feature Attribution Rankings")
+                feat_ranking = shap_data.get("feature_importance_ranking", {})
+                if feat_ranking:
+                    df_shap = pd.DataFrame(list(feat_ranking.items()), columns=["Feature", "Mean |SHAP Value|"])
+                    st.dataframe(df_shap, use_container_width=True)
             else:
-                st.warning("No metrics data found in report JSON.")
-        else:
-            st.info(f"No report found at `{report_path}`.")
+                st.info("SHAP analysis was not enabled for this run.")
