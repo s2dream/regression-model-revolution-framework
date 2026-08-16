@@ -33,59 +33,121 @@ st.markdown("""
     html, body, [class*="css"] {
         font-family: 'Inter', sans-serif;
     }
-    
-    /* Top Header Banner */
-    .main-title-container {
-        background: linear-gradient(135deg, #6366f1 0%, #4f46e5 50%, #7c3aed 100%);
-        padding: 2.2rem;
-        border-radius: 18px;
-        margin-bottom: 2rem;
-        box-shadow: 0 10px 30px rgba(99, 102, 241, 0.25);
-        color: white;
+
+    /* Minimize Streamlit Default Top & Bottom Padding */
+    .block-container {
+        padding-top: 1.2rem !important;
+        padding-bottom: 1.5rem !important;
+        max-width: 96% !important;
     }
     
-    .main-title-container h1 {
+    /* Sleek, Compact Top Header Bar */
+    .main-title-container {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: linear-gradient(90deg, rgba(30, 41, 59, 0.75) 0%, rgba(15, 23, 42, 0.85) 100%);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(99, 102, 241, 0.3);
+        border-radius: 12px;
+        padding: 0.6rem 1.2rem;
+        margin-bottom: 0.9rem;
+        box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.25), 0 0 15px rgba(99, 102, 241, 0.1);
+    }
+    
+    .brand-title {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+    }
+
+    .brand-title h1 {
         font-family: 'Outfit', sans-serif;
-        font-size: 2.5rem;
+        font-size: 1.35rem;
         font-weight: 800;
         margin: 0;
-        letter-spacing: -0.03em;
+        letter-spacing: -0.02em;
+        background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 50%, #818cf8 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        display: inline-block;
+    }
+
+    .brand-subtext {
+        font-size: 0.82rem;
+        color: #94a3b8;
+        margin-left: 0.4rem;
+        border-left: 1px solid rgba(255, 255, 255, 0.15);
+        padding-left: 0.6rem;
     }
     
-    .main-title-container p {
-        font-size: 1.1rem;
-        opacity: 0.92;
-        margin: 0.5rem 0 0 0;
+    .view-pill {
+        display: inline-flex;
+        align-items: center;
+        background: rgba(99, 102, 241, 0.15);
+        border: 1px solid rgba(99, 102, 241, 0.35);
+        color: #c7d2fe;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
     }
-    
+
+    /* Compact Section Header */
+    .compact-section-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: rgba(255, 255, 255, 0.02);
+        border-left: 3px solid #6366f1;
+        padding: 0.45rem 0.9rem;
+        border-radius: 4px 8px 8px 4px;
+        margin-bottom: 0.85rem;
+    }
+
+    .section-title {
+        font-family: 'Outfit', sans-serif;
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #f1f5f9;
+        margin: 0;
+    }
+
+    .section-desc {
+        font-size: 0.8rem;
+        color: #94a3b8;
+        margin: 0;
+    }
+
     /* Card design */
     .premium-card {
-        background: rgba(255, 255, 255, 0.03);
+        background: rgba(255, 255, 255, 0.025);
         backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 16px;
-        padding: 1.6rem;
-        margin-bottom: 1.5rem;
-        box-shadow: 0 8px 24px 0 rgba(0, 0, 0, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        border-radius: 12px;
+        padding: 1.2rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.1);
     }
     
     .card-header {
         font-family: 'Outfit', sans-serif;
-        font-size: 1.3rem;
+        font-size: 1.15rem;
         font-weight: 700;
         color: #818cf8;
-        margin-bottom: 0.8rem;
+        margin-bottom: 0.6rem;
         display: flex;
         align-items: center;
-        gap: 0.5rem;
+        gap: 0.4rem;
     }
     
     /* Modern status indicator */
     .status-badge {
         display: inline-block;
-        padding: 0.35rem 0.8rem;
+        padding: 0.25rem 0.65rem;
         border-radius: 50px;
-        font-size: 0.85rem;
+        font-size: 0.78rem;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.05em;
@@ -108,9 +170,9 @@ st.markdown("""
         background-color: rgba(99, 102, 241, 0.15);
         color: #a5b4fc;
         border: 1px solid rgba(99, 102, 241, 0.4);
-        padding: 0.3rem 0.7rem;
-        border-radius: 8px;
-        font-size: 0.85rem;
+        padding: 0.2rem 0.55rem;
+        border-radius: 6px;
+        font-size: 0.8rem;
         font-weight: 600;
         display: inline-block;
     }
@@ -348,10 +410,19 @@ with st.sidebar:
 # ==========================================
 # 🚀 HEADER SECTION (TOP OF MAIN VIEW)
 # ==========================================
+status_pill = '<span class="status-badge status-running">● Running</span>' if st.session_state.pipeline_running else '<span class="status-badge status-ready">● Ready</span>'
+
 st.markdown(f"""
 <div class="main-title-container">
-    <h1>🚀 AutoML Regression Studio</h1>
-    <p>Current View: <b>{selected_menu}</b> — Configure, optimize, execute and analyze regression models seamlessly.</p>
+    <div class="brand-title">
+        <span>🚀</span>
+        <h1>AutoML Regression Studio</h1>
+        <span class="brand-subtext">Enterprise ML Benchmark & Interpretability</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 0.6rem;">
+        <span class="view-pill">{selected_menu}</span>
+        {status_pill}
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -360,10 +431,12 @@ st.markdown(f"""
 # 📁 MENU 1: DATASET SELECTION
 # ==========================================
 if selected_menu == NAV_DATASET:
-    st.markdown('<div class="premium-card">', unsafe_allow_html=True)
-    st.markdown('<div class="card-header">📁 Data Source & Path Configurations</div>', unsafe_allow_html=True)
-    st.write("Select your dataset source, explore dataset samples, and configure feature/target column roles.")
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown("""
+    <div class="compact-section-header">
+        <span class="section-title">📁 Data Source & Path Configurations</span>
+        <span class="section-desc">Select dataset source, explore samples & map column roles</span>
+    </div>
+    """, unsafe_allow_html=True)
 
     col1, col2 = st.columns(2)
     with col1:
@@ -438,10 +511,12 @@ if selected_menu == NAV_DATASET:
 # ✂️ MENU 2: DATA SPLITTING
 # ==========================================
 elif selected_menu == NAV_SPLIT:
-    st.markdown('<div class="premium-card">', unsafe_allow_html=True)
-    st.markdown('<div class="card-header">✂️ Data Splitting & Validation Strategy</div>', unsafe_allow_html=True)
-    st.write("Configure the data partitioning technique to properly validate model generalization performance.")
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown("""
+    <div class="compact-section-header">
+        <span class="section-title">✂️ Data Splitting & Validation Strategy</span>
+        <span class="section-desc">Configure data partitioning to validate generalization</span>
+    </div>
+    """, unsafe_allow_html=True)
 
     split_methods = ["train_test_split", "kfold", "timeseries"]
     default_split_idx = split_methods.index(st.session_state.cfg_split_method) if st.session_state.cfg_split_method in split_methods else 0
@@ -473,10 +548,12 @@ elif selected_menu == NAV_SPLIT:
 # 🛠️ MENU 3: MODELS & ACTIVE POOL
 # ==========================================
 elif selected_menu == NAV_MODELS:
-    st.markdown('<div class="premium-card">', unsafe_allow_html=True)
-    st.markdown('<div class="card-header">🤖 Configure Regression Model Pool</div>', unsafe_allow_html=True)
-    st.write("Select the models you want to include in the active competition pool, and customize individual model hyperparameters below.")
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown("""
+    <div class="compact-section-header">
+        <span class="section-title">🤖 Active Regression Models & Tuning</span>
+        <span class="section-desc">Select models for benchmark competition & customize hyperparameters</span>
+    </div>
+    """, unsafe_allow_html=True)
 
     available_models = list(base_default.get("models", {}).keys())
 
@@ -517,10 +594,12 @@ elif selected_menu == NAV_MODELS:
 # 🔍 MENU 4: SHAP INTERPRETABILITY
 # ==========================================
 elif selected_menu == NAV_SHAP:
-    st.markdown('<div class="premium-card">', unsafe_allow_html=True)
-    st.markdown('<div class="card-header">🔍 SHAP Model Explainability & Feature Attribution</div>', unsafe_allow_html=True)
-    st.write("Enable SHAP analysis to understand how individual features contribute to your model's predictions.")
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown("""
+    <div class="compact-section-header">
+        <span class="section-title">🔍 SHAP Model Explainability</span>
+        <span class="section-desc">Feature attribution, importance rankings & Beeswarm distributions</span>
+    </div>
+    """, unsafe_allow_html=True)
 
     st.session_state.cfg_shap_enabled = st.checkbox(
         "Enable SHAP Analysis after Training", 
@@ -599,10 +678,12 @@ elif selected_menu == NAV_SHAP:
 # 🧩 MENU 5: CUSTOM CONFIGURATIONS
 # ==========================================
 elif selected_menu == NAV_CUSTOM:
-    st.markdown('<div class="premium-card">', unsafe_allow_html=True)
-    st.markdown('<div class="card-header">🧩 Custom Extended Configurations</div>', unsafe_allow_html=True)
-    st.write("Review or inject additional non-standard sections in YAML format.")
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown("""
+    <div class="compact-section-header">
+        <span class="section-title">🧩 Custom Configurations</span>
+        <span class="section-desc">Review or inject non-standard parameters in YAML</span>
+    </div>
+    """, unsafe_allow_html=True)
 
     custom_yaml_str = yaml.dump(st.session_state.cfg_custom_sections, default_flow_style=False, allow_unicode=True)
     edited_custom_yaml = st.text_area("Custom YAML Dictionary", value=custom_yaml_str, height=250)
@@ -618,10 +699,12 @@ elif selected_menu == NAV_CUSTOM:
 # ⚙️ MENU 6: RUNNER CONSOLE
 # ==========================================
 elif selected_menu == NAV_RUNNER:
-    st.markdown('<div class="premium-card">', unsafe_allow_html=True)
-    st.markdown('<div class="card-header">⚙️ Launch Pipeline & Stream Logs</div>', unsafe_allow_html=True)
-    st.write("Compile your active configuration, launch the execution subprocess, and inspect live console output.")
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown("""
+    <div class="compact-section-header">
+        <span class="section-title">⚙️ Execution Runner & Console</span>
+        <span class="section-desc">Compile config, trigger subprocess benchmark & stream logs live</span>
+    </div>
+    """, unsafe_allow_html=True)
 
     # Assemble complete configuration dictionary
     split_payload = {"method": st.session_state.cfg_split_method}
@@ -751,10 +834,12 @@ elif selected_menu == NAV_RUNNER:
 # 📈 MENU 7: RESULTS & METRICS
 # ==========================================
 elif selected_menu == NAV_RESULTS:
-    st.markdown('<div class="premium-card">', unsafe_allow_html=True)
-    st.markdown('<div class="card-header">📈 Performance Scorecard & Visual Diagnostics</div>', unsafe_allow_html=True)
-    st.write("Inspect evaluated model metrics, champion models, benchmark plots, and SHAP explainability reports.")
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown("""
+    <div class="compact-section-header">
+        <span class="section-title">📈 Performance Scorecard & Visual Diagnostics</span>
+        <span class="section-desc">Leaderboard, error distributions, loss curves & SHAP interpretability</span>
+    </div>
+    """, unsafe_allow_html=True)
 
     # Scan available run directories inside outputs/
     available_runs = []
