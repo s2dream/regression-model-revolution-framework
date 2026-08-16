@@ -1,6 +1,55 @@
 data:
+  data_dir: data
+  output_dir: outputs
+  split:
+    method: train_test_split
+    test_size: 0.25
   target_column: Target_Y
 framework:
   active_models:
   - XGBoost
+  - CatBoost
+  - RandomForest
+  - MLP
+  - Transformer
   random_state: 42
+hpo:
+  enabled: false
+  n_trials: 10
+models:
+  CatBoost:
+    depth: 4
+    iterations: 40
+    learning_rate: 0.08
+    verbose: 0
+  MLP:
+    activation: relu
+    hidden_layer_sizes:
+    - 64
+    - 32
+    max_iter: 100
+  RandomForest:
+    max_depth: 5
+    n_estimators: 60
+    n_jobs: 1
+  TabICL:
+    batch_size: 2
+    device: cpu
+    n_estimators: 4
+  TabPFN:
+    N_ensemble_configurations: 4
+  Transformer:
+    batch_size: 8
+    d_model: 16
+    epochs: 5
+    nhead: 2
+    num_layers: 1
+  XGBoost:
+    learning_rate: 0.05
+    max_depth: 4
+    n_estimators: 50
+    n_jobs: 1
+shap:
+  enabled: true
+  max_samples: 50
+  model: XGBoost

@@ -679,6 +679,21 @@ select.form-control {
     margin-bottom: 0.75rem;
     overflow: hidden;
     background: var(--bg-card);
+    transition: all 0.2s ease-in-out;
+}
+
+.accordion-item.active-model {
+    border-left: 3px solid var(--primary);
+    background: rgba(30, 41, 59, 0.6);
+}
+
+.accordion-item.inactive-model {
+    opacity: 0.55;
+    border-left: 3px solid transparent;
+}
+
+.accordion-item.inactive-model:hover {
+    opacity: 0.85;
 }
 
 .accordion-header {
@@ -690,20 +705,45 @@ select.form-control {
     cursor: pointer;
     font-weight: 600;
     font-size: 0.9rem;
+    user-select: none;
 }
 
 .accordion-header:hover {
-    background: rgba(255, 255, 255, 0.04);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.accordion-header-left {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.accordion-header-right {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.acc-arrow {
+    transition: transform 0.2s ease-in-out;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+}
+
+.accordion-item.open .acc-arrow {
+    transform: rotate(180deg);
 }
 
 .accordion-body {
     padding: 1.2rem;
     border-top: 1px solid var(--border-subtle);
     display: none;
+    background: rgba(15, 23, 42, 0.4);
 }
 
 .accordion-item.open .accordion-body {
     display: block;
+    animation: fadeIn 0.15s ease-in-out;
 }
 
 /* =====================================================================

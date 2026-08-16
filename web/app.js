@@ -128,15 +128,23 @@ function populateFormFromConfig(cfg) {
     document.getElementById('customYamlTextarea').value = JSON.stringify(customObj, null, 2);
 }
 
+const DEFAULT_MODEL_TEMPLATES = {
+    'XGBoost': { n_estimators: 100, learning_rate: 0.1, max_depth: 6, n_jobs: -1 },
+    'CatBoost': { iterations: 100, learning_rate: 0.1, depth: 6, verbose: 0 },
+    'RandomForest': { n_estimators: 100, max_depth: 'null', n_jobs: -1 },
+    'MLP': { hidden_layer_sizes: '[128, 64]', activation: 'relu', solver: 'adam', max_iter: 500 },
+    'TabPFN': { N_ensemble_configurations: 32 },
+    'TabICL': { n_estimators: 8, device: 'cpu', batch_size: 4 },
+    'Transformer': { epochs: 20, d_model: 32, nhead: 4, num_layers: 2, batch_size: 32 }
+};
+
 function renderModelPool(allModels, activeList) {
     const grid = document.getElementById('modelSelectionGrid');
     const accordion = document.getElementById('modelParamsAccordion');
     grid.innerHTML = '';
     accordion.innerHTML = '';
 
-    const modelNames = Object.keys(allModels).length > 0 
-        ? Object.keys(allModels) 
-        : ['XGBoost', 'CatBoost', 'RandomForest', 'MLP', 'TabPFN', 'TabICL'];
+    const modelNames = ['XGBoost', 'CatBoost', 'RandomForest', 'MLP', 'TabPFN', 'TabICL', 'Transformer'];
 
     modelNames.forEach(m => {
         const isChecked = activeList.includes(m);
@@ -144,25 +152,33 @@ function renderModelPool(allModels, activeList) {
         // 1. Grid Checkbox Card
         const card = document.createElement('label');
         card.className = `model-card-checkbox ${isChecked ? 'checked' : ''}`;
+        card.id = `model_card_${m}`;
         card.innerHTML = `
             <input type="checkbox" data-model="${m}" ${isChecked ? 'checked' : ''}>
             <strong>${m}</strong>
         `;
-        card.querySelector('input').addEventListener('change', (e) => {
-            card.classList.toggle('checked', e.target.checked);
-            updateSidebarSummary();
-            updateCompiledYamlPreview();
-        });
         grid.appendChild(card);
 
-        // 2. Accordion for params
-        const params = allModels[m] || {};
+        // 2. Merge user params with default templates
+        const defaultParams = DEFAULT_MODEL_TEMPLATES[m] || {};
+        const userParams = allModels[m] || {};
+        const params = { ...defaultParams, ...userParams };
+
+        // 3. Accordion for params
         const accItem = document.createElement('div');
-        accItem.className = 'accordion-item';
+        accItem.className = `accordion-item ${isChecked ? 'active-model open' : 'inactive-model'}`;
+        accItem.id = `accordion_${m}`;
         accItem.innerHTML = `
             <div class="accordion-header">
-                <span>🔧 ${m} Hyperparameters</span>
-                <span class="text-muted">▼</span>
+                <div class="accordion-header-left">
+                    <span>🔧 <strong>${m}</strong> Hyperparameters</span>
+                </div>
+                <div class="accordion-header-right">
+                    <span class="badge ${isChecked ? 'badge-success' : 'text-muted'}" id="acc_badge_${m}">
+                        ${isChecked ? '● Active' : '○ Inactive'}
+                    </span>
+                    <span class="acc-arrow">▼</span>
+                </div>
             </div>
             <div class="accordion-body">
                 <div class="grid grid-2" id="paramsGroup_${m}"></div>
@@ -172,17 +188,44 @@ function renderModelPool(allModels, activeList) {
         for (const [pk, pv] of Object.entries(params)) {
             const formG = document.createElement('div');
             formG.className = 'form-group';
+            const displayVal = (typeof pv === 'object' && pv !== null) ? JSON.stringify(pv) : (pv === null ? 'null' : pv);
             formG.innerHTML = `
                 <label>${pk}</label>
-                <input type="text" class="form-control model-param-input" data-model="${m}" data-param="${pk}" value="${pv}">
+                <input type="text" class="form-control model-param-input" data-model="${m}" data-param="${pk}" value="${displayVal}">
             `;
             formG.querySelector('input').addEventListener('input', updateCompiledYamlPreview);
             accBodyGrid.appendChild(formG);
         }
 
+        // Toggle accordion on header click
         accItem.querySelector('.accordion-header').addEventListener('click', () => {
             accItem.classList.toggle('open');
         });
+
+        // Checkbox change event handler: synchronize accordion and view
+        card.querySelector('input').addEventListener('change', (e) => {
+            const checked = e.target.checked;
+            card.classList.toggle('checked', checked);
+            
+            const badge = document.getElementById(`acc_badge_${m}`);
+            if (checked) {
+                accItem.className = 'accordion-item active-model open';
+                if (badge) {
+                    badge.className = 'badge badge-success';
+                    badge.textContent = '● Active';
+                }
+            } else {
+                accItem.className = 'accordion-item inactive-model';
+                if (badge) {
+                    badge.className = 'badge text-muted';
+                    badge.textContent = '○ Inactive';
+                }
+            }
+
+            updateSidebarSummary();
+            updateCompiledYamlPreview();
+        });
+
         accordion.appendChild(accItem);
     });
 }
@@ -306,12 +349,26 @@ function getCompiledConfig() {
     document.querySelectorAll('.model-param-input').forEach(inp => {
         const m = inp.getAttribute('data-model');
         const p = inp.getAttribute('data-param');
-        let val = inp.value;
-        if (!isNaN(val) && val.trim() !== '') {
+        let val = inp.value.trim();
+        
+        if (val.startsWith('[') && val.endsWith(']')) {
+            try {
+                val = JSON.parse(val);
+            } catch (e) {
+                val = val.slice(1, -1).split(',').map(x => {
+                    const num = Number(x.trim());
+                    return isNaN(num) ? x.trim() : num;
+                }).filter(x => x !== '');
+            }
+        } else if (!isNaN(val) && val !== '') {
             val = val.includes('.') ? parseFloat(val) : parseInt(val);
-        } else if (val.toLowerCase() === 'true') val = true;
-        else if (val.toLowerCase() === 'false') val = false;
-        else if (val.toLowerCase() === 'none' || val === '') val = null;
+        } else if (val.toLowerCase() === 'true') {
+            val = true;
+        } else if (val.toLowerCase() === 'false') {
+            val = false;
+        } else if (val.toLowerCase() === 'none' || val.toLowerCase() === 'null' || val === '') {
+            val = null;
+        }
 
         if (!modelsParams[m]) modelsParams[m] = {};
         modelsParams[m][p] = val;
