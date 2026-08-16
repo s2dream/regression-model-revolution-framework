@@ -325,20 +325,7 @@ with st.sidebar:
     else:
         st.markdown('<span class="status-badge status-ready">● Ready</span>', unsafe_allow_html=True)
     
-    num_active = len(st.session_state.cfg_active_models)
-    hpo_str = "Enabled" if st.session_state.cfg_hpo_enabled else "Disabled"
-    shap_str = f"Enabled ({st.session_state.cfg_shap_model})" if st.session_state.cfg_shap_enabled else "Disabled"
-    
-    st.markdown(f"""
-        <div style="font-size: 0.8rem; color: #94a3b8; line-height: 1.7; margin-top: 0.6rem; background: rgba(30, 41, 59, 0.3); padding: 0.75rem; border-radius: 6px; border: 1px solid rgba(148, 163, 184, 0.1);">
-            <div>Target: <b style="color: #f1f5f9;">{st.session_state.cfg_target_col}</b></div>
-            <div>Split: <b style="color: #f1f5f9;">{st.session_state.cfg_split_method}</b></div>
-            <div>Active Models: <b style="color: #f1f5f9;">{num_active}</b></div>
-            <div>HPO: <b style="color: #f1f5f9;">{hpo_str}</b></div>
-            <div>SHAP: <b style="color: #f1f5f9;">{shap_str}</b></div>
-            <div>Outputs: <code style="font-size: 0.72rem;">{st.session_state.cfg_output_dir}/&lt;run_id&gt;</code></div>
-        </div>
-    """, unsafe_allow_html=True)
+    sidebar_status_placeholder = st.empty()
 
     st.markdown("---")
     if st.button("🔄 Reset to Default Config", use_container_width=True):
@@ -836,3 +823,24 @@ elif selected_menu == NAV_RESULTS:
                     st.dataframe(df_shap, use_container_width=True)
             else:
                 st.info("SHAP analysis was not enabled for this run.")
+
+
+# ==========================================
+# 🔄 REAL-TIME SIDEBAR STATUS SYNCHRONIZATION
+# ==========================================
+num_active = len(st.session_state.cfg_active_models)
+hpo_str = "Enabled" if st.session_state.cfg_hpo_enabled else "Disabled"
+shap_str = f"Enabled ({st.session_state.cfg_shap_model})" if st.session_state.cfg_shap_enabled else "Disabled"
+
+with sidebar_status_placeholder.container():
+    st.markdown(f"""
+        <div style="font-size: 0.8rem; color: #94a3b8; line-height: 1.7; margin-top: 0.6rem; background: rgba(30, 41, 59, 0.3); padding: 0.75rem; border-radius: 6px; border: 1px solid rgba(148, 163, 184, 0.1);">
+            <div>Target: <b style="color: #f1f5f9;">{st.session_state.cfg_target_col}</b></div>
+            <div>Split: <b style="color: #f1f5f9;">{st.session_state.cfg_split_method}</b></div>
+            <div>Active Models: <b style="color: #f1f5f9;">{num_active}</b></div>
+            <div>HPO: <b style="color: #f1f5f9;">{hpo_str}</b></div>
+            <div>SHAP: <b style="color: #f1f5f9;">{shap_str}</b></div>
+            <div>Outputs: <code style="font-size: 0.72rem;">{st.session_state.cfg_output_dir}/&lt;run_id&gt;</code></div>
+        </div>
+    """, unsafe_allow_html=True)
+
