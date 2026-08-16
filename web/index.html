@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoML Regression Studio | Enterprise ML Benchmark Platform</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body class="dark-theme">
+    <div class="app-layout">
+        <!-- ========================================== -->
+        <!-- 👈 LEFT SIDEBAR -->
+        <!-- ========================================== -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="brand-badge">ENTERPRISE ML</div>
+                <div class="brand-title">
+                    <span class="brand-logo">◈</span>
+                    <span class="brand-text">AutoML Studio</span>
+                </div>
+                <div class="brand-sub">Tabular Regression Platform</div>
+            </div>
+
+            <nav class="sidebar-nav" id="sidebarNav">
+                <button class="nav-item active" data-view="view-dataset">
+                    <span class="nav-icon">📁</span>
+                    <span class="nav-label">Dataset Source</span>
+                </button>
+                <button class="nav-item" data-view="view-split">
+                    <span class="nav-icon">✂️</span>
+                    <span class="nav-label">Data Partitioning</span>
+                </button>
+                <button class="nav-item" data-view="view-models">
+                    <span class="nav-icon">🤖</span>
+                    <span class="nav-label">Model Pool & Tuning</span>
+                </button>
+                <button class="nav-item" data-view="view-shap">
+                    <span class="nav-icon">🔍</span>
+                    <span class="nav-label">SHAP Explainability</span>
+                </button>
+                <button class="nav-item" data-view="view-custom">
+                    <span class="nav-icon">🧩</span>
+                    <span class="nav-label">Custom Profile</span>
+                </button>
+                <button class="nav-item" data-view="view-runner">
+                    <span class="nav-icon">⚙️</span>
+                    <span class="nav-label">Execution Runner</span>
+                </button>
+                <button class="nav-item" data-view="view-results">
+                    <span class="nav-icon">📈</span>
+                    <span class="nav-label">Results & Metrics</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="status-card">
+                    <div class="status-card-header">
+                        <span>Engine Status</span>
+                        <span class="status-indicator ready" id="engineStatusBadge">● Ready</span>
+                    </div>
+                    <div class="status-summary-list" id="sidebarSummaryList">
+                        <div class="summary-row"><span>Target:</span> <strong id="sumTarget">Target_Y</strong></div>
+                        <div class="summary-row"><span>Split:</span> <strong id="sumSplit">train_test_split</strong></div>
+                        <div class="summary-row"><span>Active Models:</span> <strong id="sumModels">4</strong></div>
+                        <div class="summary-row"><span>HPO:</span> <strong id="sumHpo">Disabled</strong></div>
+                        <div class="summary-row"><span>SHAP:</span> <strong id="sumShap">Disabled</strong></div>
+                        <div class="summary-row"><span>Outputs:</span> <code>outputs/&lt;run_id&gt;</code></div>
+                    </div>
+                </div>
+
+                <button class="btn btn-secondary btn-sm full-width" id="btnResetConfig" style="margin-top: 10px;">
+                    🔄 Reset Default Config
+                </button>
+            </div>
+        </aside>
+
+        <!-- ========================================== -->
+        <!-- 🚀 MAIN WORKSPACE -->
+        <!-- ========================================== -->
+        <main class="main-workspace">
+            <!-- Top App Bar -->
+            <header class="top-app-bar">
+                <div class="view-breadcrumb">
+                    <span class="breadcrumb-root">AutoML Platform</span>
+                    <span class="breadcrumb-sep">/</span>
+                    <span class="breadcrumb-current" id="breadcrumbTitle">Dataset Source</span>
+                </div>
+                <div class="top-actions">
+                    <span class="top-pill" id="activeModelsCountPill">4 Models Active</span>
+                    <button class="btn btn-primary btn-sm" id="btnQuickRunTop">
+                        🚀 Quick Run
+                    </button>
+                </div>
+            </header>
+
+            <div class="view-content-wrapper">
+                <!-- ========================================== -->
+                <!-- VIEW 1: DATASET SELECTION -->
+                <!-- ========================================== -->
+                <section class="view-pane active" id="view-dataset">
+                    <div class="section-title-wrap">
+                        <h2>📁 Dataset Source & Column Roles</h2>
+                        <p>Configure data ingestion paths, inspect raw distributions, and assign feature/target column roles.</p>
+                    </div>
+
+                    <div class="grid grid-2">
+                        <div class="form-group">
+                            <label>Data Directory</label>
+                            <input type="text" id="cfgDataDir" class="form-control" value="data">
+                        </div>
+                        <div class="form-group">
+                            <label>Output Base Directory</label>
+                            <input type="text" id="cfgOutputDir" class="form-control" value="outputs">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Data Source Mode</label>
+                        <select id="cfgDataSource" class="form-control">
+                            <option value="Local Directory">Local Directory</option>
+                            <option value="Kaggle Dataset">Kaggle Dataset Identifier</option>
+                            <option value="UCI URL / Direct Link">Direct URL / Online Dataset</option>
+                        </select>
+                    </div>
+
+                    <div id="localFileGroup" class="form-group">
+                        <label>Select Local File</label>
+                        <select id="cfgDatasetPathSelect" class="form-control"></select>
+                    </div>
+                    <div id="kaggleGroup" class="form-group hidden">
+                        <label>Kaggle Dataset (e.g. 'crawford/80-cereals')</label>
+                        <input type="text" id="cfgKaggleDataset" class="form-control" placeholder="username/dataset-name">
+                    </div>
+                    <div id="urlGroup" class="form-group hidden">
+                        <label>Direct CSV/TSV/JSONL URL</label>
+                        <input type="text" id="cfgDatasetUrl" class="form-control" placeholder="https://example.com/dataset.csv">
+                    </div>
+
+                    <!-- Dataset Preview Accordion -->
+                    <div class="card" id="datasetPreviewCard">
+                        <div class="card-header flex-between">
+                            <span>👁️ Dataset Sample Preview (Top 5 rows)</span>
+                            <span class="badge" id="previewRowsBadge">5 rows</span>
+                        </div>
+                        <div class="table-responsive" id="sampleTableWrapper">
+                            <div class="loading-state">Loading dataset columns and sample preview...</div>
+                        </div>
+                    </div>
+
+                    <hr class="divider">
+
+                    <div class="section-subtitle">🏷️ Column Mapping & Target Selection</div>
+                    <div class="grid grid-3">
+                        <div class="form-group">
+                            <label>Target Column (y) <span class="required">*</span></label>
+                            <select id="cfgTargetCol" class="form-control"></select>
+                        </div>
+                        <div class="form-group span-2">
+                            <label>Ignored Columns (Dropped first)</label>
+                            <select id="cfgIgnoredCols" class="form-control select-multiple" multiple></select>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ========================================== -->
+                <!-- VIEW 2: DATA SPLITTING -->
+                <!-- ========================================== -->
+                <section class="view-pane" id="view-split">
+                    <div class="section-title-wrap">
+                        <h2>✂️ Data Partitioning & Validation Strategy</h2>
+                        <p>Configure dataset partitioning techniques to reliably benchmark model generalization performance.</p>
+                    </div>
+
+                    <div class="grid grid-2">
+                        <div class="form-group">
+                            <label>Validation Strategy</label>
+                            <select id="cfgSplitMethod" class="form-control">
+                                <option value="train_test_split">Holdout Split (train_test_split)</option>
+                                <option value="kfold">K-Fold Cross Validation (kfold)</option>
+                                <option value="timeseries">Time Series Sequential Split (timeseries)</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="splitParamTestSize">
+                            <label>Test Size Ratio</label>
+                            <input type="number" id="splitParamValTestSize" class="form-control" value="0.2" min="0.05" max="0.5" step="0.05">
+                        </div>
+                        <div class="form-group hidden" id="splitParamNFolds">
+                            <label>Number of Folds (K)</label>
+                            <input type="number" id="splitParamValNFolds" class="form-control" value="5" min="2" max="20" step="1">
+                        </div>
+                    </div>
+
+                    <div class="card info-card">
+                        <div class="info-icon">💡</div>
+                        <div class="info-content" id="splitStrategyDesc">
+                            <strong>Holdout Split</strong>: Dataset is partitioned randomly into Training (80%) and Testing (20%) subsets with fixed random seeding.
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ========================================== -->
+                <!-- VIEW 3: MODEL POOL & TUNING -->
+                <!-- ========================================== -->
+                <section class="view-pane" id="view-models">
+                    <div class="section-title-wrap">
+                        <h2>🤖 Active Model Pool & Architectures</h2>
+                        <p>Select regressor algorithms to participate in the benchmark leaderboard and customize hyperparameters.</p>
+                    </div>
+
+                    <div class="model-selection-grid" id="modelSelectionGrid">
+                        <!-- Dynamically populated via app.js -->
+                    </div>
+
+                    <hr class="divider">
+
+                    <div class="section-subtitle">🎯 Hyperparameter Optimization (Optuna)</div>
+                    <div class="grid grid-2 align-center">
+                        <div class="form-check-card">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="cfgHpoEnabled">
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <div class="toggle-label-wrap">
+                                <strong>Enable Automated HPO</strong>
+                                <span>Find optimal parameters per model via Bayesian Optuna search</span>
+                            </div>
+                        </div>
+                        <div class="form-group" id="hpoTrialsGroup">
+                            <label>HPO Search Trials per Model</label>
+                            <input type="number" id="cfgHpoTrials" class="form-control" value="10" min="2" max="200" step="1">
+                        </div>
+                    </div>
+
+                    <hr class="divider">
+
+                    <div class="section-subtitle">🔧 Model Hyperparameter Customization</div>
+                    <div class="accordion-group" id="modelParamsAccordion">
+                        <!-- Dynamically populated via app.js -->
+                    </div>
+                </section>
+
+                <!-- ========================================== -->
+                <!-- VIEW 4: SHAP EXPLAINABILITY -->
+                <!-- ========================================== -->
+                <section class="view-pane" id="view-shap">
+                    <div class="section-title-wrap">
+                        <h2>🔍 SHAP Model Explainability & Attribution</h2>
+                        <p>Generate exact Shapley values, global feature importance rankings, and Beeswarm distribution plots.</p>
+                    </div>
+
+                    <div class="form-check-card">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="cfgShapEnabled">
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <div class="toggle-label-wrap">
+                            <strong>Enable SHAP Attribution Analysis</strong>
+                            <span>Generate feature importance charts and explainability reports after training</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-2" style="margin-top: 1.5rem;">
+                        <div class="form-group">
+                            <label>Target Model for SHAP</label>
+                            <select id="cfgShapModel" class="form-control">
+                                <option value="Champion">🏆 Champion (Auto-select Best Model)</option>
+                                <option value="XGBoost">XGBoost</option>
+                                <option value="CatBoost">CatBoost</option>
+                                <option value="RandomForest">RandomForest</option>
+                                <option value="MLP">MLP</option>
+                                <option value="TabICL">TabICL</option>
+                                <option value="TabPFN">TabPFN</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Max Samples to Evaluate</label>
+                            <input type="number" id="cfgShapMaxSamples" class="form-control" value="100" min="10" max="500" step="10">
+                        </div>
+                    </div>
+
+                    <div class="card info-card" style="margin-top: 1rem;">
+                        <div class="info-icon">⚡</div>
+                        <div class="info-content" id="shapEngineDesc">
+                            <strong>Dynamic Champion Explainer</strong>: Automatically routes to TreeExplainer for tree ensembles, Dedicated In-Context Explainer for TabICL, or ModelExplainer.
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ========================================== -->
+                <!-- VIEW 5: CUSTOM PROFILE -->
+                <!-- ========================================== -->
+                <section class="view-pane" id="view-custom">
+                    <div class="section-title-wrap">
+                        <h2>🧩 Custom Configurations Profile</h2>
+                        <p>Directly inspect or inject extended non-standard sections in standard YAML dictionary format.</p>
+                    </div>
+
+                    <div class="form-group">
+                        <textarea id="customYamlTextarea" class="code-editor" rows="14"></textarea>
+                    </div>
+                    <div id="yamlValidationBadge" class="badge badge-success">✓ Valid YAML Format</div>
+                </section>
+
+                <!-- ========================================== -->
+                <!-- VIEW 6: RUNNER CONSOLE -->
+                <!-- ========================================== -->
+                <section class="view-pane" id="view-runner">
+                    <div class="section-title-wrap">
+                        <h2>⚙️ Pipeline Execution Runner</h2>
+                        <p>Compile the active configuration profile, assign Run IDs, and launch real-time benchmark execution.</p>
+                    </div>
+
+                    <div class="grid grid-2">
+                        <!-- Left: Compiled YAML -->
+                        <div class="card">
+                            <div class="card-header flex-between">
+                                <span>📄 Active Compiled YAML Configuration</span>
+                                <button class="btn btn-secondary btn-xs" id="btnSaveConfigOnly">💾 Save YAML</button>
+                            </div>
+                            <pre class="code-block" id="compiledYamlBlock">Loading configuration...</pre>
+                        </div>
+
+                        <!-- Right: Execution Controls -->
+                        <div class="card">
+                            <div class="card-header">
+                                <span>🚀 Execution Controls</span>
+                            </div>
+                            <div class="form-group">
+                                <label>Custom Run ID (Optional)</label>
+                                <input type="text" id="runIdInput" class="form-control" placeholder="e.g. experiment_v1 (Blank for auto timestamp)">
+                                <small class="text-muted">Unique timestamp `run_YYYYMMDD_HHMMSS` will be generated if empty.</small>
+                            </div>
+
+                            <div class="form-check" style="margin: 1rem 0;">
+                                <input type="checkbox" id="overwriteRunCheck">
+                                <label for="overwriteRunCheck">Overwrite existing directory if Run ID already exists (<code>--overwrite-run</code>)</label>
+                            </div>
+
+                            <button class="btn btn-primary btn-lg full-width" id="btnStartPipelineRun">
+                                🚀 Start AutoML Benchmark Run
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Live Terminal Output -->
+                    <div class="card terminal-card" style="margin-top: 1.5rem;">
+                        <div class="terminal-header flex-between">
+                            <div class="terminal-dots">
+                                <span class="dot red"></span>
+                                <span class="dot yellow"></span>
+                                <span class="dot green"></span>
+                                <span class="terminal-title">Process Stdout / Stderr Live Stream</span>
+                            </div>
+                            <button class="btn btn-secondary btn-xs" id="btnClearTerminal">Clear Logs</button>
+                        </div>
+                        <div class="terminal-body" id="terminalLogs">
+                            <div class="log-line text-muted">> Ready to launch AutoML Benchmark. Logs will stream here live.</div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ========================================== -->
+                <!-- VIEW 7: RESULTS & METRICS -->
+                <!-- ========================================== -->
+                <section class="view-pane" id="view-results">
+                    <div class="section-title-wrap flex-between align-center">
+                        <div>
+                            <h2>📈 Benchmark Results & Diagnostics</h2>
+                            <p>Leaderboard rankings, error distributions, loss curves, and SHAP explainability assets.</p>
+                        </div>
+                        <div class="run-selector-wrap">
+                            <label>Execution Run:</label>
+                            <select id="resultsRunSelect" class="form-control"></select>
+                        </div>
+                    </div>
+
+                    <div id="noRunsAlert" class="card info-card hidden">
+                        <div class="info-icon">📂</div>
+                        <div class="info-content">
+                            No execution runs found in <code>outputs/</code> yet. Go to <strong>Execution Runner</strong> and start a benchmark run!
+                        </div>
+                    </div>
+
+                    <div id="resultsDashboardContent">
+                        <!-- Champion Metric Cards -->
+                        <div class="champion-banner" id="championBanner">
+                            <div class="champion-badge">🏆 TOP PERFORMING CHAMPION MODEL</div>
+                            <h1 id="championModelName">XGBoost</h1>
+                            <div class="metric-cards-grid">
+                                <div class="metric-card">
+                                    <span class="metric-label">R² Score (Higher is better)</span>
+                                    <span class="metric-value text-accent" id="metricR2">0.9984</span>
+                                </div>
+                                <div class="metric-card">
+                                    <span class="metric-label">RMSE (Lower is better)</span>
+                                    <span class="metric-value text-warning" id="metricRMSE">0.0381</span>
+                                </div>
+                                <div class="metric-card">
+                                    <span class="metric-label">MAE (Lower is better)</span>
+                                    <span class="metric-value text-success" id="metricMAE">0.0294</span>
+                                </div>
+                                <div class="metric-card">
+                                    <span class="metric-label">Run Identifier</span>
+                                    <span class="metric-value" id="metricRunId" style="font-size: 1.1rem;">run_xxx</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Leaderboard Table -->
+                        <div class="card" style="margin-top: 1.5rem;">
+                            <div class="card-header">
+                                <span>📊 Full Evaluation Leaderboard</span>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="data-table" id="leaderboardTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Rank</th>
+                                            <th>Model Architecture</th>
+                                            <th>R² Score</th>
+                                            <th>RMSE</th>
+                                            <th>MAE</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="leaderboardTableBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Model Comparison Charts -->
+                        <div class="grid grid-2" style="margin-top: 1.5rem;">
+                            <div class="card image-card">
+                                <div class="card-header">📈 R² Model Comparison</div>
+                                <div class="image-box" id="r2PlotBox">
+                                    <img id="imgComparisonR2" src="" alt="R2 Comparison Chart">
+                                </div>
+                            </div>
+                            <div class="card image-card">
+                                <div class="card-header">📉 RMSE Error Comparison</div>
+                                <div class="image-box" id="rmsePlotBox">
+                                    <img id="imgComparisonRMSE" src="" alt="RMSE Comparison Chart">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Individual Model Diagnostics -->
+                        <div class="card" style="margin-top: 1.5rem;">
+                            <div class="card-header flex-between align-center">
+                                <span>🔬 Individual Model Diagnostic Curves</span>
+                                <select id="diagModelSelect" class="form-control" style="width: auto;"></select>
+                            </div>
+                            <div class="grid grid-3" style="margin-top: 1rem;">
+                                <div class="image-box">
+                                    <img id="imgActualVsPred" src="" alt="Actual vs Pred">
+                                    <div class="image-caption">Actual vs Predicted</div>
+                                </div>
+                                <div class="image-box">
+                                    <img id="imgResiduals" src="" alt="Residual Errors">
+                                    <div class="image-caption">Residual Error Distribution</div>
+                                </div>
+                                <div class="image-box">
+                                    <img id="imgLearningCurve" src="" alt="Learning Curve">
+                                    <div class="image-caption">Loss Learning Curve</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SHAP Explainability Plots -->
+                        <div class="card" style="margin-top: 1.5rem;" id="shapResultCard">
+                            <div class="card-header">
+                                <span>🔍 SHAP Explainability & Feature Contribution</span>
+                            </div>
+                            <div class="grid grid-2" style="margin-top: 1rem;">
+                                <div class="image-box">
+                                    <img id="imgShapSummary" src="" alt="SHAP Beeswarm Summary">
+                                    <div class="image-caption">SHAP Beeswarm Summary Plot</div>
+                                </div>
+                                <div class="image-box">
+                                    <img id="imgShapBar" src="" alt="SHAP Global Importance">
+                                    <div class="image-caption">SHAP Global Importance Ranking</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="toast">Notification Message</div>
+
+    <script src="/app.js"></script>
+</body>
+</html>

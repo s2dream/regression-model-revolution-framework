@@ -216,7 +216,7 @@ class ModelWrapperTransformer(ABCModelWrapper):
             else:
                 X_arr = np.expand_dims(X_arr, axis=-1) # (batch, num_features, 1)
                 
-        return torch.tensor(X_arr)
+        return torch.tensor(X_arr.tolist(), dtype=torch.float32)
 
     def fit(self, X: pd.DataFrame, y: pd.Series) -> 'ModelWrapperTransformer':
         import torch
@@ -228,7 +228,7 @@ class ModelWrapperTransformer(ABCModelWrapper):
             y_arr = y.to_numpy()
         else:
             y_arr = np.array(y)
-        y_tensor = torch.tensor(y_arr, dtype=torch.float32).unsqueeze(-1)
+        y_tensor = torch.tensor(y_arr.tolist(), dtype=torch.float32).unsqueeze(-1)
         
         self.model.train()
         dataset_size = X_tensor.size(0)
@@ -278,10 +278,10 @@ class ModelWrapperTransformer(ABCModelWrapper):
         with torch.no_grad():
             if self.model.predict_distribution:
                 mean, _ = self.model(X_tensor)
-                return mean.squeeze(-1).numpy()
+                return np.array(mean.squeeze(-1).tolist())
             else:
                 pred = self.model(X_tensor)
-                return pred.squeeze(-1).numpy()
+                return np.array(pred.squeeze(-1).tolist())
 
 
 class ModelWrapperTabICL(ABCModelWrapper):

@@ -7,7 +7,9 @@
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 echo "========================================================"
-echo "🏃 Starting Streamlit WebUI Studio (Headless Mode)..."
+echo "🏃 Starting Enterprise AutoML Web Studio Server..."
+echo "🌐 Open http://localhost:8501 in your browser"
 echo "========================================================"
 
-streamlit run "$PROJECT_ROOT/app.py" --server.headless true
+cd "$PROJECT_ROOT"
+python server.py

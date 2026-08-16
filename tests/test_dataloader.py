@@ -218,7 +218,8 @@ def test_resolve_parameters_cli_overrides():
     # Instantiate with explicit overrides representing CLI inputs
     pipeline = AutoMLPipeline(
         config_path="configs/default.yml",
-        turn=5,
+        run_id="test_override_run",
+        overwrite_run=True,
         target="OVERRIDE_TARGET",
         test_size=0.45
     )
@@ -226,7 +227,8 @@ def test_resolve_parameters_cli_overrides():
     # Constructor/CLI arguments must override YAML configs
     assert pipeline.target_column == "OVERRIDE_TARGET"
     assert pipeline.test_size == 0.45
-    assert pipeline.turn == 5
+    assert pipeline.run_id == "test_override_run"
+    assert pipeline.overwrite_run is True
 
 
 def test_load_config_fallback(tmp_path):
