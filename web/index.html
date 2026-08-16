@@ -108,17 +108,17 @@
 
                     <div class="grid grid-2">
                         <div class="form-group">
-                            <label>Data Directory</label>
+                            <label>Data Directory <span class="info-tip" data-tip="data_dir">ⓘ</span></label>
                             <input type="text" id="cfgDataDir" class="form-control" value="data">
                         </div>
                         <div class="form-group">
-                            <label>Output Base Directory</label>
+                            <label>Output Base Directory <span class="info-tip" data-tip="output_dir">ⓘ</span></label>
                             <input type="text" id="cfgOutputDir" class="form-control" value="outputs">
                         </div>
                     </div>
 
                     <div class="form-group">
-                        <label>Data Source Mode</label>
+                        <label>Data Source Mode <span class="info-tip" data-tip="data_source">ⓘ</span></label>
                         <select id="cfgDataSource" class="form-control">
                             <option value="Local Directory">Local Directory</option>
                             <option value="Kaggle Dataset">Kaggle Dataset Identifier</option>
@@ -127,7 +127,7 @@
                     </div>
 
                     <div id="localFileGroup" class="form-group">
-                        <label>Select Local File</label>
+                        <label>Select Local File <span class="info-tip" data-tip="dataset_select">ⓘ</span></label>
                         <select id="cfgDatasetPathSelect" class="form-control"></select>
                     </div>
                     <div id="kaggleGroup" class="form-group hidden">
@@ -155,11 +155,11 @@
                     <div class="section-subtitle">🏷️ Column Mapping & Target Selection</div>
                     <div class="grid grid-3">
                         <div class="form-group">
-                            <label>Target Column (y) <span class="required">*</span></label>
+                            <label>Target Column (y) <span class="required">*</span> <span class="info-tip" data-tip="target_column">ⓘ</span></label>
                             <select id="cfgTargetCol" class="form-control"></select>
                         </div>
                         <div class="form-group span-2">
-                            <label>Ignored Columns (Dropped first)</label>
+                            <label>Ignored Columns (Dropped first) <span class="info-tip" data-tip="ignored_columns">ⓘ</span></label>
                             <select id="cfgIgnoredCols" class="form-control select-multiple" multiple></select>
                         </div>
                     </div>
@@ -176,7 +176,7 @@
 
                     <div class="grid grid-2">
                         <div class="form-group">
-                            <label>Validation Strategy</label>
+                            <label>Validation Strategy <span class="info-tip" data-tip="split_method">ⓘ</span></label>
                             <select id="cfgSplitMethod" class="form-control">
                                 <option value="train_test_split">Holdout Split (train_test_split)</option>
                                 <option value="kfold">K-Fold Cross Validation (kfold)</option>
@@ -184,11 +184,11 @@
                             </select>
                         </div>
                         <div class="form-group" id="splitParamTestSize">
-                            <label>Test Size Ratio</label>
+                            <label>Test Size Ratio <span class="info-tip" data-tip="test_size">ⓘ</span></label>
                             <input type="number" id="splitParamValTestSize" class="form-control" value="0.2" min="0.05" max="0.5" step="0.05">
                         </div>
                         <div class="form-group hidden" id="splitParamNFolds">
-                            <label>Number of Folds (K)</label>
+                            <label>Number of Folds (K) <span class="info-tip" data-tip="n_splits">ⓘ</span></label>
                             <input type="number" id="splitParamValNFolds" class="form-control" value="5" min="2" max="20" step="1">
                         </div>
                     </div>
@@ -224,12 +224,12 @@
                                 <span class="toggle-slider"></span>
                             </label>
                             <div class="toggle-label-wrap">
-                                <strong>Enable Automated HPO</strong>
+                                <strong>Enable Automated HPO <span class="info-tip" data-tip="hpo_enabled">ⓘ</span></strong>
                                 <span>Find optimal parameters per model via Bayesian Optuna search</span>
                             </div>
                         </div>
                         <div class="form-group" id="hpoTrialsGroup">
-                            <label>HPO Search Trials per Model</label>
+                            <label>HPO Search Trials per Model <span class="info-tip" data-tip="hpo_trials">ⓘ</span></label>
                             <input type="number" id="cfgHpoTrials" class="form-control" value="10" min="2" max="200" step="1">
                         </div>
                     </div>
@@ -257,14 +257,14 @@
                             <span class="toggle-slider"></span>
                         </label>
                         <div class="toggle-label-wrap">
-                            <strong>Enable SHAP Attribution Analysis</strong>
+                            <strong>Enable SHAP Attribution Analysis <span class="info-tip" data-tip="shap_enabled">ⓘ</span></strong>
                             <span>Generate feature importance charts and explainability reports after training</span>
                         </div>
                     </div>
 
                     <div class="grid grid-2" style="margin-top: 1.5rem;">
                         <div class="form-group">
-                            <label>Target Model for SHAP</label>
+                            <label>Target Model for SHAP <span class="info-tip" data-tip="shap_model">ⓘ</span></label>
                             <select id="cfgShapModel" class="form-control">
                                 <option value="Champion">🏆 Champion (Auto-select Best Model)</option>
                                 <option value="XGBoost">XGBoost</option>
@@ -276,7 +276,7 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>Max Samples to Evaluate</label>
+                            <label>Max Samples to Evaluate <span class="info-tip" data-tip="shap_max_samples">ⓘ</span></label>
                             <input type="number" id="cfgShapMaxSamples" class="form-control" value="100" min="10" max="500" step="10">
                         </div>
                     </div>
@@ -329,14 +329,14 @@
                                 <span>🚀 Execution Controls</span>
                             </div>
                             <div class="form-group">
-                                <label>Custom Run ID (Optional)</label>
+                                <label>Custom Run ID (Optional) <span class="info-tip" data-tip="run_id">ⓘ</span></label>
                                 <input type="text" id="runIdInput" class="form-control" placeholder="e.g. experiment_v1 (Blank for auto timestamp)">
                                 <small class="text-muted">Unique timestamp `run_YYYYMMDD_HHMMSS` will be generated if empty.</small>
                             </div>
 
                             <div class="form-check" style="margin: 1rem 0;">
                                 <input type="checkbox" id="overwriteRunCheck">
-                                <label for="overwriteRunCheck">Overwrite existing directory if Run ID already exists (<code>--overwrite-run</code>)</label>
+                                <label for="overwriteRunCheck">Overwrite existing directory if Run ID already exists (<code>--overwrite-run</code>) <span class="info-tip" data-tip="overwrite_run">ⓘ</span></label>
                             </div>
 
                             <button class="btn btn-primary btn-lg full-width" id="btnStartPipelineRun">
