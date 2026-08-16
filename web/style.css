@@ -1085,3 +1085,62 @@ select.form-control {
     align-items: flex-start;
 }
 
+/* =====================================================================
+   🏷️ SMART PARAMETER PRESET CHIPS & HPO TOOLBAR
+   ===================================================================== */
+.hpo-actions-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    margin: 1.2rem 0 0.8rem 0;
+    flex-wrap: wrap;
+}
+
+.param-preset-chips {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+    margin-top: 5px;
+}
+
+.chip-btn {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    color: #94a3b8;
+    font-size: 0.72rem;
+    font-family: var(--font-mono);
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease-in-out;
+    user-select: none;
+    line-height: 1.4;
+}
+
+.chip-btn:hover {
+    background: rgba(99, 102, 241, 0.18);
+    border-color: rgba(99, 102, 241, 0.45);
+    color: #e2e8f0;
+    transform: translateY(-1px);
+}
+
+.chip-btn.active-preset {
+    background: rgba(99, 102, 241, 0.25);
+    border-color: var(--primary);
+    color: #a5b4fc;
+    font-weight: 600;
+}
+
+.inclusive-badge {
+    display: inline-block;
+    font-size: 0.68rem;
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.1);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    margin-left: 0.4rem;
+}
+
+

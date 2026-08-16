@@ -41,10 +41,6 @@
                     <span class="nav-icon">🔍</span>
                     <span class="nav-label">SHAP Explainability</span>
                 </button>
-                <button class="nav-item" data-view="view-custom">
-                    <span class="nav-icon">🧩</span>
-                    <span class="nav-label">Custom Profile</span>
-                </button>
                 <button class="nav-item" data-view="view-runner">
                     <span class="nav-icon">⚙️</span>
                     <span class="nav-label">Execution Runner</span>
@@ -217,7 +213,7 @@
                     <hr class="divider">
 
                     <div class="section-subtitle">🎯 Hyperparameter Optimization (Optuna)</div>
-                    <div class="grid grid-2 align-center">
+                    <div class="grid grid-3 align-center">
                         <div class="form-check-card">
                             <label class="toggle-switch">
                                 <input type="checkbox" id="cfgHpoEnabled">
@@ -225,8 +221,16 @@
                             </label>
                             <div class="toggle-label-wrap">
                                 <strong>Enable Automated HPO <span class="info-tip" data-tip="hpo_enabled">ⓘ</span></strong>
-                                <span>Find optimal parameters per model via Bayesian Optuna search</span>
+                                <span>Dynamic Bayesian Search</span>
                             </div>
+                        </div>
+                        <div class="form-group" id="hpoMetricGroup">
+                            <label>Optimization Target Metric <span class="info-tip" data-tip="hpo_metric">ⓘ</span></label>
+                            <select id="cfgHpoMetric" class="form-control">
+                                <option value="RMSE">RMSE (Root Mean Squared Error ↓)</option>
+                                <option value="MAE">MAE (Mean Absolute Error ↓)</option>
+                                <option value="R2">R² Score (Coefficient of Determination ↑)</option>
+                            </select>
                         </div>
                         <div class="form-group" id="hpoTrialsGroup">
                             <label>HPO Search Trials per Model <span class="info-tip" data-tip="hpo_trials">ⓘ</span></label>
@@ -234,9 +238,22 @@
                         </div>
                     </div>
 
+                    <div class="card info-card" id="hpoSearchSpaceTipCard" style="margin-top: 1rem;">
+                        <div class="info-icon">💡</div>
+                        <div class="info-content">
+                            <strong>Dynamic Search Space Format</strong>: When HPO is enabled, specify parameter ranges as <code>[min, max]</code> <span class="inclusive-badge">Inclusive: min ≤ value ≤ max (양 끝값 포함)</span>, choice lists as <code>['relu', 'tanh']</code>, or single scalar values (e.g. <code>n_jobs: -1</code>) to keep them fixed during trials. Click the preset chips below each input to quickly apply verified ranges!
+                        </div>
+                    </div>
+
                     <hr class="divider">
 
-                    <div class="section-subtitle">🔧 Model Hyperparameter Customization</div>
+                    <div class="hpo-actions-toolbar">
+                        <div class="section-subtitle" style="margin: 0;">🔧 Model Hyperparameter Customization</div>
+                        <div class="top-actions">
+                            <button class="btn btn-secondary btn-xs" id="btnLoadHpoPresets">⚡ Load Recommended HPO Ranges</button>
+                            <button class="btn btn-secondary btn-xs" id="btnResetSingleDefaults">🔄 Reset Single Defaults</button>
+                        </div>
+                    </div>
                     <div class="accordion-group" id="modelParamsAccordion">
                         <!-- Dynamically populated via app.js -->
                     </div>
@@ -290,22 +307,7 @@
                 </section>
 
                 <!-- ========================================== -->
-                <!-- VIEW 5: CUSTOM PROFILE -->
-                <!-- ========================================== -->
-                <section class="view-pane" id="view-custom">
-                    <div class="section-title-wrap">
-                        <h2>🧩 Custom Configurations Profile</h2>
-                        <p>Directly inspect or inject extended non-standard sections in standard YAML dictionary format.</p>
-                    </div>
-
-                    <div class="form-group">
-                        <textarea id="customYamlTextarea" class="code-editor" rows="14"></textarea>
-                    </div>
-                    <div id="yamlValidationBadge" class="badge badge-success">✓ Valid YAML Format</div>
-                </section>
-
-                <!-- ========================================== -->
-                <!-- VIEW 6: RUNNER CONSOLE -->
+                <!-- VIEW 5: RUNNER CONSOLE -->
                 <!-- ========================================== -->
                 <section class="view-pane" id="view-runner">
                     <div class="section-title-wrap">

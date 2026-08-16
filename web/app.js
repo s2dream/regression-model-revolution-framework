@@ -76,9 +76,15 @@ const HELP_DOCS = {
     'hpo_enabled': {
         title: 'Automated HPO (Optuna)',
         summary: '베이지안 최적화 기반으로 각 모델의 최적 하이퍼파라미터를 자동 탐색합니다.',
-        details: 'TPE(Tree-structured Parzen Estimator) 알고리즘으로 효율적인 하이퍼파라미터 조합을 탐색합니다.',
+        details: 'TPE(Tree-structured Parzen Estimator) 알고리즘으로 효율적인 하이퍼파라미터 조합을 탐색합니다.\n파라미터에 [min, max] 또는 후보 리스트를 지정하여 탐색 범위를 직접 정의할 수 있습니다.',
         rec: '최고 성능을 원할 때 활성화',
         warn: '탐색 횟수에 비례하여 실행 시간이 증가합니다.'
+    },
+    'hpo_metric': {
+        title: 'HPO Target Optimization Metric',
+        summary: 'Optuna가 하이퍼파라미터 조합의 우수성을 평가할 목적함수(Objective) 지표입니다.',
+        details: '• RMSE: 오차 제곱평균제곱근 (낮을수록 우수, 이상치에 민감)\n• MAE: 평균 절대 오차 (낮을수록 우수, 이상치에 덜 민감)\n• R2: 결정계수 (1에 가까울수록 우수, 최대화 목표)',
+        rec: '일반 회귀: RMSE 또는 R2'
     },
     'hpo_trials': {
         title: 'HPO Search Trials',
@@ -458,6 +464,7 @@ function populateFormFromConfig(cfg) {
     // HPO
     const hpoSection = cfg.hpo || {};
     document.getElementById('cfgHpoEnabled').checked = !!hpoSection.enabled;
+    document.getElementById('cfgHpoMetric').value = hpoSection.metric || 'RMSE';
     document.getElementById('cfgHpoTrials').value = hpoSection.n_trials || 10;
 
     // SHAP
@@ -467,13 +474,16 @@ function populateFormFromConfig(cfg) {
     document.getElementById('cfgShapMaxSamples').value = shapSection.max_samples || 100;
     handleShapModelChange(document.getElementById('cfgShapModel').value);
 
-    // Custom YAML
-    const customObj = {};
-    const standardKeys = ['logging', 'framework', 'data', 'models', 'hpo', 'shap'];
-    for (const [k, v] of Object.entries(cfg)) {
-        if (!standardKeys.includes(k)) customObj[k] = v;
+    // Custom YAML (if element exists)
+    const customTextarea = document.getElementById('customYamlTextarea');
+    if (customTextarea) {
+        const customObj = {};
+        const standardKeys = ['logging', 'framework', 'data', 'models', 'hpo', 'shap'];
+        for (const [k, v] of Object.entries(cfg)) {
+            if (!standardKeys.includes(k)) customObj[k] = v;
+        }
+        customTextarea.value = JSON.stringify(customObj, null, 2);
     }
-    document.getElementById('customYamlTextarea').value = JSON.stringify(customObj, null, 2);
 }
 
 const DEFAULT_MODEL_TEMPLATES = {
@@ -484,6 +494,71 @@ const DEFAULT_MODEL_TEMPLATES = {
     'TabPFN': { N_ensemble_configurations: 32 },
     'TabICL': { n_estimators: 8, device: 'cpu', batch_size: 4 },
     'Transformer': { epochs: 20, d_model: 32, nhead: 4, num_layers: 2, batch_size: 32 }
+};
+
+const DEFAULT_HPO_TEMPLATES = {
+    'XGBoost': { n_estimators: '[50, 300]', learning_rate: '[0.01, 0.2]', max_depth: '[3, 9]', n_jobs: -1 },
+    'CatBoost': { iterations: '[50, 300]', learning_rate: '[0.01, 0.2]', depth: '[3, 8]', verbose: 0 },
+    'RandomForest': { n_estimators: '[50, 300]', max_depth: '[3, 15]', n_jobs: -1 },
+    'MLP': { hidden_layer_sizes: '[[64, 32], [128, 64]]', activation: '["relu", "tanh"]', solver: 'adam', max_iter: 500 },
+    'TabPFN': { N_ensemble_configurations: 32 },
+    'TabICL': { n_estimators: 8, device: 'cpu', batch_size: 4 },
+    'Transformer': { epochs: '[10, 40]', lr: '[0.0001, 0.005]', dropout: '[0.0, 0.3]', batch_size: 32 }
+};
+
+const PARAM_PRESET_CHIPS = {
+    'XGBoost.learning_rate': [
+        { label: '고정: 0.1', val: '0.1' },
+        { label: '표준: [0.01, 0.2]', val: '[0.01, 0.2]' },
+        { label: '넓게: [0.001, 0.3]', val: '[0.001, 0.3]' }
+    ],
+    'XGBoost.n_estimators': [
+        { label: '고정: 100', val: '100' },
+        { label: '빠른탐색: [50, 150]', val: '[50, 150]' },
+        { label: '정밀탐색: [100, 500]', val: '[100, 500]' }
+    ],
+    'XGBoost.max_depth': [
+        { label: '고정: 6', val: '6' },
+        { label: '얕은트리: [3, 6]', val: '[3, 6]' },
+        { label: '깊은트리: [4, 10]', val: '[4, 10]' }
+    ],
+    'CatBoost.iterations': [
+        { label: '고정: 100', val: '100' },
+        { label: '탐색: [50, 300]', val: '[50, 300]' }
+    ],
+    'CatBoost.learning_rate': [
+        { label: '고정: 0.1', val: '0.1' },
+        { label: '탐색: [0.01, 0.2]', val: '[0.01, 0.2]' }
+    ],
+    'CatBoost.depth': [
+        { label: '고정: 6', val: '6' },
+        { label: '탐색: [3, 8]', val: '[3, 8]' }
+    ],
+    'RandomForest.n_estimators': [
+        { label: '고정: 100', val: '100' },
+        { label: '탐색: [50, 300]', val: '[50, 300]' }
+    ],
+    'RandomForest.max_depth': [
+        { label: '고정: null', val: 'null' },
+        { label: '탐색: [3, 15]', val: '[3, 15]' }
+    ],
+    'MLP.hidden_layer_sizes': [
+        { label: '고정: [128, 64]', val: '[128, 64]' },
+        { label: '2계층: [[64, 32], [128, 64]]', val: '[[64, 32], [128, 64]]' },
+        { label: '3계층: [[128, 64, 32], [256, 128]]', val: '[[128, 64, 32], [256, 128]]' }
+    ],
+    'MLP.activation': [
+        { label: '고정: relu', val: 'relu' },
+        { label: '후보: ["relu", "tanh"]', val: '["relu", "tanh"]' }
+    ],
+    'Transformer.epochs': [
+        { label: '고정: 20', val: '20' },
+        { label: '탐색: [10, 40]', val: '[10, 40]' }
+    ],
+    'Transformer.lr': [
+        { label: '고정: 0.001', val: '0.001' },
+        { label: '탐색: [0.0001, 0.005]', val: '[0.0001, 0.005]' }
+    ]
 };
 
 function renderModelPool(allModels, activeList) {
@@ -538,10 +613,33 @@ function renderModelPool(allModels, activeList) {
             formG.className = 'form-group';
             const displayVal = (typeof pv === 'object' && pv !== null) ? JSON.stringify(pv) : (pv === null ? 'null' : pv);
             const tipKey = `${m}.${pk}`;
+            
+            // Build preset chips if available
+            const chipList = PARAM_PRESET_CHIPS[tipKey] || [];
+            let chipsHtml = '';
+            if (chipList.length > 0) {
+                chipsHtml = `
+                    <div class="param-preset-chips">
+                        ${chipList.map(c => `<span class="chip-btn" data-val="${c.val.replace(/"/g, '&quot;')}">${c.label}</span>`).join('')}
+                    </div>
+                `;
+            }
+
             formG.innerHTML = `
                 <label>${pk} <span class="info-tip" data-tip="${tipKey}">ⓘ</span></label>
                 <input type="text" class="form-control model-param-input" data-model="${m}" data-param="${pk}" value="${displayVal}">
+                ${chipsHtml}
             `;
+
+            // Preset Chip click listener
+            formG.querySelectorAll('.chip-btn').forEach(chip => {
+                chip.addEventListener('click', () => {
+                    const inp = formG.querySelector('input');
+                    inp.value = chip.getAttribute('data-val');
+                    updateCompiledYamlPreview();
+                });
+            });
+
             formG.querySelector('input').addEventListener('input', updateCompiledYamlPreview);
             accBodyGrid.appendChild(formG);
         }
@@ -742,6 +840,7 @@ function getCompiledConfig() {
         },
         hpo: {
             enabled: document.getElementById('cfgHpoEnabled').checked,
+            metric: document.getElementById('cfgHpoMetric').value || 'RMSE',
             n_trials: parseInt(document.getElementById('cfgHpoTrials').value) || 10
         },
         shap: {
@@ -1048,9 +1147,52 @@ function setupEventListeners() {
         updateCompiledYamlPreview();
     });
 
+function applyModelTemplates(templateDict) {
+    document.querySelectorAll('.model-param-input').forEach(inp => {
+        const m = inp.getAttribute('data-model');
+        const p = inp.getAttribute('data-param');
+        if (templateDict[m] && templateDict[m][p] !== undefined) {
+            const val = templateDict[m][p];
+            inp.value = (typeof val === 'object' && val !== null) ? JSON.stringify(val) : (val === null ? 'null' : val);
+        }
+    });
+    updateCompiledYamlPreview();
+}
+
+    // HPO Toolbar Buttons
+    const btnHpo = document.getElementById('btnLoadHpoPresets');
+    if (btnHpo) {
+        btnHpo.addEventListener('click', () => {
+            applyModelTemplates(DEFAULT_HPO_TEMPLATES);
+            showToast("⚡ Applied recommended HPO search spaces [min, max] (inclusive) to all models!", "success");
+        });
+    }
+
+    const btnReset = document.getElementById('btnResetSingleDefaults');
+    if (btnReset) {
+        btnReset.addEventListener('click', () => {
+            applyModelTemplates(DEFAULT_MODEL_TEMPLATES);
+            showToast("🔄 Reset model parameters to single default values.", "info");
+        });
+    }
+
     // HPO & SHAP toggles
-    document.getElementById('cfgHpoEnabled').addEventListener('change', () => {
+    document.getElementById('cfgHpoEnabled').addEventListener('change', (e) => {
+        const isHpo = e.target.checked;
+        if (isHpo) {
+            applyModelTemplates(DEFAULT_HPO_TEMPLATES);
+            showToast("⚡ HPO Enabled: Recommended search ranges [min, max] automatically populated!", "info");
+        } else {
+            applyModelTemplates(DEFAULT_MODEL_TEMPLATES);
+            showToast("ℹ️ HPO Disabled: Restored single default parameter values.", "info");
+        }
         updateSidebarSummary();
+        updateCompiledYamlPreview();
+    });
+    document.getElementById('cfgHpoMetric').addEventListener('change', () => {
+        updateCompiledYamlPreview();
+    });
+    document.getElementById('cfgHpoTrials').addEventListener('input', () => {
         updateCompiledYamlPreview();
     });
     document.getElementById('cfgShapEnabled').addEventListener('change', () => {
