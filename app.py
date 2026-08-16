@@ -28,133 +28,102 @@ st.set_page_config(
 # Custom premium styling (Glassmorphism & Neon accents)
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
     
     html, body, [class*="css"] {
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
     }
 
-    /* Professional Top Padding (No clipping or awkward cutoff) */
+    code, pre {
+        font-family: 'JetBrains Mono', monospace !important;
+    }
+
+    /* Professional Top Padding */
     .block-container {
-        padding-top: 2rem !important;
+        padding-top: 1.5rem !important;
         padding-bottom: 2rem !important;
         max-width: 95% !important;
     }
     
-    /* Elegant Studio Navigation Bar */
-    .main-title-container {
+    /* Modern Enterprise MLOps Breadcrumb Top Bar (No clunky banner box) */
+    .top-nav-bar {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        background: rgba(18, 24, 38, 0.85);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 14px;
-        padding: 0.85rem 1.4rem;
-        margin-top: 0.2rem;
+        padding: 0.4rem 0.2rem 0.8rem 0.2rem;
         margin-bottom: 1.2rem;
-        box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.3), 0 0 1px 1px rgba(255, 255, 255, 0.05);
+        border-bottom: 1px solid rgba(148, 163, 184, 0.15);
     }
     
-    .brand-title-wrap {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-    }
-
-    .brand-icon {
-        font-size: 1.5rem;
-        line-height: 1;
-        filter: drop-shadow(0 2px 8px rgba(99, 102, 241, 0.4));
-    }
-
-    .brand-heading {
-        margin: 0;
-        padding: 0;
-    }
-
-    .brand-heading h1 {
-        font-family: 'Outfit', sans-serif;
-        font-size: 1.4rem;
-        font-weight: 700;
-        margin: 0;
-        letter-spacing: -0.02em;
-        color: #f8fafc;
-        display: inline-block;
-    }
-
-    .brand-subtext {
-        font-size: 0.8rem;
-        color: #64748b;
-        font-weight: 400;
-        margin-left: 0.5rem;
-        border-left: 1px solid rgba(148, 163, 184, 0.2);
-        padding-left: 0.5rem;
-        display: inline-block;
-    }
-    
-    .header-badges {
+    .nav-left {
         display: flex;
         align-items: center;
         gap: 0.6rem;
     }
 
-    .view-pill {
-        display: inline-flex;
-        align-items: center;
-        background: rgba(99, 102, 241, 0.12);
-        border: 1px solid rgba(99, 102, 241, 0.3);
-        color: #a5b4fc;
-        padding: 0.3rem 0.8rem;
-        border-radius: 20px;
-        font-size: 0.82rem;
-        font-weight: 600;
-        letter-spacing: 0.01em;
+    .platform-logo {
+        color: #6366f1;
+        font-size: 1.1rem;
+        font-weight: 800;
     }
 
-    /* Clean, Symmetrical Section Header */
-    .compact-section-header {
+    .platform-name {
+        font-size: 0.95rem;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        color: #f1f5f9;
+    }
+
+    .nav-divider {
+        color: #475569;
+        font-size: 0.85rem;
+        font-weight: 400;
+    }
+
+    .current-view-name {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #818cf8;
+    }
+
+    .nav-right {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        background: rgba(255, 255, 255, 0.02);
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        border-radius: 10px;
-        padding: 0.6rem 1rem;
-        margin-bottom: 1rem;
+        gap: 0.5rem;
+    }
+
+    /* Clean Section Heading */
+    .section-heading-wrap {
+        margin-bottom: 1.2rem;
     }
 
     .section-title {
-        font-family: 'Outfit', sans-serif;
-        font-size: 1.05rem;
-        font-weight: 600;
-        color: #e2e8f0;
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: #f8fafc;
         margin: 0;
+        letter-spacing: -0.01em;
     }
 
     .section-desc {
-        font-size: 0.82rem;
-        color: #64748b;
-        margin: 0;
+        font-size: 0.85rem;
+        color: #94a3b8;
+        margin: 0.2rem 0 0 0;
     }
 
     /* Card design */
     .premium-card {
-        background: rgba(255, 255, 255, 0.02);
-        backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        border-radius: 12px;
+        background: rgba(30, 41, 59, 0.3);
+        border: 1px solid rgba(148, 163, 184, 0.1);
+        border-radius: 8px;
         padding: 1.2rem;
         margin-bottom: 1rem;
-        box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.15);
     }
     
     .card-header {
-        font-family: 'Outfit', sans-serif;
-        font-size: 1.15rem;
+        font-size: 1rem;
         font-weight: 600;
-        color: #818cf8;
+        color: #93c5fd;
         margin-bottom: 0.6rem;
         display: flex;
         align-items: center;
@@ -163,35 +132,37 @@ st.markdown("""
     
     /* Modern status indicator */
     .status-badge {
-        display: inline-block;
-        padding: 0.28rem 0.7rem;
-        border-radius: 20px;
-        font-size: 0.78rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.2rem 0.65rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.05em;
     }
     
     .status-ready {
-        background-color: rgba(16, 185, 129, 0.12);
+        background-color: rgba(16, 185, 129, 0.1);
         color: #34d399;
         border: 1px solid rgba(16, 185, 129, 0.25);
     }
     
     .status-running {
-        background-color: rgba(245, 158, 11, 0.12);
+        background-color: rgba(245, 158, 11, 0.1);
         color: #fbbf24;
         border: 1px solid rgba(245, 158, 11, 0.25);
         animation: pulse 1.5s infinite;
     }
 
     .engine-badge {
-        background-color: rgba(99, 102, 241, 0.12);
-        color: #a5b4fc;
-        border: 1px solid rgba(99, 102, 241, 0.3);
-        padding: 0.25rem 0.6rem;
-        border-radius: 6px;
-        font-size: 0.8rem;
+        background-color: rgba(99, 102, 241, 0.1);
+        color: #c7d2fe;
+        border: 1px solid rgba(99, 102, 241, 0.25);
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.78rem;
         font-weight: 600;
         display: inline-block;
     }
@@ -365,21 +336,21 @@ if "cfg_custom_sections" not in st.session_state:
 # ==========================================
 with st.sidebar:
     st.markdown("""
-    <div style="padding: 1rem 0; text-align: center;">
-        <h2 style="font-family: 'Outfit', sans-serif; margin: 0; color: #818cf8; font-weight: 800;">
-            🚀 Studio Menu
+    <div style="padding: 0.8rem 0 1.2rem 0;">
+        <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: #818cf8; font-weight: 700;">MLOps Studio</div>
+        <h2 style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 1.25rem; font-weight: 700; color: #f8fafc; margin: 0.2rem 0 0 0;">
+            AutoML Platform
         </h2>
-        <p style="font-size: 0.85rem; color: #94a3b8; margin: 0.3rem 0 1rem 0;">AutoML Regression Framework</p>
     </div>
     """, unsafe_allow_html=True)
 
-    NAV_DATASET = "📁 Dataset Selection"
-    NAV_SPLIT = "✂️ Data Splitting"
-    NAV_MODELS = "🛠️ Models & Active Pool"
-    NAV_SHAP = "🔍 SHAP Interpretability"
-    NAV_CUSTOM = "🧩 Custom Configurations"
-    NAV_RUNNER = "⚙️ Runner Console"
-    NAV_RESULTS = "📈 Results & Metrics"
+    NAV_DATASET = "Dataset Source"
+    NAV_SPLIT = "Data Partitioning"
+    NAV_MODELS = "Model Pool & Tuning"
+    NAV_SHAP = "SHAP Explainability"
+    NAV_CUSTOM = "Custom Parameters"
+    NAV_RUNNER = "Pipeline Runner"
+    NAV_RESULTS = "Results & Metrics"
 
     menu_options = [
         NAV_DATASET,
@@ -402,11 +373,11 @@ with st.sidebar:
     
     # Sidebar quick status card
     st.markdown("""
-    <div style="background: rgba(255,255,255,0.04); padding: 1rem; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08);">
-        <div style="font-size: 0.8rem; text-transform: uppercase; color: #94a3b8; font-weight: 600; margin-bottom: 0.5rem;">Pipeline Status</div>
+    <div style="background: rgba(30, 41, 59, 0.35); padding: 0.9rem; border-radius: 8px; border: 1px solid rgba(148, 163, 184, 0.1);">
+        <div style="font-size: 0.75rem; text-transform: uppercase; color: #94a3b8; font-weight: 600; margin-bottom: 0.4rem; letter-spacing: 0.05em;">Engine Status</div>
     """, unsafe_allow_html=True)
     if st.session_state.pipeline_running:
-        st.markdown('<span class="status-badge status-running">● Running Experiment</span>', unsafe_allow_html=True)
+        st.markdown('<span class="status-badge status-running">● Running</span>', unsafe_allow_html=True)
     else:
         st.markdown('<span class="status-badge status-ready">● Ready</span>', unsafe_allow_html=True)
     
@@ -414,13 +385,13 @@ with st.sidebar:
     hpo_str = "Enabled" if st.session_state.cfg_hpo_enabled else "Disabled"
     shap_str = f"Enabled ({st.session_state.cfg_shap_model})" if st.session_state.cfg_shap_enabled else "Disabled"
     st.markdown(f"""
-        <div style="margin-top: 0.8rem; font-size: 0.85rem; color: #cbd5e1;">
-            <div>📁 <b>Target Col:</b> {st.session_state.cfg_target_col}</div>
-            <div style="margin-top: 0.3rem;">✂️ <b>Split Strategy:</b> {st.session_state.cfg_split_method}</div>
-            <div style="margin-top: 0.3rem;">🤖 <b>Active Models:</b> {num_active}</div>
-            <div style="margin-top: 0.3rem;">🎯 <b>HPO:</b> {hpo_str}</div>
-            <div style="margin-top: 0.3rem;">🔍 <b>SHAP:</b> {shap_str}</div>
-            <div style="margin-top: 0.3rem;">📂 <b>Outputs Dir:</b> {st.session_state.cfg_output_dir}/&lt;run_id&gt;</div>
+        <div style="margin-top: 0.75rem; font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">
+            <div>Target Column: <b style="color: #93c5fd;">{st.session_state.cfg_target_col}</b></div>
+            <div>Split: <b>{st.session_state.cfg_split_method}</b></div>
+            <div>Active Models: <b>{num_active}</b></div>
+            <div>HPO: <b>{hpo_str}</b></div>
+            <div>SHAP: <b>{shap_str}</b></div>
+            <div>Outputs: <code style="font-size: 0.75rem;">{st.session_state.cfg_output_dir}/&lt;run_id&gt;</code></div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -429,20 +400,18 @@ with st.sidebar:
 # ==========================================
 # 🚀 HEADER SECTION (TOP OF MAIN VIEW)
 # ==========================================
-status_pill = '<span class="status-badge status-running">● Running</span>' if st.session_state.pipeline_running else '<span class="status-badge status-ready">● Ready</span>'
+status_indicator = '<span class="status-badge status-running">● Running</span>' if st.session_state.pipeline_running else '<span class="status-badge status-ready">● Ready</span>'
 
 st.markdown(f"""
-<div class="main-title-container">
-    <div class="brand-title-wrap">
-        <span class="brand-icon">🚀</span>
-        <div class="brand-heading">
-            <h1>AutoML Regression Studio</h1>
-            <span class="brand-subtext">Enterprise ML Benchmark & Diagnostics</span>
-        </div>
+<div class="top-nav-bar">
+    <div class="nav-left">
+        <span class="platform-logo">◈</span>
+        <span class="platform-name">AutoML Regression Platform</span>
+        <span class="nav-divider">/</span>
+        <span class="current-view-name">{selected_menu}</span>
     </div>
-    <div class="header-badges">
-        <span class="view-pill">{selected_menu}</span>
-        {status_pill}
+    <div class="nav-right">
+        {status_indicator}
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -453,9 +422,9 @@ st.markdown(f"""
 # ==========================================
 if selected_menu == NAV_DATASET:
     st.markdown("""
-    <div class="compact-section-header">
-        <span class="section-title">📁 Data Source & Path Configurations</span>
-        <span class="section-desc">Select dataset source, explore samples & map column roles</span>
+    <div class="section-heading-wrap">
+        <h3 class="section-title">Dataset Source & Column Roles</h3>
+        <p class="section-desc">Select dataset source, explore data distributions, and map target/feature columns.</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -533,9 +502,9 @@ if selected_menu == NAV_DATASET:
 # ==========================================
 elif selected_menu == NAV_SPLIT:
     st.markdown("""
-    <div class="compact-section-header">
-        <span class="section-title">✂️ Data Splitting & Validation Strategy</span>
-        <span class="section-desc">Configure data partitioning to validate generalization</span>
+    <div class="section-heading-wrap">
+        <h3 class="section-title">Data Partitioning Strategy</h3>
+        <p class="section-desc">Configure data splitting methods to reliably evaluate generalization performance.</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -570,9 +539,9 @@ elif selected_menu == NAV_SPLIT:
 # ==========================================
 elif selected_menu == NAV_MODELS:
     st.markdown("""
-    <div class="compact-section-header">
-        <span class="section-title">🤖 Active Regression Models & Tuning</span>
-        <span class="section-desc">Select models for benchmark competition & customize hyperparameters</span>
+    <div class="section-heading-wrap">
+        <h3 class="section-title">Model Inventory & Tuning</h3>
+        <p class="section-desc">Select active regressor architectures and configure hyperparameters.</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -616,9 +585,9 @@ elif selected_menu == NAV_MODELS:
 # ==========================================
 elif selected_menu == NAV_SHAP:
     st.markdown("""
-    <div class="compact-section-header">
-        <span class="section-title">🔍 SHAP Model Explainability</span>
-        <span class="section-desc">Feature attribution, importance rankings & Beeswarm distributions</span>
+    <div class="section-heading-wrap">
+        <h3 class="section-title">SHAP Feature Attribution</h3>
+        <p class="section-desc">Generate model interpretability dashboards, global importance, and Beeswarm charts.</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -700,9 +669,9 @@ elif selected_menu == NAV_SHAP:
 # ==========================================
 elif selected_menu == NAV_CUSTOM:
     st.markdown("""
-    <div class="compact-section-header">
-        <span class="section-title">🧩 Custom Configurations</span>
-        <span class="section-desc">Review or inject non-standard parameters in YAML</span>
+    <div class="section-heading-wrap">
+        <h3 class="section-title">Custom Configurations</h3>
+        <p class="section-desc">Review and inject extended YAML sections directly into the pipeline config.</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -721,9 +690,9 @@ elif selected_menu == NAV_CUSTOM:
 # ==========================================
 elif selected_menu == NAV_RUNNER:
     st.markdown("""
-    <div class="compact-section-header">
-        <span class="section-title">⚙️ Execution Runner & Console</span>
-        <span class="section-desc">Compile config, trigger subprocess benchmark & stream logs live</span>
+    <div class="section-heading-wrap">
+        <h3 class="section-title">Execution Console & Runner</h3>
+        <p class="section-desc">Compile active configuration profile and launch the AutoML execution pipeline.</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -856,9 +825,9 @@ elif selected_menu == NAV_RUNNER:
 # ==========================================
 elif selected_menu == NAV_RESULTS:
     st.markdown("""
-    <div class="compact-section-header">
-        <span class="section-title">📈 Performance Scorecard & Visual Diagnostics</span>
-        <span class="section-desc">Leaderboard, error distributions, loss curves & SHAP interpretability</span>
+    <div class="section-heading-wrap">
+        <h3 class="section-title">Benchmark Results & Model Diagnostics</h3>
+        <p class="section-desc">Performance scorecard, actual vs predicted comparisons, and SHAP explainability.</p>
     </div>
     """, unsafe_allow_html=True)
 
