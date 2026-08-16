@@ -28,113 +28,132 @@ st.set_page_config(
 # Custom premium styling (Glassmorphism & Neon accents)
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Inter:wght@300;400;500;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
     
     html, body, [class*="css"] {
-        font-family: 'Inter', sans-serif;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     }
 
-    /* Minimize Streamlit Default Top & Bottom Padding */
+    /* Professional Top Padding (No clipping or awkward cutoff) */
     .block-container {
-        padding-top: 1.2rem !important;
-        padding-bottom: 1.5rem !important;
-        max-width: 96% !important;
+        padding-top: 2rem !important;
+        padding-bottom: 2rem !important;
+        max-width: 95% !important;
     }
     
-    /* Sleek, Compact Top Header Bar */
+    /* Elegant Studio Navigation Bar */
     .main-title-container {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        background: linear-gradient(90deg, rgba(30, 41, 59, 0.75) 0%, rgba(15, 23, 42, 0.85) 100%);
-        backdrop-filter: blur(16px);
-        border: 1px solid rgba(99, 102, 241, 0.3);
-        border-radius: 12px;
-        padding: 0.6rem 1.2rem;
-        margin-bottom: 0.9rem;
-        box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.25), 0 0 15px rgba(99, 102, 241, 0.1);
+        background: rgba(18, 24, 38, 0.85);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 14px;
+        padding: 0.85rem 1.4rem;
+        margin-top: 0.2rem;
+        margin-bottom: 1.2rem;
+        box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.3), 0 0 1px 1px rgba(255, 255, 255, 0.05);
     }
     
-    .brand-title {
+    .brand-title-wrap {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .brand-icon {
+        font-size: 1.5rem;
+        line-height: 1;
+        filter: drop-shadow(0 2px 8px rgba(99, 102, 241, 0.4));
+    }
+
+    .brand-heading {
+        margin: 0;
+        padding: 0;
+    }
+
+    .brand-heading h1 {
+        font-family: 'Outfit', sans-serif;
+        font-size: 1.4rem;
+        font-weight: 700;
+        margin: 0;
+        letter-spacing: -0.02em;
+        color: #f8fafc;
+        display: inline-block;
+    }
+
+    .brand-subtext {
+        font-size: 0.8rem;
+        color: #64748b;
+        font-weight: 400;
+        margin-left: 0.5rem;
+        border-left: 1px solid rgba(148, 163, 184, 0.2);
+        padding-left: 0.5rem;
+        display: inline-block;
+    }
+    
+    .header-badges {
         display: flex;
         align-items: center;
         gap: 0.6rem;
     }
 
-    .brand-title h1 {
-        font-family: 'Outfit', sans-serif;
-        font-size: 1.35rem;
-        font-weight: 800;
-        margin: 0;
-        letter-spacing: -0.02em;
-        background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 50%, #818cf8 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        display: inline-block;
-    }
-
-    .brand-subtext {
-        font-size: 0.82rem;
-        color: #94a3b8;
-        margin-left: 0.4rem;
-        border-left: 1px solid rgba(255, 255, 255, 0.15);
-        padding-left: 0.6rem;
-    }
-    
     .view-pill {
         display: inline-flex;
         align-items: center;
-        background: rgba(99, 102, 241, 0.15);
-        border: 1px solid rgba(99, 102, 241, 0.35);
-        color: #c7d2fe;
-        padding: 0.25rem 0.75rem;
+        background: rgba(99, 102, 241, 0.12);
+        border: 1px solid rgba(99, 102, 241, 0.3);
+        color: #a5b4fc;
+        padding: 0.3rem 0.8rem;
         border-radius: 20px;
         font-size: 0.82rem;
         font-weight: 600;
-        letter-spacing: 0.02em;
+        letter-spacing: 0.01em;
     }
 
-    /* Compact Section Header */
+    /* Clean, Symmetrical Section Header */
     .compact-section-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
         background: rgba(255, 255, 255, 0.02);
-        border-left: 3px solid #6366f1;
-        padding: 0.45rem 0.9rem;
-        border-radius: 4px 8px 8px 4px;
-        margin-bottom: 0.85rem;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 10px;
+        padding: 0.6rem 1rem;
+        margin-bottom: 1rem;
     }
 
     .section-title {
         font-family: 'Outfit', sans-serif;
         font-size: 1.05rem;
-        font-weight: 700;
-        color: #f1f5f9;
+        font-weight: 600;
+        color: #e2e8f0;
         margin: 0;
     }
 
     .section-desc {
-        font-size: 0.8rem;
-        color: #94a3b8;
+        font-size: 0.82rem;
+        color: #64748b;
         margin: 0;
     }
 
     /* Card design */
     .premium-card {
-        background: rgba(255, 255, 255, 0.025);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.07);
+        background: rgba(255, 255, 255, 0.02);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.06);
         border-radius: 12px;
         padding: 1.2rem;
         margin-bottom: 1rem;
-        box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.1);
+        box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.15);
     }
     
     .card-header {
         font-family: 'Outfit', sans-serif;
         font-size: 1.15rem;
-        font-weight: 700;
+        font-weight: 600;
         color: #818cf8;
         margin-bottom: 0.6rem;
         display: flex;
@@ -145,8 +164,8 @@ st.markdown("""
     /* Modern status indicator */
     .status-badge {
         display: inline-block;
-        padding: 0.25rem 0.65rem;
-        border-radius: 50px;
+        padding: 0.28rem 0.7rem;
+        border-radius: 20px;
         font-size: 0.78rem;
         font-weight: 600;
         text-transform: uppercase;
@@ -154,23 +173,23 @@ st.markdown("""
     }
     
     .status-ready {
-        background-color: rgba(16, 185, 129, 0.15);
-        color: #10b981;
-        border: 1px solid rgba(16, 185, 129, 0.3);
+        background-color: rgba(16, 185, 129, 0.12);
+        color: #34d399;
+        border: 1px solid rgba(16, 185, 129, 0.25);
     }
     
     .status-running {
-        background-color: rgba(245, 158, 11, 0.15);
-        color: #f59e0b;
-        border: 1px solid rgba(245, 158, 11, 0.3);
+        background-color: rgba(245, 158, 11, 0.12);
+        color: #fbbf24;
+        border: 1px solid rgba(245, 158, 11, 0.25);
         animation: pulse 1.5s infinite;
     }
 
     .engine-badge {
-        background-color: rgba(99, 102, 241, 0.15);
+        background-color: rgba(99, 102, 241, 0.12);
         color: #a5b4fc;
-        border: 1px solid rgba(99, 102, 241, 0.4);
-        padding: 0.2rem 0.55rem;
+        border: 1px solid rgba(99, 102, 241, 0.3);
+        padding: 0.25rem 0.6rem;
         border-radius: 6px;
         font-size: 0.8rem;
         font-weight: 600;
@@ -414,12 +433,14 @@ status_pill = '<span class="status-badge status-running">● Running</span>' if 
 
 st.markdown(f"""
 <div class="main-title-container">
-    <div class="brand-title">
-        <span>🚀</span>
-        <h1>AutoML Regression Studio</h1>
-        <span class="brand-subtext">Enterprise ML Benchmark & Interpretability</span>
+    <div class="brand-title-wrap">
+        <span class="brand-icon">🚀</span>
+        <div class="brand-heading">
+            <h1>AutoML Regression Studio</h1>
+            <span class="brand-subtext">Enterprise ML Benchmark & Diagnostics</span>
+        </div>
     </div>
-    <div style="display: flex; align-items: center; gap: 0.6rem;">
+    <div class="header-badges">
         <span class="view-pill">{selected_menu}</span>
         {status_pill}
     </div>
