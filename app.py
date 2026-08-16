@@ -26,7 +26,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Clean, professional styling that seamlessly integrates with Streamlit native layout
+# Professional MLOps Dashboard CSS
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
@@ -39,25 +39,48 @@ st.markdown("""
         font-family: 'JetBrains Mono', monospace !important;
     }
 
-    /* Tab styling */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        border-bottom: 1px solid rgba(148, 163, 184, 0.2);
-        padding-bottom: 4px;
-        margin-bottom: 1.2rem;
+    /* Left Sidebar Navigation Styling: Transform radio into clean vertical nav links */
+    section[data-testid="stSidebar"] div[data-testid="stRadio"] > div {
+        gap: 6px;
     }
 
-    .stTabs [data-baseweb="tab"] {
-        font-weight: 600;
+    section[data-testid="stSidebar"] div[data-testid="stRadio"] label {
+        display: flex;
+        align-items: center;
+        padding: 0.6rem 0.85rem;
+        border-radius: 8px;
+        background-color: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.04);
+        cursor: pointer;
+        transition: all 0.15s ease-in-out;
+        font-weight: 500;
         font-size: 0.88rem;
-        padding: 0.45rem 0.9rem;
-        border-radius: 6px;
         color: #94a3b8;
     }
 
-    .stTabs [aria-selected="true"] {
-        background-color: rgba(99, 102, 241, 0.12) !important;
-        color: #818cf8 !important;
+    /* Hide native radio circle */
+    section[data-testid="stSidebar"] div[data-testid="stRadio"] label div[data-testid="stMarkdownContainer"] {
+        width: 100%;
+    }
+    
+    section[data-testid="stSidebar"] div[data-testid="stRadio"] label input[type="radio"] {
+        display: none;
+    }
+
+    section[data-testid="stSidebar"] div[data-testid="stRadio"] label:hover {
+        background-color: rgba(99, 102, 241, 0.08);
+        color: #f1f5f9;
+        border-color: rgba(99, 102, 241, 0.2);
+    }
+
+    /* Active / Selected Nav Item */
+    section[data-testid="stSidebar"] div[data-testid="stRadio"] label[data-checked="true"],
+    section[data-testid="stSidebar"] div[data-testid="stRadio"] label:has(input:checked) {
+        background-color: rgba(99, 102, 241, 0.15) !important;
+        border-color: rgba(99, 102, 241, 0.4) !important;
+        color: #a5b4fc !important;
+        font-weight: 600 !important;
+        box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
     }
 
     /* Modern status indicator */
@@ -83,17 +106,6 @@ st.markdown("""
         background-color: rgba(245, 158, 11, 0.1);
         color: #fbbf24;
         border: 1px solid rgba(245, 158, 11, 0.25);
-    }
-
-    .engine-badge {
-        background-color: rgba(99, 102, 241, 0.1);
-        color: #c7d2fe;
-        border: 1px solid rgba(99, 102, 241, 0.25);
-        padding: 0.2rem 0.5rem;
-        border-radius: 4px;
-        font-size: 0.78rem;
-        font-weight: 600;
-        display: inline-block;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -267,13 +279,46 @@ if "cfg_custom_sections" not in st.session_state:
 
 
 # ==========================================
-# 👈 SIDEBAR: CONTROL & ENGINE STATUS
+# 👈 LEFT SIDEBAR: PROFESSIONAL NAV ITEMS
 # ==========================================
 with st.sidebar:
-    st.title("AutoML Platform")
-    st.caption("Tabular Regression Benchmark Suite")
+    st.markdown("""
+    <div style="padding: 0.6rem 0 1rem 0;">
+        <div style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.12em; color: #818cf8; font-weight: 700;">Enterprise Studio</div>
+        <h2 style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 1.3rem; font-weight: 800; color: #f8fafc; margin: 0.15rem 0 0 0;">
+            AutoML Platform
+        </h2>
+    </div>
+    """, unsafe_allow_html=True)
+
+    NAV_DATASET = "📁 Dataset Ingestion"
+    NAV_SPLIT = "✂️ Data Partitioning"
+    NAV_MODELS = "🤖 Model Pool & Tuning"
+    NAV_SHAP = "🔍 SHAP Explainability"
+    NAV_CUSTOM = "🧩 Advanced Config"
+    NAV_RUNNER = "⚙️ Pipeline Runner"
+    NAV_RESULTS = "📈 Results & Metrics"
+
+    menu_options = [
+        NAV_DATASET,
+        NAV_SPLIT,
+        NAV_MODELS,
+        NAV_SHAP,
+        NAV_CUSTOM,
+        NAV_RUNNER,
+        NAV_RESULTS
+    ]
+
+    selected_menu = st.radio(
+        "Navigation",
+        options=menu_options,
+        index=0,
+        label_visibility="collapsed"
+    )
+
     st.markdown("---")
     
+    # Sidebar quick status card
     st.markdown("##### Engine Status")
     if st.session_state.pipeline_running:
         st.markdown('<span class="status-badge status-running">● Running Benchmark</span>', unsafe_allow_html=True)
@@ -285,13 +330,13 @@ with st.sidebar:
     shap_str = f"Enabled ({st.session_state.cfg_shap_model})" if st.session_state.cfg_shap_enabled else "Disabled"
     
     st.markdown(f"""
-        <div style="font-size: 0.82rem; color: #94a3b8; line-height: 1.7; margin-top: 0.8rem; background: rgba(30, 41, 59, 0.3); padding: 0.8rem; border-radius: 6px; border: 1px solid rgba(148, 163, 184, 0.1);">
+        <div style="font-size: 0.8rem; color: #94a3b8; line-height: 1.7; margin-top: 0.6rem; background: rgba(30, 41, 59, 0.3); padding: 0.75rem; border-radius: 6px; border: 1px solid rgba(148, 163, 184, 0.1);">
             <div>Target: <b style="color: #f1f5f9;">{st.session_state.cfg_target_col}</b></div>
             <div>Split: <b style="color: #f1f5f9;">{st.session_state.cfg_split_method}</b></div>
             <div>Active Models: <b style="color: #f1f5f9;">{num_active}</b></div>
             <div>HPO: <b style="color: #f1f5f9;">{hpo_str}</b></div>
             <div>SHAP: <b style="color: #f1f5f9;">{shap_str}</b></div>
-            <div>Outputs: <code style="font-size: 0.75rem;">{st.session_state.cfg_output_dir}/&lt;run_id&gt;</code></div>
+            <div>Outputs: <code style="font-size: 0.72rem;">{st.session_state.cfg_output_dir}/&lt;run_id&gt;</code></div>
         </div>
     """, unsafe_allow_html=True)
 
@@ -305,24 +350,15 @@ with st.sidebar:
 
 
 # ==========================================
-# 📑 MAIN WORKSPACE: NATIVE TABBED INTERFACE
+# 🚀 RIGHT MAIN VIEW: NATIVE CLEAN HEADER
 # ==========================================
-tab_data, tab_split, tab_models, tab_shap, tab_custom, tab_runner, tab_results = st.tabs([
-    "📁 Data Ingestion",
-    "✂️ Partitioning",
-    "🤖 Model Pool",
-    "🔍 SHAP Attribution",
-    "🧩 Advanced Config",
-    "⚙️ Runner Console",
-    "📈 Results & Metrics"
-])
+st.header(selected_menu, divider="violet")
 
 
 # ==========================================
-# 📁 TAB 1: DATA INGESTION
+# 📁 MENU 1: DATASET INGESTION
 # ==========================================
-with tab_data:
-    st.subheader("Data Source & Role Mapping")
+if selected_menu == NAV_DATASET:
     st.caption("Select dataset source, inspect data samples, and assign feature and target column roles.")
 
     col1, col2 = st.columns(2)
@@ -394,10 +430,9 @@ with tab_data:
 
 
 # ==========================================
-# ✂️ TAB 2: DATA PARTITIONING
+# ✂️ MENU 2: DATA PARTITIONING
 # ==========================================
-with tab_split:
-    st.subheader("Data Partitioning & Validation Strategy")
+elif selected_menu == NAV_SPLIT:
     st.caption("Configure dataset splitting method to reliably validate model generalization.")
 
     split_methods = ["train_test_split", "kfold", "timeseries"]
@@ -426,10 +461,9 @@ with tab_split:
 
 
 # ==========================================
-# 🤖 TAB 3: MODEL POOL & TUNING
+# 🤖 MENU 3: MODEL POOL & TUNING
 # ==========================================
-with tab_models:
-    st.subheader("Model Pool & Hyperparameter Tuning")
+elif selected_menu == NAV_MODELS:
     st.caption("Select active regressor architectures and configure baseline hyperparameters.")
 
     available_models = list(base_default.get("models", {}).keys())
@@ -467,10 +501,9 @@ with tab_models:
 
 
 # ==========================================
-# 🔍 TAB 4: SHAP EXPLAINABILITY
+# 🔍 MENU 4: SHAP EXPLAINABILITY
 # ==========================================
-with tab_shap:
-    st.subheader("SHAP Model Interpretability")
+elif selected_menu == NAV_SHAP:
     st.caption("Generate feature attribution rankings, Beeswarm distributions, and explainer dashboards.")
 
     st.session_state.cfg_shap_enabled = st.checkbox(
@@ -519,10 +552,9 @@ with tab_shap:
 
 
 # ==========================================
-# 🧩 TAB 5: ADVANCED CONFIG
+# 🧩 MENU 5: ADVANCED CONFIG
 # ==========================================
-with tab_custom:
-    st.subheader("Custom YAML Profile")
+elif selected_menu == NAV_CUSTOM:
     st.caption("Review or inject additional non-standard sections in YAML format.")
 
     custom_yaml_str = yaml.dump(st.session_state.cfg_custom_sections, default_flow_style=False, allow_unicode=True)
@@ -536,10 +568,9 @@ with tab_custom:
 
 
 # ==========================================
-# ⚙️ TAB 6: RUNNER CONSOLE
+# ⚙️ MENU 6: RUNNER CONSOLE
 # ==========================================
-with tab_runner:
-    st.subheader("Pipeline Execution Runner")
+elif selected_menu == NAV_RUNNER:
     st.caption("Compile your active configuration profile and launch the AutoML execution pipeline.")
 
     # Assemble complete configuration dictionary
@@ -663,10 +694,9 @@ with tab_runner:
 
 
 # ==========================================
-# 📈 TAB 7: RESULTS & METRICS
+# 📈 MENU 7: RESULTS & METRICS
 # ==========================================
-with tab_results:
-    st.subheader("Benchmark Results & Model Diagnostics")
+elif selected_menu == NAV_RESULTS:
     st.caption("Inspect performance scorecards, error distributions, loss curves, and SHAP explainability.")
 
     available_runs = []
@@ -683,7 +713,7 @@ with tab_results:
     )
 
     if not available_runs:
-        st.info(f"No execution runs found in `{output_base}/`. Run an experiment in the '⚙️ Runner Console' tab first!")
+        st.info(f"No execution runs found in `{output_base}/`. Run an experiment in the '⚙️ Pipeline Runner' menu first!")
     else:
         col_t1, col_t2 = st.columns([1, 3])
         with col_t1:
